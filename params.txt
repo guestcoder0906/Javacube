@@ -1,3 +1,0 @@
-
-seed=12345
-use_spawn=0
