@@ -114,7 +114,34 @@ const char* getBiomeName(int id) {
 // -----------------------------------------------------------------------------
 // Stub for biome patch size calculation (if needed)
 int getBiomePatchSize(Generator *g, int x, int z, int biome_id) {
-    return 100;
+    int width = 0, length = 0;
+    int found_biome = 0;
+    
+    // Search outward in both X and Z directions
+    for (int dx = 0; dx < 128; dx++) {
+        int id = getBiomeAt(g, 4, x + dx, 0, z);
+        if (id == biome_id) {
+            width++;
+            found_biome = 1;
+        } else if (found_biome) {
+            break;
+        }
+    }
+    
+    found_biome = 0;
+    for (int dz = 0; dz < 128; dz++) {
+        int id = getBiomeAt(g, 4, x, 0, z + dz);
+        if (id == biome_id) {
+            length++;
+            found_biome = 1;
+        } else if (found_biome) {
+            break;
+        }
+    }
+
+    // Return average dimension in blocks
+    if (width == 0 || length == 0) return 0;
+    return ((width + length) / 2) * 4; // Scale=4 means multiply by 4 for block coordinates
 }
 
 // -----------------------------------------------------------------------------
@@ -504,7 +531,15 @@ void *scanTask(void *arg) {
 
 // -----------------------------------------------------------------------------
 // main: Starts scanning tasks.
-int main() {
+int main(int argc, char *argv[]) {
+    int max_seeds = 1;
+    int seeds_found = 0;
+    
+    if (argc > 1) {
+        max_seeds = atoi(argv[1]);
+        if (max_seeds <= 0) max_seeds = 1;
+    }
+    
     if (NUM_REQUIREMENTS == 0 && !clusterReq.enabled) {
         printf("Error: At least one requirement must be specified.\n");
         return 1;
@@ -517,9 +552,16 @@ int main() {
     for (int i = 0; i < tasksCount; i++) {
         pthread_join(threads[i], NULL);
     }
-    if (foundValidSeed)
-        printf("Seed %llu meets all requirements.\n", validSeed);
-    else
-        printf("No valid seed found.\n");
+    if (foundValidSeed) {
+        seeds_found++;
+        if (seeds_found >= max_seeds) {
+            printf("Found %d seed(s) meeting the requirements.\n", seeds_found);
+            return 0;
+        }
+        foundValidSeed = false;
+        currentSeed++;
+        continue;
+    }
+    printf("Found %d seed(s) meeting the requirements.\n", seeds_found);
     return 0;
 }
