@@ -1,16 +1,61 @@
+
 #include "cubiomes/finders.h"
 #include <stdio.h>
 
-int main() {
-    int mc = MC_1_21; // Latest MC version supported
-    uint64_t seed;
-    int x0, z0;
-    int useSpawn = 0;
+// Biome ID to name mapping
+const char* getBiomeName(int id) {
+    switch(id) {
+        case 0: return "Ocean";
+        case 1: return "Plains";
+        case 2: return "Desert";
+        case 3: return "Windswept Hills";
+        case 4: return "Forest";
+        case 5: return "Taiga";
+        case 6: return "Swamp";
+        case 7: return "River";
+        case 10: return "Frozen Ocean";
+        case 11: return "Frozen River";
+        case 12: return "Snowy Plains";
+        case 14: return "Mushroom Fields";
+        case 16: return "Beach";
+        case 21: return "Jungle";
+        case 24: return "Deep Ocean";
+        case 27: return "Birch Forest";
+        case 29: return "Dark Forest";
+        case 30: return "Snowy Taiga";
+        case 35: return "Savanna";
+        case 37: return "Badlands";
+        case 44: return "Warm Ocean";
+        case 45: return "Lukewarm Ocean";
+        case 46: return "Cold Ocean";
+        case 47: return "Deep Warm Ocean";
+        case 48: return "Deep Lukewarm Ocean";
+        case 49: return "Deep Cold Ocean";
+        case 50: return "Deep Frozen Ocean";
+        case 168: return "Bamboo Jungle";
+        case 174: return "Dripstone Caves";
+        case 175: return "Lush Caves";
+        case 177: return "Meadow";
+        case 178: return "Grove";
+        case 179: return "Snowy Slopes";
+        case 180: return "Frozen Peaks";
+        case 181: return "Jagged Peaks";
+        case 182: return "Stony Peaks";
+        case 183: return "Deep Dark";
+        case 184: return "Mangrove Swamp";
+        case 185: return "Cherry Grove";
+        default: return "Unknown Biome";
+    }
+}
 
-    printf("Enter seed: ");
-    scanf("%lu", &seed);
-    printf("Use spawn as origin? (1=yes, 0=no): ");
-    scanf("%d", &useSpawn);
+int main() {
+    // Configuration
+    const int mc = MC_1_21;           // Latest MC version supported
+    const uint64_t seed = 12345;      // Your seed here
+    const int useSpawn = 1;           // Use spawn point (1) instead of custom coords
+    const int customX = 0;            // Custom X coordinate if not using spawn
+    const int customZ = 0;            // Custom Z coordinate if not using spawn
+    const int searchRadius = 500;     // Search radius in blocks
 
     // Set up main generator
     Generator g;
@@ -19,18 +64,20 @@ int main() {
 
     // Get spawn point if needed
     Pos spawn = {0, 0};
+    int x0, z0;
+    
     if (useSpawn) {
         spawn = getSpawn(&g);
-        x0 = spawn.x - 500;
-        z0 = spawn.z - 500;
+        x0 = spawn.x - searchRadius;
+        z0 = spawn.z - searchRadius;
         printf("Spawn point: x=%d z=%d\n", spawn.x, spawn.z);
     } else {
-        x0 = -500;
-        z0 = -500;
+        x0 = customX - searchRadius;
+        z0 = customZ - searchRadius;
     }
 
-    int x1 = x0 + 1000; // 500 blocks in each direction
-    int z1 = z0 + 1000;
+    int x1 = x0 + (searchRadius * 2);
+    int z1 = z0 + (searchRadius * 2);
 
     printf("\nSearching area from (%d,%d) to (%d,%d)\n\n", x0, z0, x1, z1);
 
@@ -61,7 +108,6 @@ int main() {
         Generator *curr_gen = &g;
         SurfaceNoise *curr_sn = &sn;
 
-        // Select appropriate generator based on dimension
         if (sconf.dim == DIM_NETHER) {
             curr_gen = &ng;
         } else if (sconf.dim == DIM_END) {
@@ -87,43 +133,21 @@ int main() {
                 if (!isViableStructurePos(structureType, curr_gen, pos.x, pos.z, 0))
                     continue;
 
-                // Get structure variant info
                 int id = getBiomeAt(curr_gen, 4, pos.x>>2, 320>>2, pos.z>>2);
                 StructureVariant sv;
                 getVariant(&sv, structureType, mc, seed, pos.x, pos.z, id);
 
-                // Get surface height at structure position
                 float height[256];
                 int w = 16, h = 16;
                 Range r = {4, pos.x>>2, pos.z>>2, w, h, 320>>2, 1};
-                if (sconf.dim == DIM_END) {
-                    enum { y0 = 15, y1 = 18, yn = y1-y0+1 };
-                    double ncol[3][3][yn];
+                mapApproxHeight(height, NULL, curr_gen, curr_sn, r.x, r.z, w, h);
 
-                    int cellx = (pos.x >> 3);
-                    int cellz = (pos.z >> 3);
-
-                    sampleNoiseColumnEnd(ncol[0][0], curr_sn, &curr_gen->en, cellx, cellz, y0, y1);
-                    sampleNoiseColumnEnd(ncol[0][1], curr_sn, &curr_gen->en, cellx, cellz+1, y0, y1);
-                    sampleNoiseColumnEnd(ncol[1][0], curr_sn, &curr_gen->en, cellx+1, cellz, y0, y1);
-                    sampleNoiseColumnEnd(ncol[1][1], curr_sn, &curr_gen->en, cellx+1, cellz+1, y0, y1);
-
-                    height[0] = getSurfaceHeight(ncol[0][0], ncol[0][1], ncol[1][0], ncol[1][1],
-                        y0, y1, 4, (pos.x & 7) / 8.0, (pos.z & 7) / 8.0);
-                } else {
-                    mapApproxHeight(height, NULL, curr_gen, curr_sn, r.x, r.z, w, h);
-                }
-
-
-                // Get local coordinates within the heightmap
                 int lx = (pos.x & 15);
                 int lz = (pos.z & 15);
                 int surface_y = (int)height[lz * w + lx];
 
-                // Get biome at structure position using the correct height
                 int biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, sv.y >= 0 ? sv.y : surface_y, pos.z + sv.z);
 
-                // Print structure info
                 const char *struct_names[] = {
                     "Feature", "Desert_Pyramid", "Jungle_Temple", "Swamp_Hut", 
                     "Igloo", "Village", "Ocean_Ruin", "Shipwreck", "Monument",
@@ -139,7 +163,7 @@ int main() {
                     sv.y >= 0 ? sv.y : surface_y,
                     pos.z + sv.z);
                 printf("  Surface Height: %d\n", surface_y);
-                printf("  Biome ID: %d\n", biome_id);
+                printf("  Biome: %s (ID: %d)\n", getBiomeName(biome_id), biome_id);
                 printf("  Distance from %s: %.1f blocks\n\n",
                     useSpawn ? "spawn" : "origin",
                     sqrt((pos.x-spawn.x)*(pos.x-spawn.x) + (pos.z-spawn.z)*(pos.z-spawn.z)));
