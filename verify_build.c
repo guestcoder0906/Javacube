@@ -146,13 +146,9 @@ int main() {
                 int lz = (pos.z & 15);
                 int surface_y = (int)height[lz * w + lx];
                 
-                int check_y;
-                // Underground structures should use their actual Y coordinate for biome check
-                if (structureType == Trial_Chambers || (sv.y >= 0 && sv.y < surface_y)) {
-                    check_y = sv.y >= 0 ? sv.y : surface_y;
-                } else {
-                    check_y = surface_y;
-                }
+                // Determine final Y coordinate and biome check height
+                int final_y = sv.y >= 0 ? sv.y : surface_y;
+                int check_y = sv.y >= 0 ? sv.y : surface_y;
 
                 int biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, check_y, pos.z + sv.z);
 
@@ -168,7 +164,7 @@ int main() {
                 printf("Found %s\n", struct_names[structureType]);
                 printf("  Position: x:%d y:%d z:%d\n", 
                     pos.x + sv.x, 
-                    sv.y >= 0 ? sv.y : surface_y,
+                    final_y,
                     pos.z + sv.z);
                 printf("  Surface Height: %d\n", surface_y);
                 printf("  Biome: %s (ID: %d)\n", getBiomeName(biome_id), biome_id);
