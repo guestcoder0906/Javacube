@@ -170,9 +170,20 @@ typedef struct {
     int maxBiomeSize;
 } StructureRequirement;
 
-#define NUM_REQUIREMENTS 0
+// Define the number of structure requirements
+#define NUM_REQUIREMENTS 1
+
+// StructureRequirement array properly formatted
 StructureRequirement requirements[NUM_REQUIREMENTS] = {
-    Example: {5, 1, -10000, 10000, 1, 50, 50}
+    {
+        5,       // Structure Type (e.g., Village)
+        1,       // Minimum Count
+        -10000,  // Minimum Height (set to extreme negative if unused)
+        10000,   // Maximum Height (set to extreme positive if unused)
+        1,       // Required Biome (e.g., Plains)
+        50,      // Minimum Biome Size
+        -1       // Maximum Biome Size
+    }
 };
 
 // -----------------------------------------------------------------------------
