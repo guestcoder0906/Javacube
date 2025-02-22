@@ -313,7 +313,7 @@ bool arraysEqual(int a[], int aCount, int b[], int bCount) {
 // Structure requirements examples (fixed, not dynamic)
 #define NUM_STRUCTURE_REQUIREMENTS 2
 StructureRequirement structureRequirements[NUM_STRUCTURE_REQUIREMENTS] = {
-    { 5, 1, -10000, 10000, 1, -1, -1 },  // Village (5), min amount, in Plains (1), min height, max height, required biome, patch must have at least 50 cells
+    { 5, 1, -10000, 10000, -1, -1, -1 },  // Village (5), min amount, in Plains (1), min height, max height, required biome, patch must have at least 50 cells
     // EXAMPLE: { 7, 1, -10000, 10000, 24, 20, -1 }   // Shipwreck (7) in Deep Ocean (24), patch must have at least 20 cells
 };
 
@@ -497,7 +497,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs) {
 // -----------------------------------------------------------------------------
 // Global configuration parameters.
 uint64_t starting_seed = 12345;
-int searchRadius = 500;
+int searchRadius = 1000;
 int useSpawn = 1;      // 1 = use spawn point; 0 = use custom coordinates.
 int customX = 0;
 int customZ = 0;
