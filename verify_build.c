@@ -1,24 +1,127 @@
+
 #include "cubiomes/finders.h"
 #include <stdio.h>
+#include <string.h>
+
+// Biome name mapping
+const char* getBiomeName(int id) {
+    switch(id) {
+        case 0: return "Ocean";
+        case 1: return "Plains";
+        case 2: return "Desert";
+        case 3: return "Windswept Hills";
+        case 4: return "Forest";
+        case 5: return "Taiga";
+        case 6: return "Swamp";
+        case 7: return "River";
+        case 10: return "Frozen Ocean";
+        case 11: return "Frozen River";
+        case 12: return "Snowy Plains";
+        case 13: return "Snowy Mountains";
+        case 14: return "Mushroom Fields";
+        case 15: return "Mushroom Fields Shore";
+        case 16: return "Beach";
+        case 17: return "Desert Hills";
+        case 18: return "Windswept Forest";
+        case 19: return "Taiga Hills";
+        case 20: return "Mountain Edge";
+        case 21: return "Jungle";
+        case 22: return "Jungle Hills";
+        case 23: return "Sparse Jungle";
+        case 24: return "Deep Ocean";
+        case 25: return "Stony Shore";
+        case 26: return "Snowy Beach";
+        case 27: return "Birch Forest";
+        case 28: return "Birch Forest Hills";
+        case 29: return "Dark Forest";
+        case 30: return "Snowy Taiga";
+        case 31: return "Snowy Taiga Hills";
+        case 32: return "Old Growth Pine Taiga";
+        case 33: return "Giant Tree Taiga Hills";
+        case 34: return "Wooded Mountains";
+        case 35: return "Savanna";
+        case 36: return "Savanna Plateau";
+        case 37: return "Badlands";
+        case 38: return "Wooded Badlands";
+        case 39: return "Badlands Plateau";
+        case 44: return "Warm Ocean";
+        case 45: return "Lukewarm Ocean";
+        case 46: return "Cold Ocean";
+        case 47: return "Deep Warm Ocean";
+        case 48: return "Deep Lukewarm Ocean";
+        case 49: return "Deep Cold Ocean";
+        case 50: return "Deep Frozen Ocean";
+        case 129: return "Sunflower Plains";
+        case 130: return "Desert Lakes";
+        case 131: return "Windswept Gravelly Hills";
+        case 132: return "Flower Forest";
+        case 133: return "Taiga Mountains";
+        case 134: return "Swamp Hills";
+        case 140: return "Ice Spikes";
+        case 149: return "Modified Jungle";
+        case 151: return "Modified Jungle Edge";
+        case 155: return "Old Growth Birch Forest";
+        case 156: return "Tall Birch Hills";
+        case 157: return "Dark Forest Hills";
+        case 158: return "Snowy Taiga Mountains";
+        case 160: return "Old Growth Spruce Taiga";
+        case 161: return "Giant Spruce Taiga Hills";
+        case 162: return "Gravelly Mountains+";
+        case 163: return "Windswept Savanna";
+        case 164: return "Shattered Savanna Plateau";
+        case 165: return "Eroded Badlands";
+        case 166: return "Modified Wooded Badlands Plateau";
+        case 167: return "Modified Badlands Plateau";
+        case 168: return "Bamboo Jungle";
+        case 169: return "Bamboo Jungle Hills";
+        case 170: return "Nether Wastes";
+        case 171: return "Warped Forest";
+        case 172: return "Crimson Forest";
+        case 173: return "Soul Sand Valley";
+        case 174: return "Dripstone Caves";
+        case 175: return "Lush Caves";
+        case 177: return "Meadow";
+        case 178: return "Grove";
+        case 179: return "Snowy Slopes";
+        case 180: return "Frozen Peaks";
+        case 181: return "Jagged Peaks";
+        case 182: return "Stony Peaks";
+        case 183: return "Deep Dark";
+        case 184: return "Mangrove Swamp";
+        case 185: return "Cherry Grove";
+        default: return "Unknown Biome";
+    }
+}
 
 int main() {
-    int mc = MC_1_21; // Latest MC version supported
+    int mc = MC_1_21;
     uint64_t seed;
-    int x0, z0;
-    int useSpawn = 0;
+    int useSpawn;
+    
+    // Read parameters from file
+    FILE *params = fopen("params.txt", "r");
+    if (!params) {
+        printf("Error: Could not open params.txt\n");
+        return 1;
+    }
+    
+    char line[256];
+    while (fgets(line, sizeof(line), params)) {
+        if (strncmp(line, "seed=", 5) == 0) {
+            seed = strtoull(line + 5, NULL, 10);
+        } else if (strncmp(line, "use_spawn=", 10) == 0) {
+            useSpawn = atoi(line + 10);
+        }
+    }
+    fclose(params);
 
-    printf("Enter seed: ");
-    scanf("%lu", &seed);
-    printf("Use spawn as origin? (1=yes, 0=no): ");
-    scanf("%d", &useSpawn);
-
-    // Set up main generator
     Generator g;
     setupGenerator(&g, mc, 0);
     applySeed(&g, DIM_OVERWORLD, seed);
 
-    // Get spawn point if needed
     Pos spawn = {0, 0};
+    int x0, z0;
+    
     if (useSpawn) {
         spawn = getSpawn(&g);
         x0 = spawn.x - 500;
@@ -29,7 +132,7 @@ int main() {
         z0 = -500;
     }
 
-    int x1 = x0 + 1000; // 500 blocks in each direction
+    int x1 = x0 + 1000;
     int z1 = z0 + 1000;
 
     printf("\nSearching area from (%d,%d) to (%d,%d)\n\n", x0, z0, x1, z1);
@@ -37,12 +140,10 @@ int main() {
     SurfaceNoise sn;
     initSurfaceNoise(&sn, DIM_OVERWORLD, seed);
 
-    // For nether structures
     Generator ng;
     setupGenerator(&ng, mc, 0);
     applySeed(&ng, DIM_NETHER, seed);
 
-    // For end structures
     Generator eg;
     setupGenerator(&eg, mc, 0);
     applySeed(&eg, DIM_END, seed);
@@ -52,7 +153,6 @@ int main() {
     SurfaceNoise esn;
     initSurfaceNoise(&esn, DIM_END, seed);
 
-    // Check all structure types
     for (int structureType = 0; structureType < FEATURE_NUM; structureType++) {
         StructureConfig sconf;
         if (!getStructureConfig(structureType, mc, &sconf))
@@ -61,7 +161,6 @@ int main() {
         Generator *curr_gen = &g;
         SurfaceNoise *curr_sn = &sn;
 
-        // Select appropriate generator based on dimension
         if (sconf.dim == DIM_NETHER) {
             curr_gen = &ng;
         } else if (sconf.dim == DIM_END) {
@@ -87,12 +186,10 @@ int main() {
                 if (!isViableStructurePos(structureType, curr_gen, pos.x, pos.z, 0))
                     continue;
 
-                // Get structure variant info
                 int id = getBiomeAt(curr_gen, 4, pos.x>>2, 320>>2, pos.z>>2);
                 StructureVariant sv;
                 getVariant(&sv, structureType, mc, seed, pos.x, pos.z, id);
 
-                // Get surface height at structure position
                 float height[256];
                 int w = 16, h = 16;
                 Range r = {4, pos.x>>2, pos.z>>2, w, h, 320>>2, 1};
@@ -108,22 +205,18 @@ int main() {
                     sampleNoiseColumnEnd(ncol[1][0], curr_sn, &curr_gen->en, cellx+1, cellz, y0, y1);
                     sampleNoiseColumnEnd(ncol[1][1], curr_sn, &curr_gen->en, cellx+1, cellz+1, y0, y1);
 
-                    height[0] = getSurfaceHeight(ncol[0][0], ncol[0][1], ncol[1][0], ncol[1][1],
+                    height[0] = getEndSurfaceHeight(ncol[0][0], ncol[0][1], ncol[1][0], ncol[1][1],
                         y0, y1, 4, (pos.x & 7) / 8.0, (pos.z & 7) / 8.0);
                 } else {
                     mapApproxHeight(height, NULL, curr_gen, curr_sn, r.x, r.z, w, h);
                 }
 
-
-                // Get local coordinates within the heightmap
                 int lx = (pos.x & 15);
                 int lz = (pos.z & 15);
                 int surface_y = (int)height[lz * w + lx];
 
-                // Get biome at structure position using the correct height
                 int biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, sv.y >= 0 ? sv.y : surface_y, pos.z + sv.z);
 
-                // Print structure info
                 const char *struct_names[] = {
                     "Feature", "Desert_Pyramid", "Jungle_Temple", "Swamp_Hut", 
                     "Igloo", "Village", "Ocean_Ruin", "Shipwreck", "Monument",
@@ -139,7 +232,7 @@ int main() {
                     sv.y >= 0 ? sv.y : surface_y,
                     pos.z + sv.z);
                 printf("  Surface Height: %d\n", surface_y);
-                printf("  Biome ID: %d\n", biome_id);
+                printf("  Biome: %s\n", getBiomeName(biome_id));
                 printf("  Distance from %s: %.1f blocks\n\n",
                     useSpawn ? "spawn" : "origin",
                     sqrt((pos.x-spawn.x)*(pos.x-spawn.x) + (pos.z-spawn.z)*(pos.z-spawn.z)));
