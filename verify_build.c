@@ -402,6 +402,10 @@ bool scanSeed(uint64_t seed) {
                 printf("Seed %llu: Found %s\n", seed, struct_names[req.structureType]);
                 printf("  Position: x:%d y:%d z:%d\n", pos.x + sv.x, y_pos, pos.z + sv.z);
                 printf("  Biome: %s (ID: %d)\n", getBiomeName(biome_id), biome_id);
+                if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
+                    int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
+                    printf("  Biome size: %d blocks\n", patchSize);
+                }
                 printf("  Distance from %s: %.1f blocks\n\n",
                        useSpawn ? "spawn" : "origin",
                        sqrt((pos.x - spawn.x) * (pos.x - spawn.x) +
