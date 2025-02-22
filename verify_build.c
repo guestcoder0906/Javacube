@@ -227,16 +227,6 @@ static const BiomeCluster clustGroup0 = {
     .logCenters = 1
 };
 
-/*
-static int clusterGroup0[] = {}; // Empty array
-static const BiomeCluster clustGroup0 = {
-    .biomeIds   = clusterGroup0,
-    .biomeCount = 0,  // No biomes in this cluster
-    .minSize    = -1,
-    .maxSize    = -1,
-    .logCenters = 1
-};
-*/
 
 // By default, we initialize with one required group and one cluster group.
 static const BiomeRequirement requiredBiomes[] = { reqGroup };
@@ -646,28 +636,104 @@ void *scanTask(void *arg) {
 
 // -----------------------------------------------------------------------------
 // main: Starts scanning tasks.
-#define MAX_SEEDS_TO_FIND 1 
+#define MAX_SEEDS_TO_FIND 1
 
 int main() {
-    // Check that at least one biome requirement (required or clustered) is set.
-    if (biomeSearch.requiredCount == 0 && biomeSearch.clusterCount == 0) {
-        fprintf(stderr, "Error: At least one requirement should be set.\n");
+    printf("Checking cubiomes library...\n");
+
+    // Initialize generator for MC 1.21
+    Generator g;
+    setupGenerator(&g, MC_1_21, 0);
+
+    // Set search parameters
+    uint64_t seed = 12345;
+    int searchRadius = 1000;
+
+    // Apply seed to generator
+    applySeed(&g, DIM_OVERWORLD, seed);
+
+    // Define search range at biome scale (1:4)
+    Range r = {
+        .scale = 4,
+        .x = -searchRadius/4,
+        .z = -searchRadius/4,
+        .sx = searchRadius/2,
+        .sz = searchRadius/2,
+        .y = 0,
+        .sy = 1
+    };
+
+    // Allocate cache for biome generation
+    int *biomeIds = allocCache(&g, r);
+    if (!biomeIds) {
+        printf("Failed to allocate cache\n");
         return 1;
     }
 
-    int maxSeeds = MAX_SEEDS_TO_FIND;
-    int seedsFound = 0;
-    currentSeed = starting_seed;
-    pthread_t threads[tasksCount];
-    for (int i = 0; i < tasksCount; i++) {
-        pthread_create(&threads[i], NULL, scanTask, NULL);
+    // Generate biomes for the area
+    if (genBiomes(&g, biomeIds, r)) {
+        printf("Failed to generate biomes\n");
+        free(biomeIds);
+        return 1;
     }
-    for (int i = 0; i < tasksCount; i++) {
-        pthread_join(threads[i], NULL);
+
+    // Count connected Cherry Grove biomes
+    int *visited = calloc(r.sx * r.sz, sizeof(int));
+    int groupCount = 0;
+
+    for (int z = 0; z < r.sz; z++) {
+        for (int x = 0; x < r.sx; x++) {
+            int idx = z * r.sx + x;
+            if (visited[idx] || biomeIds[idx] != cherry_grove) {
+                continue;
+            }
+
+            // Found a new cherry grove group
+            groupCount++;
+            int cellCount = 0;
+            double sumX = 0, sumZ = 0;
+
+            // Simple flood fill to find connected cells
+            int *stack = malloc(r.sx * r.sz * sizeof(int));
+            int stackSize = 0;
+            stack[stackSize++] = idx;
+            visited[idx] = 1;
+
+            while (stackSize > 0) {
+                int curr = stack[--stackSize];
+                int cx = curr % r.sx;
+                int cz = curr / r.sx;
+                cellCount++;
+                sumX += cx;
+                sumZ += cz;
+
+                // Check adjacent cells
+                const int dx[] = {-1, 1, 0, 0};
+                const int dz[] = {0, 0, -1, 1};
+                for (int d = 0; d < 4; d++) {
+                    int nx = cx + dx[d];
+                    int nz = cz + dz[d];
+                    if (nx < 0 || nx >= r.sx || nz < 0 || nz >= r.sz) {
+                        continue;
+                    }
+                    int nidx = nz * r.sx + nx;
+                    if (!visited[nidx] && biomeIds[nidx] == cherry_grove) {
+                        stack[stackSize++] = nidx;
+                        visited[nidx] = 1;
+                    }
+                }
+            }
+            free(stack);
+
+            // Output the center and size of the group
+            double centerX = (sumX / cellCount) * 4 + r.x * 4;
+            double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
+            printf("Required biome patch (group 0, biome Cherry Grove): center at (%.1f, %.1f), cell count %d\n",
+                   centerX, centerZ, cellCount);
+        }
     }
-    if (seedsFound > 0)
-        printf("Found %d valid seed(s). Last seed: %llu\n", seedsFound, validSeed);
-    else
-        printf("No valid seeds found.\n");
+
+    free(visited);
+    free(biomeIds);
     return 0;
 }
