@@ -16,15 +16,33 @@ const char* getBiomeName(int id) {
         case 10: return "Frozen Ocean";
         case 11: return "Frozen River";
         case 12: return "Snowy Plains";
+        case 13: return "Snowy Mountains";
         case 14: return "Mushroom Fields";
+        case 15: return "Mushroom Fields Shore";
         case 16: return "Beach";
+        case 17: return "Desert Hills";
+        case 18: return "Windswept Forest";
+        case 19: return "Taiga Hills";
+        case 20: return "Mountain Edge";
         case 21: return "Jungle";
+        case 22: return "Jungle Hills";
+        case 23: return "Sparse Jungle";
         case 24: return "Deep Ocean";
+        case 25: return "Stony Shore";
+        case 26: return "Snowy Beach";
         case 27: return "Birch Forest";
+        case 28: return "Birch Forest Hills";
         case 29: return "Dark Forest";
         case 30: return "Snowy Taiga";
+        case 31: return "Snowy Taiga Hills";
+        case 32: return "Old Growth Pine Taiga";
+        case 33: return "Giant Tree Taiga Hills";
+        case 34: return "Wooded Mountains";
         case 35: return "Savanna";
+        case 36: return "Savanna Plateau";
         case 37: return "Badlands";
+        case 38: return "Wooded Badlands";
+        case 39: return "Badlands Plateau";
         case 44: return "Warm Ocean";
         case 45: return "Lukewarm Ocean";
         case 46: return "Cold Ocean";
@@ -32,7 +50,29 @@ const char* getBiomeName(int id) {
         case 48: return "Deep Lukewarm Ocean";
         case 49: return "Deep Cold Ocean";
         case 50: return "Deep Frozen Ocean";
+        case 129: return "Sunflower Plains";
+        case 130: return "Desert Lakes";
+        case 131: return "Windswept Gravelly Hills";
+        case 132: return "Flower Forest";
+        case 133: return "Taiga Mountains";
+        case 134: return "Swamp Hills";
+        case 140: return "Ice Spikes";
+        case 149: return "Modified Jungle";
+        case 151: return "Modified Jungle Edge";
+        case 155: return "Old Growth Birch Forest";
+        case 156: return "Tall Birch Hills";
+        case 157: return "Dark Forest Hills";
+        case 158: return "Snowy Taiga Mountains";
+        case 160: return "Old Growth Spruce Taiga";
+        case 161: return "Giant Spruce Taiga Hills";
+        case 162: return "Gravelly Mountains+";
+        case 163: return "Windswept Savanna";
+        case 164: return "Shattered Savanna Plateau";
+        case 165: return "Eroded Badlands";
+        case 166: return "Modified Wooded Badlands Plateau";
+        case 167: return "Modified Badlands Plateau";
         case 168: return "Bamboo Jungle";
+        case 169: return "Bamboo Jungle Hills";
         case 174: return "Dripstone Caves";
         case 175: return "Lush Caves";
         case 177: return "Meadow";
@@ -44,6 +84,7 @@ const char* getBiomeName(int id) {
         case 183: return "Deep Dark";
         case 184: return "Mangrove Swamp";
         case 185: return "Cherry Grove";
+        case 186: return "Pale Garden";  // Corrected missing biome ID 163 duplication
         default: return "Unknown Biome";
     }
 }
@@ -153,12 +194,11 @@ int main() {
                 int biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, check_y, pos.z + sv.z);
 
                 const char *struct_names[] = {
-                    "Feature", "Desert_Pyramid", "Jungle_Temple", "Swamp_Hut", 
+                    "Feature", "Desert_Pyramid", "Jungle_Temple", "Swamp_Hut",
                     "Igloo", "Village", "Ocean_Ruin", "Shipwreck", "Monument",
                     "Mansion", "Outpost", "Ruined_Portal", "Ruined_Portal_N",
                     "Ancient_City", "Treasure", "Mineshaft", "Desert_Well",
-                    "Geode", "Fortress", "Bastion", "End_City", "End_Gateway",
-                    "End_Island", "Trail_Ruins", "Trial_Chambers"
+                    "Geode", "Trail_Ruins", "Trial_Chambers"
                 };
 
                 printf("Found %s\n", struct_names[structureType]);
