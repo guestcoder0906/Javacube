@@ -731,7 +731,7 @@ int main() {
                 int cx = curr % r.sx;
                 int cz = curr / r.sx;
                 int currBiome = biomeIds[curr];
-                
+
                 // Only count biomes that are in the valid group
                 for (int i = 0; i < sizeof(clusterGroup0)/sizeof(clusterGroup0[0]); i++) {
                     if (currBiome == clusterGroup0[i] && !foundBiomes[currBiome]) {
@@ -740,7 +740,7 @@ int main() {
                         break;
                     }
                 }
-                
+
                 cellCount++;
                 sumX += cx;
                 sumZ += cz;
@@ -768,7 +768,7 @@ int main() {
                 groupCount++;
                 double centerX = (sumX / cellCount) * 4 + r.x * 4;
                 double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
-                
+
                 // Build biome list string
                 char biomeList[256] = "";
                 int first = 1;
@@ -779,7 +779,7 @@ int main() {
                         first = 0;
                     }
                 }
-                
+
                 printf("Biome group %d: %s, center at (%.1f, %.1f), total cell count %d\n",
                        groupCount, biomeList, centerX, centerZ, cellCount);
             }
@@ -794,7 +794,7 @@ int main() {
                    r.x * 4, r.z * 4, 
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
             printf("----------------------------------------\n");
-            
+
             // Exit if we found enough seeds (1 in this case)
             free(visited);
             free(biomeIds);
@@ -817,4 +817,50 @@ int main() {
     }
 
     return 0;
+}
+
+int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t flags)
+{
+    bool individualValid = true;
+    bool clusterValid = true; // For structure clusters (if enabled)
+
+    // Process structure requirements
+    for (int rIndex = 0; rIndex < NUM_STRUCTURE_REQUIREMENTS; rIndex++) {
+        StructureRequirement req = structureRequirements[rIndex];
+        if (req.structureType != structureType)
+            continue;
+
+        int foundCount = 0;
+        StructureConfig sconf;
+        if (!getStructureConfig(req.structureType, MC_1_21, &sconf))
+            continue;
+
+        // Get biome at structure position
+        int biome_id = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
+
+        // Check biome requirement only if specific biome is requested (not -1)
+        if (req.requiredBiome != -1) {
+            if (biome_id != req.requiredBiome)
+                continue;
+
+            // Check biome size requirements if applicable
+            if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
+                int patchSize = getBiomePatchSize(g, x, z, biome_id);
+                if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
+                    (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
+                    continue;
+            }
+        }
+        foundCount++;
+        printf("Found structure %d at (%d, %d) in biome %s\n",
+               req.structureType, x, z, getBiomeName(biome_id));
+
+        if (foundCount < req.minCount)
+            individualValid = false;
+    }
+
+    if (individualValid && clusterValid) {
+        return true;
+    }
+    return false;
 }
