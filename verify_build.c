@@ -233,11 +233,11 @@ static int requiredBiomesCount = 0; // Set count to 0
 static const BiomeCluster biomeClusters[] = { clustGroup0 };
 static const int biomeClustersCount = sizeof(biomeClusters) / sizeof(biomeClusters[0]);
 
-static const BiomeSearch biomeSearch = {
+static BiomeSearch biomeSearch = {
     .required = (BiomeRequirement *) requiredBiomes,
-    .requiredCount = requiredBiomesCount,  // May be 0 to make required biomes optional.
+    .requiredCount = 0,  // Initialize to 0, will be set later if needed
     .clusters = (BiomeCluster *) biomeClusters,
-    .clusterCount = biomeClustersCount
+    .clusterCount = sizeof(biomeClusters) / sizeof(biomeClusters[0])
 };
 
 // -----------------------------------------------------------------------------
