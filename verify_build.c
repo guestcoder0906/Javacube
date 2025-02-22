@@ -736,13 +736,40 @@ int main() {
                     }
                 }
             }
+            // Track unique biomes in this cluster
+            int *uniqueBiomes = calloc(cluster->biomeCount, sizeof(int));
+            int uniqueBiomeCount = 0;
+            
+            // Check each cell in the cluster for unique biomes
+            for (int i = 0; i < stackSize; i++) {
+                int curr = stack[i];
+                int biome = biomeIds[curr];
+                bool isUnique = true;
+                
+                // Check if we've seen this biome before
+                for (int j = 0; j < uniqueBiomeCount; j++) {
+                    if (uniqueBiomes[j] == biome) {
+                        isUnique = false;
+                        break;
+                    }
+                }
+                
+                if (isUnique) {
+                    uniqueBiomes[uniqueBiomeCount++] = biome;
+                }
+            }
+
             free(stack);
 
-            // Output the center and size of the group
-            double centerX = (sumX / cellCount) * 4 + r.x * 4;
-            double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
-            printf("Clustered biome group 0: center at (%.1f, %.1f), total cell count %d\n",
-                   centerX, centerZ, cellCount);
+            // Only output if we found multiple different biomes in the cluster
+            if (uniqueBiomeCount >= 2) {
+                double centerX = (sumX / cellCount) * 4 + r.x * 4;
+                double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
+                printf("Clustered biome group 0: center at (%.1f, %.1f), total cell count %d\n",
+                       centerX, centerZ, cellCount);
+            }
+            
+            free(uniqueBiomes);
         }
     }
 
