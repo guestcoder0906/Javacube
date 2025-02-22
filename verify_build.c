@@ -175,6 +175,18 @@ int main() {
                     continue;
 
                 int id = getBiomeAt(curr_gen, 4, pos.x>>2, 320>>2, pos.z>>2);
+                if (id == -1) { // if unknown, try surface
+                    float height[256];
+                    int w = 16, h = 16;
+                    Range r = {4, pos.x>>2, pos.z>>2, w, h, 320>>2, 1};
+                    mapApproxHeight(height, NULL, curr_gen, curr_sn, r.x, r.z, w, h);
+
+                    int lx = (pos.x & 15);
+                    int lz = (pos.z & 15);
+                    int surface_y = (int)height[lz * w + lx];
+                    id = getBiomeAt(curr_gen, 4, pos.x>>2, surface_y>>2, pos.z>>2);
+                }
+
                 StructureVariant sv;
                 getVariant(&sv, structureType, mc, seed, pos.x, pos.z, id);
 
@@ -192,6 +204,9 @@ int main() {
                 int check_y = y_pos;  // Use same Y for biome check
 
                 int biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, check_y, pos.z + sv.z);
+                if (biome_id == -1) { // if unknown, try surface
+                    biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, surface_y, pos.z + sv.z);
+                }
 
                 const char *struct_names[] = {
                     "Feature", "Desert_Pyramid", "Jungle_Temple", "Swamp_Hut",
