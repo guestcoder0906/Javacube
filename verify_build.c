@@ -1,4 +1,3 @@
-
 #include "cubiomes/finders.h"
 #include <stdio.h>
 
@@ -106,7 +105,7 @@ int main() {
     // Get spawn point if needed
     Pos spawn = {0, 0};
     int x0, z0;
-    
+
     if (useSpawn) {
         spawn = getSpawn(&g);
         x0 = spawn.x - searchRadius;
@@ -174,7 +173,7 @@ int main() {
                 if (!isViableStructurePos(structureType, curr_gen, pos.x, pos.z, 0))
                     continue;
 
-                int id = getBiomeAt(curr_gen, 4, pos.x>>2, 320>>2, pos.z>>2);
+                int id = getBiomeAt(curr_gen, 4, pos.x>>2, pos.z>>2, 320>>2);
                 if (id == -1) { // if unknown, try surface
                     float height[256];
                     int w = 16, h = 16;
@@ -198,14 +197,14 @@ int main() {
                 int lx = (pos.x & 15);
                 int lz = (pos.z & 15);
                 int surface_y = (int)height[lz * w + lx];
-                
+
                 // Use provided Y if available, otherwise use surface height
                 int y_pos = sv.y != 320 && sv.y >= -64 ? sv.y : surface_y;
                 int check_y = y_pos;  // Use same Y for biome check
 
                 int biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, check_y, pos.z + sv.z);
-                if (biome_id == -1 || biome_id == 170 || biome_id == 171 || biome_id == 172) {
-                    // if unknown or nether biome, try surface
+                // Check for invalid underground biomes (nether biomes) or unknown biomes
+                if (biome_id == -1 || (biome_id >= 170 && biome_id <= 172)) {
                     biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, surface_y, pos.z + sv.z);
                 }
 
