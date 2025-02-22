@@ -72,6 +72,9 @@ const char* getBiomeName(int id) {
         case 167: return "Modified Badlands Plateau";
         case 168: return "Bamboo Jungle";
         case 169: return "Bamboo Jungle Hills";
+        case 170: return "Underground";
+        case 171: return "Underground";
+        case 172: return "Underground";
         case 174: return "Dripstone Caves";
         case 175: return "Lush Caves";
         case 177: return "Meadow";
@@ -204,8 +207,8 @@ int main() {
 
                 int biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, check_y, pos.z + sv.z);
                 // Check for invalid underground biomes (nether biomes) or unknown biomes
-                if (biome_id == -1 || (biome_id >= 170 && biome_id <= 172)) {
-                    biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, surface_y, pos.z + sv.z);
+                if (biome_id == 170 || biome_id == 171 || biome_id == 172) {
+                    biome_id = getBiomeAt(curr_gen, 4, pos.x>>2, surface_y>>2, pos.z>>2);
                 }
 
                 const char *struct_names[] = {
