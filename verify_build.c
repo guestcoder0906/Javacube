@@ -736,12 +736,13 @@ int main() {
                     }
                 }
             }
+            free(stack);
+
+            // Output the center and size of the group
             double centerX = (sumX / cellCount) * 4 + r.x * 4;
             double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
-            printf("Biome group: center at (%.1f, %.1f), total cell count %d\n",
+            printf("Clustered biome group 0: center at (%.1f, %.1f), total cell count %d\n",
                    centerX, centerZ, cellCount);
-            
-            free(stack);
         }
     }
 
