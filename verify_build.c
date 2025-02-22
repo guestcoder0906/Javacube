@@ -172,7 +172,7 @@ typedef struct {
 
 #define NUM_REQUIREMENTS 0
 StructureRequirement requirements[NUM_REQUIREMENTS] = {
-    // Example: {5, 1, -10000, 10000, 1, -1, -1}
+    Example: {5, 1, -10000, 10000, 1, 50, 50}
 };
 
 // -----------------------------------------------------------------------------
@@ -187,7 +187,7 @@ typedef struct {
 // Define cluster types dynamically.
 int clusterTypesArray[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16, 18};
 ClusterRequirement clusterReq = {
-    .enabled = true,
+    .enabled = false,
     .clusterDistance = 16,  // 16 blocks or less.
     .structureTypes = clusterTypesArray,
     .count = sizeof(clusterTypesArray) / sizeof(clusterTypesArray[0])
