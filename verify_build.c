@@ -203,15 +203,13 @@ typedef struct {
 // --- Dynamic initialization for required biomes ---
 // In this example, we require a patch for Plains with a maximum size of 50 cells.
 // (Uncomment and modify as needed for your requirements.)
-static int reqGroup0[] = {}; // This group includes Plains.
-static BiomeSizeConfig reqSizeConfigs[] = {
-    //{ 185, 50, -1 }   // Plains: no max, maximum 50 cells per patch
-};
-static const BiomeRequirement reqGroup = {
-    .biomeIds   = reqGroup0,
-    .biomeCount = 0//sizeof(reqGroup0) / sizeof(reqGroup0[0]),
+static int reqGroup0[] = {0}; // Empty array with one element to avoid zero-size array
+static BiomeSizeConfig reqSizeConfigs[] = {{0, 0, 0}}; // Empty config with one element
+static BiomeRequirement reqGroup = {
+    .biomeIds = reqGroup0,
+    .biomeCount = 0,
     .sizeConfigs = reqSizeConfigs,
-    .configCount = 0//sizeof(reqSizeConfigs) / sizeof(reqSizeConfigs[0]),
+    .configCount = 0,
     .logCenters = 1
 };
 
@@ -229,8 +227,8 @@ static const BiomeCluster clustGroup0 = {
 
 
 // By default, we initialize with one required group and one cluster group.
-static const BiomeRequirement requiredBiomes[] = { reqGroup };
-static const int requiredBiomesCount = sizeof(requiredBiomes) / sizeof(requiredBiomes[0]);
+static BiomeRequirement requiredBiomes[] = { {0} }; // Initialize with empty requirement
+static int requiredBiomesCount = 0; // Set count to 0
 
 static const BiomeCluster biomeClusters[] = { clustGroup0 };
 static const int biomeClustersCount = sizeof(biomeClusters) / sizeof(biomeClusters[0]);
