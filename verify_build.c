@@ -203,25 +203,25 @@ typedef struct {
 // --- Dynamic initialization for required biomes ---
 // In this example, we require a patch for Plains with a maximum size of 50 cells.
 // (Uncomment and modify as needed for your requirements.)
-static int reqGroup0[] = { 185 }; // This group includes Plains.
+static int reqGroup0[] = {}; // This group includes Plains.
 static BiomeSizeConfig reqSizeConfigs[] = {
-    { 185, 50, -1 }   // Plains: no max, maximum 50 cells per patch
+    //{ 185, 50, -1 }   // Plains: no max, maximum 50 cells per patch
 };
 static const BiomeRequirement reqGroup = {
     .biomeIds   = reqGroup0,
-    .biomeCount = sizeof(reqGroup0) / sizeof(reqGroup0[0]),
+    .biomeCount = 0//sizeof(reqGroup0) / sizeof(reqGroup0[0]),
     .sizeConfigs = reqSizeConfigs,
-    .configCount = sizeof(reqSizeConfigs) / sizeof(reqSizeConfigs[0]),
+    .configCount = 0//sizeof(reqSizeConfigs) / sizeof(reqSizeConfigs[0]),
     .logCenters = 1
 };
 
 // --- Dynamic initialization for clustered biomes ---
 // For clustered biomes, all cells that belong to the group are merged regardless of individual type.
 // For example, define one cluster group that contains Plains and Cherry Grove with no size filtering.
-static int clusterGroup0[] = {}; // Empty array
+static int clusterGroup0[] = {185, 1}; 
 static const BiomeCluster clustGroup0 = {
     .biomeIds   = clusterGroup0,
-    .biomeCount = 0,  // No biomes in this cluster
+    .biomeCount = sizeof(clusterGroup0) / sizeof(clusterGroup0[0]), //0
     .minSize    = -1,
     .maxSize    = -1,
     .logCenters = 1
