@@ -204,16 +204,9 @@ int main() {
                 int check_y = y_pos;  // Use same Y for biome check
 
                 int biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, check_y, pos.z + sv.z);
-                if (biome_id == -1) {
-                    // if unknown, try surface
+                // If we got a nether biome (170-172) or unknown, get the surface biome instead
+                if (biome_id == -1 || (biome_id >= 170 && biome_id <= 172)) {
                     biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, surface_y, pos.z + sv.z);
-                }
-                // If we got a nether biome (170-172), get the surface biome instead
-                else if (biome_id >= 170 && biome_id <= 172) {
-                    int surface_biome = getBiomeAt(curr_gen, 1, pos.x + sv.x, surface_y, pos.z + sv.z);
-                    if (surface_biome != -1) {
-                        biome_id = surface_biome;
-                    }
                 }
 
                 const char *struct_names[] = {
