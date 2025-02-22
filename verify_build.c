@@ -588,13 +588,19 @@ bool scanSeed(uint64_t seed) {
                     int surface_y = (int)heightArr[lz * w + lx];
                     biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
                 }
-                if (req.requiredBiome != -1 && biome_id != req.requiredBiome)
-                    continue;
-                if (req.requiredBiome != -1 && (req.minBiomeSize != -1 || req.maxBiomeSize != -1)) {
-                    int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
-                    if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
-                        (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
+
+                // Skip biome check if requiredBiome is -1
+                if (req.requiredBiome != -1) {
+                    if (biome_id != req.requiredBiome)
                         continue;
+
+                    // Only check biome size if we have a required biome and size requirements
+                    if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
+                        int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
+                        if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
+                            (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
+                            continue;
+                    }
                 }
                 foundCount++;
                 printf("Seed %llu: Found structure %d at (%d, %d) in biome %s\n",
