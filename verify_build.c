@@ -646,11 +646,14 @@ int main() {
     setupGenerator(&g, MC_1_21, 0);
 
     // Set search parameters
-    uint64_t seed = 12345;
-    int searchRadius = 1000;
+    uint64_t start_seed = 12345;
+    uint64_t end_seed = start_seed + 1000; // Check 1000 seeds
+    int searchRadius = 500; // Search within 500 blocks
 
-    // Apply seed to generator
-    applySeed(&g, DIM_OVERWORLD, seed);
+    for (uint64_t seed = start_seed; seed < end_seed; seed++) {
+        // Apply seed to generator
+        applySeed(&g, DIM_OVERWORLD, seed);
+        printf("Checking seed: %llu\n", seed);
 
     // Define search range at biome scale (1:4)
     Range r = {
@@ -733,7 +736,29 @@ int main() {
         }
     }
 
-    free(visited);
-    free(biomeIds);
+    // Log if any Cherry Grove biomes were found
+        if (groupCount > 0) {
+            printf("\nValid seed %llu found with %d Cherry Grove biome groups\n", seed, groupCount);
+            printf("Search area: (%d,%d) to (%d,%d)\n", 
+                   r.x * 4, r.z * 4, 
+                   (r.x + r.sx) * 4, (r.z + r.sz) * 4);
+            printf("----------------------------------------\n");
+        }
+
+        free(visited);
+        free(biomeIds);
+
+        // Reallocate for next iteration
+        biomeIds = allocCache(&g, r);
+        visited = calloc(r.sx * r.sz, sizeof(int));
+        if (!biomeIds || !visited) {
+            printf("Failed to allocate memory\n");
+            return 1;
+        }
+
+        // Reset group count for next seed
+        groupCount = 0;
+    }
+
     return 0;
 }
