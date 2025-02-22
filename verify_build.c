@@ -1,4 +1,3 @@
-
 #include "cubiomes/finders.h"
 #include <stdio.h>
 
@@ -97,8 +96,25 @@ int main() {
                 float height[256];
                 int w = 16, h = 16;
                 Range r = {4, pos.x>>2, pos.z>>2, w, h, 320>>2, 1};
-                mapApproxHeight(height, NULL, curr_gen, curr_sn, r.x, r.z, w, h);
-                
+                if (sconf.dim == DIM_END) {
+                    enum { y0 = 15, y1 = 18, yn = y1-y0+1 };
+                    double ncol[3][3][yn];
+
+                    int cellx = (pos.x >> 3);
+                    int cellz = (pos.z >> 3);
+
+                    sampleNoiseColumnEnd(ncol[0][0], curr_sn, &curr_gen->en, cellx, cellz, y0, y1);
+                    sampleNoiseColumnEnd(ncol[0][1], curr_sn, &curr_gen->en, cellx, cellz+1, y0, y1);
+                    sampleNoiseColumnEnd(ncol[1][0], curr_sn, &curr_gen->en, cellx+1, cellz, y0, y1);
+                    sampleNoiseColumnEnd(ncol[1][1], curr_sn, &curr_gen->en, cellx+1, cellz+1, y0, y1);
+
+                    height[0] = getSurfaceHeight(ncol[0][0], ncol[0][1], ncol[1][0], ncol[1][1],
+                        y0, y1, 4, (pos.x & 7) / 8.0, (pos.z & 7) / 8.0);
+                } else {
+                    mapApproxHeight(height, NULL, curr_gen, curr_sn, r.x, r.z, w, h);
+                }
+
+
                 // Get local coordinates within the heightmap
                 int lx = (pos.x & 15);
                 int lz = (pos.z & 15);
