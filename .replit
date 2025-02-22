@@ -1,0 +1,33 @@
+modules = ["c"]
+
+[nix]
+channel = "stable-24_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Build Cubiomes"
+
+[[workflows.workflow]]
+name = "Build Cubiomes"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "chmod +x build.sh && ./build.sh && cd cubiomes && gcc ../verify_build.c -o verify_build -I. libcubiomes.a -lm && ./verify_build"
+
+[deployment]
+run = ["sh", "-c", "chmod +x build.sh && ./build.sh && cd cubiomes && gcc ../verify_build.c -o verify_build -I. libcubiomes.a -lm && ./verify_build"]
