@@ -228,10 +228,10 @@ static BiomeRequirement reqGroup = {
 // --- Dynamic initialization for clustered biomes ---
 // For clustered biomes, all cells that belong to the group are merged regardless of individual type.
 // For example, define one cluster group that contains Plains and Cherry Grove with no size filtering.
-static int clusterGroup0[] = {185, 1}; 
+static int clusterGroup0[] = {}; 
 static const BiomeCluster clustGroup0 = {
     .biomeIds   = clusterGroup0,
-    .biomeCount = sizeof(clusterGroup0) / sizeof(clusterGroup0[0]), //0
+    .biomeCount = 0//sizeof(clusterGroup0) / sizeof(clusterGroup0[0]),
     .minSize    = -1,
     .maxSize    = -1,
     .logCenters = 1
