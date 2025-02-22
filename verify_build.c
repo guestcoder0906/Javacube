@@ -690,19 +690,18 @@ int main() {
         return 1;
     }
 
-    // Count connected Cherry Grove biomes
+    // Count connected valid biome clusters
     int *visited = calloc(r.sx * r.sz, sizeof(int));
     int groupCount = 0;
 
     for (int z = 0; z < r.sz; z++) {
         for (int x = 0; x < r.sx; x++) {
             int idx = z * r.sx + x;
-            if (visited[idx] || biomeIds[idx] != cherry_grove) {
-                continue;
-            }
+            if (visited[idx]) continue;
 
-            // Found a new cherry grove group
-            groupCount++;
+            int currentBiome = biomeIds[idx];
+            int *foundBiomes = calloc(256, sizeof(int));
+            int uniqueBiomeCount = 0;
             int cellCount = 0;
             double sumX = 0, sumZ = 0;
 
@@ -716,6 +715,13 @@ int main() {
                 int curr = stack[--stackSize];
                 int cx = curr % r.sx;
                 int cz = curr / r.sx;
+                int currBiome = biomeIds[curr];
+                
+                if (!foundBiomes[currBiome]) {
+                    foundBiomes[currBiome] = 1;
+                    uniqueBiomeCount++;
+                }
+                
                 cellCount++;
                 sumX += cx;
                 sumZ += cz;
@@ -730,7 +736,7 @@ int main() {
                         continue;
                     }
                     int nidx = nz * r.sx + nx;
-                    if (!visited[nidx] && biomeIds[nidx] == cherry_grove) {
+                    if (!visited[nidx]) {
                         stack[stackSize++] = nidx;
                         visited[nidx] = 1;
                     }
@@ -738,17 +744,33 @@ int main() {
             }
             free(stack);
 
-            // Output the center and size of the group
-            double centerX = (sumX / cellCount) * 4 + r.x * 4;
-            double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
-            printf("Clustered biome group 0: center at (%.1f, %.1f), total cell count %d\n",
-                   centerX, centerZ, cellCount);
+            // Only output clusters with at least 2 different biomes
+            if (uniqueBiomeCount >= 2) {
+                groupCount++;
+                double centerX = (sumX / cellCount) * 4 + r.x * 4;
+                double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
+                
+                // Build biome list string
+                char biomeList[256] = "";
+                int first = 1;
+                for (int i = 0; i < 256; i++) {
+                    if (foundBiomes[i]) {
+                        if (!first) strcat(biomeList, " + ");
+                        strcat(biomeList, getBiomeName(i));
+                        first = 0;
+                    }
+                }
+                
+                printf("Biome group %d: %s, center at (%.1f, %.1f), total cell count %d\n",
+                       groupCount, biomeList, centerX, centerZ, cellCount);
+            }
+            free(foundBiomes);
         }
     }
 
-    // Log if any Cherry Grove biomes were found
+    // Log if any valid biome clusters were found
         if (groupCount > 0) {
-            printf("\nValid seed %llu found with %d Cherry Grove biome groups\n", seed, groupCount);
+            printf("\nValid seed %llu found with %d biome clusters\n", seed, groupCount);
             printf("Search area: (%d,%d) to (%d,%d)\n", 
                    r.x * 4, r.z * 4, 
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
