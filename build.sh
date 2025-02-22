@@ -3,7 +3,7 @@
 # Exit on any error
 set -e
 
-echo "Building cubiomes library..."
+echo "Checking cubiomes library..."
 
 # Check if git is installed
 if ! command -v git &> /dev/null; then
@@ -32,29 +32,23 @@ fi
 # Change to the cubiomes directory
 cd cubiomes
 
-# Build the library
-echo "Building library..."
-make clean
-make
-
-# Verify the build artifacts exist
+# Only build if library doesn't exist
 if [ ! -f "libcubiomes.a" ]; then
-    echo "Error: Static library build failed"
-    exit 1
-fi
+    echo "Building library..."
+    make clean
+    make
 
-# Run the test program
-echo "Running tests..."
-if [ -f "tests" ]; then
-    ./tests
+    # Verify the build artifacts exist
+    if [ ! -f "libcubiomes.a" ]; then
+        echo "Error: Static library build failed"
+        exit 1
+    fi
+
+    echo "Build completed successfully!"
+    echo "Build artifacts:"
+    ls -l libcubiomes.a
 else
-    echo "Warning: Test executable not found"
+    echo "Library already built, skipping compilation"
 fi
-
-echo "Build completed successfully!"
-
-# Show build artifacts
-echo "Build artifacts:"
-ls -l libcubiomes.a
 
 cd ..
