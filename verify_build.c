@@ -4,6 +4,11 @@
 #include <stdbool.h>
 #include <math.h>
 #include <pthread.h>
+#include <limits.h>
+
+// Global variables for seed finding
+int maxSeeds = 1;
+int seedsFound = 0;
 
 // -----------------------------------------------------------------------------
 // Union–find functions for clustering
