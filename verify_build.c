@@ -5,6 +5,8 @@
 #include <math.h>
 #include <pthread.h>
 #include <limits.h>
+#include <string.h> // Added for memcpy
+
 
 // Global variables for seed finding
 int maxSeeds = 1;
@@ -125,18 +127,18 @@ int getBiomePatchSize(Generator *g, int x, int z, int biome_id) {
     int sz = (z - radius) >> 2;
     int w = radius >> 1;
     int h = radius >> 1;
-    
+
     // Find min/max extents of this biome patch
     int minX = INT_MAX, maxX = INT_MIN;
     int minZ = INT_MAX, maxZ = INT_MIN;
     int found = 0;
-    
+
     for (int i = 0; i < w; i++) {
         for (int j = 0; j < h; j++) {
             int bx = sx + i;
             int bz = sz + j;
             int id = getBiomeAt(g, 4, bx, 0, bz);
-            
+
             if (id == biome_id) {
                 found = 1;
                 if (bx < minX) minX = bx;
@@ -149,9 +151,9 @@ int getBiomePatchSize(Generator *g, int x, int z, int biome_id) {
             }
         }
     }
-    
+
     if (!found) return 0;
-    
+
     // Calculate average size in blocks
     int sizeX = (maxX - minX + 1) * 4; // Convert from scale 4 to blocks
     int sizeZ = (maxZ - minZ + 1) * 4;
@@ -170,8 +172,61 @@ typedef struct {
     int maxBiomeSize;
 } StructureRequirement;
 
+
+//New Biome Structures
+typedef struct {
+    int *biomeIds;
+    int biomeCount;
+    int minSize;
+    int logCenters;
+} BiomeRequirement;
+
+typedef struct {
+    int *biomeIds;
+    int biomeCount;
+    int minClusterSize;
+    int logCenters;
+} BiomeCluster;
+
+typedef struct {
+    BiomeRequirement *required;
+    BiomeCluster *clusters;
+} BiomeSearch;
+
+BiomeSearch biomeSearch;
+
+
 // Define the number of structure requirements
 #define NUM_REQUIREMENTS 1
+
+// Initialize biome requirements.  Replace with actual biome IDs.
+#define plains 1
+#define forest 4
+#define beach 16
+#define ocean 0
+#define stone_shore 25
+
+BiomeRequirement requiredBiomes[] = {
+    {
+        .biomeIds = (int[]){plains, forest},
+        .biomeCount = 2,
+        .minSize = 50,
+        .logCenters = 1
+    }
+};
+
+// Initialize biome clusters
+BiomeCluster biomeClusters[] = {
+    {
+        .biomeIds = (int[]){beach, ocean, stone_shore},
+        .biomeCount = 3,
+        .minClusterSize = 2,
+        .logCenters = 1
+    }
+};
+
+biomeSearch.required = requiredBiomes;
+biomeSearch.clusters = biomeClusters;
 
 // StructureRequirement array properly formatted
 StructureRequirement requirements[NUM_REQUIREMENTS] = {
