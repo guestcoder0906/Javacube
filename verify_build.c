@@ -700,6 +700,16 @@ int main() {
             if (visited[idx]) continue;
 
             int currentBiome = biomeIds[idx];
+            // Skip if starting biome is not in the valid group
+            int isValidStart = 0;
+            for (int i = 0; i < sizeof(clusterGroup0)/sizeof(clusterGroup0[0]); i++) {
+                if (currentBiome == clusterGroup0[i]) {
+                    isValidStart = 1;
+                    break;
+                }
+            }
+            if (!isValidStart) continue;
+
             int *foundBiomes = calloc(256, sizeof(int));
             int uniqueBiomeCount = 0;
             int cellCount = 0;
@@ -717,9 +727,13 @@ int main() {
                 int cz = curr / r.sx;
                 int currBiome = biomeIds[curr];
                 
-                if (!foundBiomes[currBiome]) {
-                    foundBiomes[currBiome] = 1;
-                    uniqueBiomeCount++;
+                // Only count biomes that are in the valid group
+                for (int i = 0; i < sizeof(clusterGroup0)/sizeof(clusterGroup0[0]); i++) {
+                    if (currBiome == clusterGroup0[i] && !foundBiomes[currBiome]) {
+                        foundBiomes[currBiome] = 1;
+                        uniqueBiomeCount++;
+                        break;
+                    }
                 }
                 
                 cellCount++;
