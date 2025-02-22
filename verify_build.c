@@ -213,6 +213,18 @@ static BiomeRequirement reqGroup = {
     .logCenters = 1
 };
 
+/*static int reqGroup0[] = {}; // This group includes Plains.
+    static BiomeSizeConfig reqSizeConfigs[] = {
+        //{ 185, 50, -1 }   // Plains: no max, maximum 50 cells per patch
+    };
+    static const BiomeRequirement reqGroup = {
+        .biomeIds   = reqGroup0,
+        .biomeCount = 0//sizeof(reqGroup0) / sizeof(reqGroup0[0]),
+        .sizeConfigs = reqSizeConfigs,
+        .configCount = 0//sizeof(reqSizeConfigs) / sizeof(reqSizeConfigs[0]),
+        .logCenters = 1
+    };*/
+
 // --- Dynamic initialization for clustered biomes ---
 // For clustered biomes, all cells that belong to the group are merged regardless of individual type.
 // For example, define one cluster group that contains Plains and Cherry Grove with no size filtering.
