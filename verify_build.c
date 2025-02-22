@@ -114,7 +114,43 @@ const char* getBiomeName(int id) {
 // -----------------------------------------------------------------------------
 // Stub for biome patch size calculation (if needed)
 int getBiomePatchSize(Generator *g, int x, int z, int biome_id) {
-    return 100;
+    // Create a 256x256 area to scan around the point
+    int radius = 128;
+    int sx = (x - radius) >> 2;
+    int sz = (z - radius) >> 2;
+    int w = radius >> 1;
+    int h = radius >> 1;
+    
+    // Find min/max extents of this biome patch
+    int minX = INT_MAX, maxX = INT_MIN;
+    int minZ = INT_MAX, maxZ = INT_MIN;
+    int found = 0;
+    
+    for (int i = 0; i < w; i++) {
+        for (int j = 0; j < h; j++) {
+            int bx = sx + i;
+            int bz = sz + j;
+            int id = getBiomeAt(g, 4, bx, 0, bz);
+            
+            if (id == biome_id) {
+                found = 1;
+                if (bx < minX) minX = bx;
+                if (bx > maxX) maxX = bx;
+                if (bz < minZ) minZ = bz;
+                if (bz > maxZ) maxZ = bz;
+            } else if (found && (bx > maxX + 2 || bz > maxZ + 2)) {
+                // We've moved beyond the biome patch
+                break;
+            }
+        }
+    }
+    
+    if (!found) return 0;
+    
+    // Calculate average size in blocks
+    int sizeX = (maxX - minX + 1) * 4; // Convert from scale 4 to blocks
+    int sizeZ = (maxZ - minZ + 1) * 4;
+    return (sizeX + sizeZ) / 2;
 }
 
 // -----------------------------------------------------------------------------
@@ -493,8 +529,12 @@ void *scanTask(void *arg) {
 
         if (scanSeed(seed)) {
             pthread_mutex_lock(&seedMutex);
-            foundValidSeed = true;
+            seedsFound++;
             validSeed = seed;
+            if (seedsFound >= maxSeeds) {
+                foundValidSeed = true;
+                break;
+            }
             pthread_mutex_unlock(&seedMutex);
             break;
         }
@@ -504,11 +544,15 @@ void *scanTask(void *arg) {
 
 // -----------------------------------------------------------------------------
 // main: Starts scanning tasks.
+#define MAX_SEEDS_TO_FIND 1 // Default max seeds to find
+
 int main() {
     if (NUM_REQUIREMENTS == 0 && !clusterReq.enabled) {
         printf("Error: At least one requirement must be specified.\n");
         return 1;
     }
+    int maxSeeds = MAX_SEEDS_TO_FIND;
+    int seedsFound = 0;
     currentSeed = starting_seed;
     pthread_t threads[tasksCount];
     for (int i = 0; i < tasksCount; i++) {
@@ -517,9 +561,9 @@ int main() {
     for (int i = 0; i < tasksCount; i++) {
         pthread_join(threads[i], NULL);
     }
-    if (foundValidSeed)
-        printf("Seed %llu meets all requirements.\n", validSeed);
+    if (seedsFound > 0)
+        printf("Found %d valid seed(s). Last seed: %llu\n", seedsFound, validSeed);
     else
-        printf("No valid seed found.\n");
+        printf("No valid seeds found.\n");
     return 0;
 }
