@@ -94,12 +94,17 @@ int main() {
                 getVariant(&sv, structureType, mc, seed, pos.x, pos.z, id);
 
                 // Get surface height at structure position
-                float height[1];
-                Range r = {4, pos.x>>2, pos.z>>2, 1, 1, 320>>2, 1};
-                mapEndSurfaceHeight(height, curr_gen, curr_sn, r.x, r.z, r.sx, r.sz, r.scale, 0);
-                int surface_y = (int)height[0];
+                float height[256];
+                int w = 16, h = 16;
+                Range r = {4, pos.x>>2, pos.z>>2, w, h, 320>>2, 1};
+                mapApproxHeight(height, NULL, curr_gen, curr_sn, r.x, r.z, w, h);
+                
+                // Get local coordinates within the heightmap
+                int lx = (pos.x & 15);
+                int lz = (pos.z & 15);
+                int surface_y = (int)height[lz * w + lx];
 
-                // Get biome at structure position
+                // Get biome at structure position using the correct height
                 int biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, sv.y >= 0 ? sv.y : surface_y, pos.z + sv.z);
 
                 // Print structure info
