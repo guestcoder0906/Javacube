@@ -1,115 +1,7 @@
 #include "cubiomes/finders.h"
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <pthread.h>
-#include <inttypes.h>
 
-
-typedef struct {
-    int structType;
-    int minCount;
-    int minHeight;
-    int maxHeight;
-    int biome;
-    int minBiomeSize;
-    int maxBiomeSize;
-} StructureRequirement;
-
-typedef struct {
-    uint64_t startSeed;
-    uint64_t endSeed;
-    StructureRequirement *reqs;
-    int reqCount;
-    Generator *g;
-} ScanTask;
-
-void checkStructureAt(Generator *g, uint64_t seed, StructureRequirement *req, Pos p, int *found) {
-    applySeed(g, DIM_OVERWORLD, seed);
-
-    if (!isViableStructurePos(req->structType, g, p.x, p.z, 0))
-        return;
-
-    int y = -1; 
-    int biomeId = getBiomeAt(g, 4, p.x >> 2, 0, p.z >> 2);
-    int biomeSize = 0; 
-
-    
-    if ((req->minHeight != -1 && y < req->minHeight) || 
-        (req->maxHeight != -1 && y > req->maxHeight))
-        return;
-
-    
-    if (req->biome != -1) {
-        if (biomeId != req->biome)
-            return;
-        if ((req->minBiomeSize != -1 && biomeSize < req->minBiomeSize) ||
-            (req->maxBiomeSize != -1 && biomeSize > req->maxBiomeSize))
-            return;
-    }
-
-    (*found)++;
-}
-
-void* scanSeeds(void *arg) {
-    ScanTask *task = (ScanTask*)arg;
-    uint64_t seed;
-
-    for (seed = task->startSeed; seed < task->endSeed; seed++) {
-        int allReqsMet = 1;
-
-        for (int i = 0; i < task->reqCount; i++) {
-            StructureConfig sconf;
-            int found = 0;
-
-            if (!getStructureConfig(task->reqs[i].structType, MC_1_19, &sconf))
-                continue;
-
-            
-            for (int rx = -5; rx <= 5; rx++) {
-                for (int rz = -5; rz <= 5; rz++) {
-                    Pos p;
-                    if (!getStructurePos(task->reqs[i].structType, MC_1_19, seed, rx, rz, &p))
-                        continue;
-
-                    checkStructureAt(task->g, seed, &task->reqs[i], p, &found);
-                    if (found >= task->reqs[i].minCount)
-                        break;
-                }
-                if (found >= task->reqs[i].minCount)
-                    break;
-            }
-
-            if (found < task->reqs[i].minCount) {
-                allReqsMet = 0;
-                break;
-            }
-        }
-
-        if (allReqsMet) {
-            printf("\nFound matching seed: %" PRIu64 "\n", seed);
-            
-            for (int i = 0; i < task->reqCount; i++) {
-                printf("Structure type %d locations:\n", task->reqs[i].structType);
-                for (int rx = -5; rx <= 5; rx++) {
-                    for (int rz = -5; rz <= 5; rz++) {
-                        Pos p;
-                        if (!getStructurePos(task->reqs[i].structType, MC_1_19, seed, rx, rz, &p))
-                            continue;
-                        if (isViableStructurePos(task->reqs[i].structType, task->g, p.x, p.z, 0)) {
-                            int biomeId = getBiomeAt(task->g, 4, p.x >> 2, 0, p.z >> 2);
-                            printf("  At (%d, %d) Biome: %s\n", p.x, p.z, getBiomeName(biomeId));
-                        }
-                    }
-                }
-            }
-            printf("\n");
-        }
-    }
-    return NULL;
-}
-
-// Biome ID to name mapping (from original code)
+// Biome ID to name mapping
 const char* getBiomeName(int id) {
     switch(id) {
         case 0: return "Ocean";
@@ -194,63 +86,151 @@ const char* getBiomeName(int id) {
         case 183: return "Deep Dark";
         case 184: return "Mangrove Swamp";
         case 185: return "Cherry Grove";
-        case 186: return "Pale Garden";
+        case 186: return "Pale Garden";  // Corrected missing biome ID 163 duplication
         default: return "Unknown Biome";
     }
 }
 
 int main() {
-    
-    StructureRequirement reqs[] = {
-        {
-            .structType = Village,
-            .minCount = 1,
-            .minHeight = -1, 
-            .maxHeight = -1,
-            .biome = plains, 
-            .minBiomeSize = -1,
-            .maxBiomeSize = -1
-        },
-        {
-            .structType = Desert_Pyramid,
-            .minCount = 1,
-            .minHeight = -1,
-            .maxHeight = -1,
-            .biome = desert,
-            .minBiomeSize = -1,
-            .maxBiomeSize = -1
+    // Configuration
+    const int mc = MC_1_21;           // Latest MC version supported
+    const uint64_t seed = 12345;      // Your seed here
+    const int useSpawn = 1;           // Use spawn point (1) instead of custom coords
+    const int customX = 0;            // Custom X coordinate if not using spawn
+    const int customZ = 0;            // Custom Z coordinate if not using spawn
+    const int searchRadius = 500;     // Search radius in blocks
+
+    // Set up main generator
+    Generator g;
+    setupGenerator(&g, mc, 0);
+    applySeed(&g, DIM_OVERWORLD, seed);
+
+    // Get spawn point if needed
+    Pos spawn = {0, 0};
+    int x0, z0;
+
+    if (useSpawn) {
+        spawn = getSpawn(&g);
+        x0 = spawn.x - searchRadius;
+        z0 = spawn.z - searchRadius;
+        printf("Spawn point: x=%d z=%d\n", spawn.x, spawn.z);
+    } else {
+        x0 = customX - searchRadius;
+        z0 = customZ - searchRadius;
+    }
+
+    int x1 = x0 + (searchRadius * 2);
+    int z1 = z0 + (searchRadius * 2);
+
+    printf("\nSearching area from (%d,%d) to (%d,%d)\n\n", x0, z0, x1, z1);
+
+    SurfaceNoise sn;
+    initSurfaceNoise(&sn, DIM_OVERWORLD, seed);
+
+    // For nether structures
+    Generator ng;
+    setupGenerator(&ng, mc, 0);
+    applySeed(&ng, DIM_NETHER, seed);
+
+    // For end structures
+    Generator eg;
+    setupGenerator(&eg, mc, 0);
+    applySeed(&eg, DIM_END, seed);
+
+    EndNoise en;
+    setEndSeed(&en, mc, seed);
+    SurfaceNoise esn;
+    initSurfaceNoise(&esn, DIM_END, seed);
+
+    // Check all structure types
+    for (int structureType = 0; structureType < FEATURE_NUM; structureType++) {
+        StructureConfig sconf;
+        if (!getStructureConfig(structureType, mc, &sconf))
+            continue;
+
+        Generator *curr_gen = &g;
+        SurfaceNoise *curr_sn = &sn;
+
+        if (sconf.dim == DIM_NETHER) {
+            curr_gen = &ng;
+        } else if (sconf.dim == DIM_END) {
+            curr_gen = &eg;
+            curr_sn = &esn;
         }
-    };
 
-    int numTasks = 1; 
-    uint64_t startSeed = 0; 
-    int reqCount = sizeof(reqs) / sizeof(StructureRequirement);
+        double blocksPerRegion = sconf.regionSize * 16.0;
+        int rx0 = (int)floor(x0 / blocksPerRegion);
+        int rz0 = (int)floor(z0 / blocksPerRegion);
+        int rx1 = (int)ceil(x1 / blocksPerRegion);
+        int rz1 = (int)ceil(z1 / blocksPerRegion);
 
-    pthread_t *threads = malloc(numTasks * sizeof(pthread_t));
-    Generator *generators = malloc(numTasks * sizeof(Generator));
-    ScanTask *tasks = malloc(numTasks * sizeof(ScanTask));
+        for (int j = rz0; j <= rz1; j++) {
+            for (int i = rx0; i <= rx1; i++) {
+                Pos pos;
+                if (!getStructurePos(structureType, mc, seed, i, j, &pos))
+                    continue;
 
-    uint64_t seedsPerTask = 1000000 / numTasks;
+                if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
+                    continue;
 
-    for (int i = 0; i < numTasks; i++) {
-        setupGenerator(&generators[i], MC_1_19, 0);
+                if (!isViableStructurePos(structureType, curr_gen, pos.x, pos.z, 0))
+                    continue;
 
-        tasks[i].startSeed = startSeed + (i * seedsPerTask);
-        tasks[i].endSeed = tasks[i].startSeed + seedsPerTask;
-        tasks[i].reqs = reqs;
-        tasks[i].reqCount = reqCount;
-        tasks[i].g = &generators[i];
+                int id = getBiomeAt(curr_gen, 4, pos.x>>2, pos.z>>2, 320>>2);
+                if (id == -1) { // if unknown, try surface
+                    float height[256];
+                    int w = 16, h = 16;
+                    Range r = {4, pos.x>>2, pos.z>>2, w, h, 320>>2, 1};
+                    mapApproxHeight(height, NULL, curr_gen, curr_sn, r.x, r.z, w, h);
 
-        pthread_create(&threads[i], NULL, scanSeeds, &tasks[i]);
+                    int lx = (pos.x & 15);
+                    int lz = (pos.z & 15);
+                    int surface_y = (int)height[lz * w + lx];
+                    id = getBiomeAt(curr_gen, 4, pos.x>>2, surface_y>>2, pos.z>>2);
+                }
+
+                StructureVariant sv;
+                getVariant(&sv, structureType, mc, seed, pos.x, pos.z, id);
+
+                float height[256];
+                int w = 16, h = 16;
+                Range r = {4, pos.x>>2, pos.z>>2, w, h, 320>>2, 1};
+                mapApproxHeight(height, NULL, curr_gen, curr_sn, r.x, r.z, w, h);
+
+                int lx = (pos.x & 15);
+                int lz = (pos.z & 15);
+                int surface_y = (int)height[lz * w + lx];
+
+                // Use provided Y if available, otherwise use surface height
+                int y_pos = sv.y != 320 && sv.y >= -64 ? sv.y : surface_y;
+                int check_y = y_pos;  // Use same Y for biome check
+
+                int biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, check_y, pos.z + sv.z);
+                // Check for invalid underground biomes (nether biomes) or unknown biomes
+                if (biome_id == 170 || biome_id == 171 || biome_id == 172) {
+                    biome_id = getBiomeAt(curr_gen, 4, pos.x>>2, surface_y>>2, pos.z>>2);
+                }
+
+                const char *struct_names[] = {
+                    "Feature", "Desert_Pyramid", "Jungle_Temple", "Swamp_Hut",
+                    "Igloo", "Village", "Ocean_Ruin", "Shipwreck", "Monument",
+                    "Mansion", "Outpost", "Ruined_Portal", "Ruined_Portal_N",
+                    "Ancient_City", "Treasure", "Mineshaft", "Desert_Well",
+                    "Geode", "Trail_Ruins", "Trial_Chambers"
+                };
+
+                printf("Found %s\n", struct_names[structureType]);
+                printf("  Position: x:%d y:%d z:%d\n", 
+                    pos.x + sv.x, 
+                    y_pos,
+                    pos.z + sv.z);
+                printf("  Biome: %s (ID: %d)\n", getBiomeName(biome_id), biome_id);
+                printf("  Distance from %s: %.1f blocks\n\n",
+                    useSpawn ? "spawn" : "origin",
+                    sqrt((pos.x-spawn.x)*(pos.x-spawn.x) + (pos.z-spawn.z)*(pos.z-spawn.z)));
+            }
+        }
     }
-
-    for (int i = 0; i < numTasks; i++) {
-        pthread_join(threads[i], NULL);
-    }
-
-    free(threads);
-    free(generators);
-    free(tasks);
 
     return 0;
 }
