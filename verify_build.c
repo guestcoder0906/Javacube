@@ -204,8 +204,8 @@ int main() {
                 int check_y = y_pos;  // Use same Y for biome check
 
                 int biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, check_y, pos.z + sv.z);
-                // If we got a nether biome (170-172) or unknown, get the surface biome instead
-                if (biome_id == -1 || (biome_id >= 170 && biome_id <= 172)) {
+                if (biome_id == -1 || biome_id == 170 || biome_id == 171 || biome_id == 172) {
+                    // if unknown or nether biome, try surface
                     biome_id = getBiomeAt(curr_gen, 1, pos.x + sv.x, surface_y, pos.z + sv.z);
                 }
 
