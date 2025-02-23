@@ -252,8 +252,9 @@ static BiomeSearch biomeSearch = {
 typedef struct {
     bool enabled;
     int clusterDistance;
-    int *structureTypes;  // Dynamically provided list.
+    int *structureTypes;  // Dynamically provided list of structure types to cluster.
     int count;
+    int minClusterSize;   // NEW: Minimum number of structures required in a cluster.
 } ClusterRequirement;
 
 int clusterTypesArray[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16, 18 };
@@ -261,7 +262,8 @@ ClusterRequirement clusterReq = {
     .enabled = true,      // Change to true to enable structure clustering check.
     .clusterDistance = 32,
     .structureTypes = clusterTypesArray,
-    .count = sizeof(clusterTypesArray) / sizeof(clusterTypesArray[0])
+    .count = sizeof(clusterTypesArray) / sizeof(clusterTypesArray[0]),
+    .minClusterSize  = 2 // Default is 2, can change to 3, 4, etc. as desired
 };
 
 // -----------------------------------------------------------------------------
@@ -592,7 +594,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs) {
 
 // -----------------------------------------------------------------------------
 // Global configuration parameters.
-uint64_t starting_seed = 3895964444822401111;
+uint64_t starting_seed = 5031130760383654775;
 int searchRadius = 1000;
 int useSpawn = 1;      // 1 = use spawn point; 0 = use custom coordinates.
 int customX = 0;
@@ -791,34 +793,35 @@ bool scanSeed(uint64_t seed) {
                 }
                 processed[root] = true;
 
-                // If you only care about clusters with at least 2 structures:
-                if (groupSize < 2)
+                // 5) If the cluster size is smaller than minClusterSize, skip it
+                if (groupSize < clusterReq.minClusterSize)
                 {
+                    // Not big enough; skip and do NOT invalidate the seed
                     free(indices);
                     continue;
                 }
 
-                // 5) Check for invalid combos if you have that logic
-                // Gather structure types in ascending order
+                // Build a sorted array of structure types in this cluster:
                 int *groupTypes = malloc(groupSize * sizeof(int));
                 for (int n = 0; n < groupSize; n++)
                     groupTypes[n] = clusterPositions[indices[n]].structureType;
                 qsort(groupTypes, groupSize, sizeof(int), compareInts);
 
+                // 6) Check if this cluster has an invalid combination
                 bool clusterIsInvalid = isInvalidClusterDynamic(groupTypes, groupSize);
                 if (clusterIsInvalid)
                 {
-                    // Skip this cluster and continue checking others.
-                    printf("Skipping invalid cluster at seed %llu (contains an invalid combination)\n", seed);
+                    printf("Skipping invalid cluster at seed %llu (contains an invalid combination)\n",
+                           (unsigned long long) seed);
                     free(groupTypes);
                     free(indices);
-                    continue; // Skip processing this cluster, but do not mark the seed as invalid.
+                    continue; // Skip just this cluster; do NOT fail the entire seed
                 }
 
-                // 6) We have a valid cluster
+                // 7) We have a valid cluster that meets minClusterSize and is not invalid
                 atLeastOneValidCluster = true;
 
-                // Optionally print info
+                // Optionally print out info:
                 printf("== Seed %llu: Found cluster of size %d ==\n", 
                        (unsigned long long) seed, groupSize);
                 for (int n = 0; n < groupSize; n++)
@@ -829,12 +832,12 @@ bool scanSeed(uint64_t seed) {
                            clusterPositions[idx].x,
                            clusterPositions[idx].z);
                 }
+                seedsFound++;
                 printf("\n");
+
                 free(groupTypes);
                 free(indices);
-                seedsFound++;
-            } // end for each root
-
+            }
             free(processed);
             free(parent);
         } // end if (clusterCount >= 2)
@@ -963,7 +966,7 @@ int main() {
     setupGenerator(&g, MC_1_21, 0);
 
     // Set search parameters
-    uint64_t start_seed = 3895964444822401111;
+    uint64_t start_seed = 5031130760383654775;
     uint64_t end_seed = start_seed + 1000; // Check 1000 seeds
     int searchRadius = 1000; // Search within 500 blocks
 
