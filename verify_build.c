@@ -747,7 +747,7 @@ int main() {
                         }
                         if (!visited[nidx] && isValidBiome) {
                             stack[stackSize++] = nidx;
-                            visited[nidx] = 1;
+                            visited[nidx] = groupCount + 1;
                         }
                     }
                 }
@@ -756,20 +756,28 @@ int main() {
                 // Build cluster biome name string
                 char clusterBiomes[256] = "";
                 int seenBiomes[256] = {0};
-                for (int z = 0; z < r.sz; z++) {
-                    for (int x = 0; x < r.sx; x++) {
-                        int idx = z * r.sx + x;
-                        if (!visited[idx]) continue;
-                        int biomeId = biomeIds[idx];
-                        if (!seenBiomes[biomeId]) {
-                            seenBiomes[biomeId] = 1;
-                            if (strlen(clusterBiomes) > 0) {
-                                strcat(clusterBiomes, " + ");
+                int validBiomeFound = 0;
+                
+                // Only check biomes that are in clusterGroup0
+                for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
+                    int biomeId = clusterGroup0[i];
+                    for (int z = 0; z < r.sz; z++) {
+                        for (int x = 0; x < r.sx; x++) {
+                            int idx = z * r.sx + x;
+                            if (!visited[idx]) continue;
+                            if (biomeIds[idx] == biomeId && !seenBiomes[biomeId]) {
+                                seenBiomes[biomeId] = 1;
+                                validBiomeFound = 1;
+                                if (strlen(clusterBiomes) > 0) {
+                                    strcat(clusterBiomes, " + ");
+                                }
+                                strcat(clusterBiomes, getBiomeName(biomeId));
                             }
-                            strcat(clusterBiomes, getBiomeName(biomeId));
                         }
                     }
                 }
+                
+                if (!validBiomeFound) continue; // Skip if no valid biomes found
 
                 // Calculate true center of entire cluster
                 double centerX = (sumX / cellCount) * 4 + r.x * 4;
