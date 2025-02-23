@@ -429,22 +429,21 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs) {
                 for (int x = x0; x <= x1; x += step) {
                     int biome = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
                     bool foundBiomeInCluster = false;
+                    // Only include biomes that are in our cluster group
                     for (int j = 0; j < cluster->biomeCount; j++) {
                         if (biome == cluster->biomeIds[j]) {
                             foundBiomeInCluster = true;
+                            if (count == capacity) {
+                                capacity *= 2;
+                                positions = realloc(positions, capacity * sizeof(StructurePos));
+                                if (!positions) { perror("realloc"); exit(1); }
+                            }
+                            positions[count].structureType = biome;
+                            positions[count].x = x;
+                            positions[count].z = z;
+                            count++;
                             break;
                         }
-                    }
-                    if (foundBiomeInCluster) {
-                        if (count == capacity) {
-                            capacity *= 2;
-                            positions = realloc(positions, capacity * sizeof(StructurePos));
-                            if (!positions) { perror("realloc"); exit(1); }
-                        }
-                        positions[count].structureType = biome;
-                        positions[count].x = x;
-                        positions[count].z = z;
-                        count++;
                     }
                 }
             }
@@ -718,7 +717,7 @@ int main() {
             .x = -searchRadius / 4,
             .z = -searchRadius / 4,
             .sx = searchRadius / 2,
-            .sz = searchRadius / 2,
+            .sz =searchRadius / 2,
             .y = 0,
             .sy = 1
         };
