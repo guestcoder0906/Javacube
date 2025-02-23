@@ -563,9 +563,9 @@ bool scanSeed(uint64_t seed) {
     if (NUM_STRUCTURE_REQUIREMENTS > 0) {
         hasAnyRequirements = true;
         for (int rIndex = 0; rIndex < NUM_STRUCTURE_REQUIREMENTS; rIndex++) {
-        StructureRequirement req = structureRequirements[rIndex];
-        int foundCount = 0;
-        StructureConfig sconf;
+            StructureRequirement req = structureRequirements[rIndex];
+            int foundCount = 0;
+            StructureConfig sconf;
         if (!getStructureConfig(req.structureType, MC_1_21, &sconf))
             continue;
         Generator *curr_gen = &g;
@@ -634,6 +634,8 @@ bool scanSeed(uint64_t seed) {
         printf("Valid seed found: %llu\n", seed);
         return true;
     }
+    return false;
+}
     return false;
 }
 
