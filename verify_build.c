@@ -663,10 +663,10 @@ bool scanSeed(uint64_t seed) {
             curr_sn = &esn;
         }
         double blocksPerRegion = sconf.regionSize * 16.0;
-        int rx0 = (int)floor(x0 / blocksPerRegion);
         int rz0 = (int)floor(z0 / blocksPerRegion);
-        int rx1 = (int)ceil(x1 / blocksPerRegion);
         int rz1 = (int)ceil(z1 / blocksPerRegion);
+        int rx0 = (int)floor(x0 / blocksPerRegion);
+        int rx1 = (int)ceil(x1 / blocksPerRegion);
 
         for (int j = rz0; j <= rz1; j++) {
             for (int i = rx0; i <= rx1; i++) {
@@ -755,6 +755,7 @@ bool scanSeed(uint64_t seed) {
                 }
 
                 bool atLeastOneValidCluster = false;
+                bool clusterValid = false;
                 bool *clusterProcessed = calloc(clusterCount, sizeof(bool));
                 for (int i = 0; i < clusterCount; i++) {
                     int root = findSet(parent, i);
