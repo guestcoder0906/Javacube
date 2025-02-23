@@ -1021,16 +1021,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-        // Call scanSeed to check if this seed contains required structures
-        bool structureRequirementsEmpty = (NUM_STRUCTURE_REQUIREMENTS == 0);
-        if (!structureRequirementsEmpty || biomeSearch.requiredCount != 0 || clusterReq.enabled) {
-       if (scanSeed(seed)) {
-            printf("Valid seed found: %llu (meets structure requirements)\n", (unsigned long long) seed);
-            return 0;
-        }
-        }
-
-        // Define search range at biome scale (1:4)
+    // Define search range at biome scale (1:4)
         Range r = {
             .scale = 4,
             .x = -searchRadius / 4,
@@ -1192,5 +1183,6 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Finished searching, no valid seeds found.\n");
-    return 0;
+        return 0;
+    }
 }
