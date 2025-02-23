@@ -778,52 +778,79 @@ int main() {
                     continue;
                 }
 
-                // Found a new cherry grove group
+                // Only start a new cluster if we find two different valid biomes touching
+                int currentBiome = biomeIds[idx];
+                bool isValidStart = false;
+                const int dx[] = {-1, 1, 0, 0};
+                const int dz[] = {0, 0, -1, 1};
+                
+                // Check neighbors for different valid biomes
+                for (int d = 0; d < 4; d++) {
+                    int nx = x + dx[d];
+                    int nz = z + dz[d];
+                    if (nx < 0 || nx >= r.sx || nz < 0 || nz >= r.sz) continue;
+                    
+                    int nidx = nz * r.sx + nx;
+                    int neighborBiome = biomeIds[nidx];
+                    
+                    bool currentValid = false, neighborValid = false;
+                    for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
+                        if (currentBiome == clusterGroup0[i]) currentValid = true;
+                        if (neighborBiome == clusterGroup0[i]) neighborValid = true;
+                    }
+                    
+                    if (currentValid && neighborValid && currentBiome != neighborBiome) {
+                        isValidStart = true;
+                        break;
+                    }
+                }
+                
+                if (!isValidStart) continue;
+                
+                // Found a valid starting point for a new cluster
                 groupCount++;
                 int cellCount = 0;
                 double sumX = 0, sumZ = 0;
 
-                // Only proceed if we have at least two different valid biomes touching
+                // Use flood fill to find connected patches
                 int *stack = malloc(r.sx * r.sz * sizeof(int));
                 int stackSize = 0;
                 stack[stackSize++] = idx;
-                visited[idx] = 1;
+                visited[idx] = groupCount;
 
-                int foundBiomes[256] = {0}; // Track which biomes we've found
-                int differentBiomesCount = 0;
-
+                int foundBiomes[256] = {0};
                 while (stackSize > 0) {
                     int curr = stack[--stackSize];
                     int cx = curr % r.sx;
                     int cz = curr / r.sx;
-                    int currentBiome = biomeIds[curr];
-
-                    // Add this biome to our found list if it's new
+                    currentBiome = biomeIds[curr];
+                    
                     if (!foundBiomes[currentBiome]) {
                         foundBiomes[currentBiome] = 1;
-                        differentBiomesCount++;
                     }
 
                     cellCount++;
                     sumX += cx;
                     sumZ += cz;
 
-                    // Check directly adjacent cells only
+                    // Check only directly adjacent cells
                     for (int d = 0; d < 4; d++) {
                         int nx = cx + dx[d];
                         int nz = cz + dz[d];
-                        if (nx < 0 || nx >= r.sx || nz < 0 || nz >= r.sz) {
-                            continue;
-                        }
+                        if (nx < 0 || nx >= r.sx || nz < 0 || nz >= r.sz) continue;
+                        
                         int nidx = nz * r.sx + nx;
                         if (visited[nidx]) continue;
-
-                        int biomeid = biomeIds[nidx];
-                        // Check if this is a valid biome from our cluster group
+                        
+                        int neighborBiome = biomeIds[nidx];
+                        bool isValidBiome = false;
+                        
+                        // Check if neighbor is a valid biome type
                         for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
-                            if (biomeid == clusterGroup0[i]) {
+                            if (neighborBiome == clusterGroup0[i]) {
+                                isValidBiome = true;
                                 stack[stackSize++] = nidx;
-                                visited[nidx] = groupCount + 1;
+                                visited[nidx] = groupCount;
                                 break;
                             }
                         }
