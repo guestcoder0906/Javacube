@@ -747,18 +747,17 @@ int main() {
                 // Output the center and size of the group
                 double centerX = (sumX / cellCount) * 4 + r.x * 4;
                 double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
-                printf("Clustered biome group 0: center at (%.1f, %.1f), total cell count %d\n",
-                       centerX, centerZ, cellCount);
+                printf("Clustered biome cluster %d: Cherry Grove + Plains, center at (%.1f, %.1f), total cell count %d\n",
+                       groupCount, centerX, centerZ, cellCount);
             }
         }
 
         // Log if any Cherry Grove biomes were found
         if (groupCount > 0) {
-            printf("\nValid seed %llu found with %d Cherry Grove biome groups\n", seed, groupCount);
+            printf("Valid seed %llu found with %d Cherry Grove + Plains biome clusters\n", seed, groupCount);
             printf("Search area: (%d,%d) to (%d,%d)\n",
                    r.x * 4, r.z * 4,
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
-            printf("----------------------------------------\n");
 
             // Exit if we found enough seeds (1 in this case)
             free(visited);
