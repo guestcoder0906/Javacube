@@ -643,7 +643,7 @@ bool scanSeed(uint64_t seed) {
         if (seedsFound >= MAX_SEEDS_TO_FIND) {
             printf("Found required number of seeds (%d). Stopping search.\n", MAX_SEEDS_TO_FIND);
             foundValidSeed = true;
-            return true;
+            exit(0);  // Exit the program immediately
         }
     }
     return false;
