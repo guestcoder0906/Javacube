@@ -819,7 +819,7 @@ int main() {
     return 0;
 }
 
-int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t flags)
+int checkViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t flags)
 {
     bool individualValid = true;
     bool clusterValid = true; // For structure clusters (if enabled)
