@@ -8,7 +8,8 @@
 #include <string.h> // For memcpy
 
 // -----------------------------------------------------------------------------
-// Global variables for seed finding
+// Constants and global variables
+#define MAX_SEEDS_TO_FIND 1
 int maxSeeds = 1;
 int seedsFound = 0;
 
