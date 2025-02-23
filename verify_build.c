@@ -616,8 +616,10 @@ bool scanSeed(uint64_t seed) {
                            seed, req.structureType, pos.x, pos.z, getBiomeName(biome_id));
                 }
             }
-            if (foundCount < req.minCount)
-                allRequirementsMet = false;
+            if (foundCount >= req.minCount) {
+                printf("Found required number of structures. Stopping search.\n");
+                exit(0);  // Exit immediately when we find enough structures
+            }
         }
     }
 
