@@ -616,13 +616,13 @@ bool scanSeed(uint64_t seed) {
             }
         }
         if (foundCount < req.minCount)
-            individualValid = false;
+            allRequirementsMet = false;
     }
 
     // ---- Structure Cluster Scanning (if enabled) ----
     if (clusterReq.enabled) {
         // (Structure cluster scanning code would go here.)
-        clusterValid = true;
+        hasAnyRequirements = true;
     }
 
     if (!hasAnyRequirements) {
