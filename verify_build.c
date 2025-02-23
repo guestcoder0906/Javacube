@@ -706,10 +706,70 @@ bool scanSeed(uint64_t seed) {
     }
 
     // ---- Structure Cluster Scanning (if enabled) ----
-    if (clusterReq.enabled) {
-        // (Structure cluster scanning code would go here.)
-        hasAnyRequirements = true;
-    }
+        if (clusterReq.enabled) {
+            int capacity = 64, clusterCount = 0;
+            StructurePos *clusterPositions = malloc(capacity * sizeof(StructurePos));
+            if (!clusterPositions) { perror("malloc"); exit(1); }
+
+            for (int i = 0; i < clusterReq.count; i++) {
+                int stype = clusterReq.structureTypes[i];
+                StructureConfig sconf;
+                if (!getStructureConfig(stype, MC_1_21, &sconf))
+                    continue;
+                Generator *curr_gen = &g;
+                if (sconf.dim == DIM_NETHER) curr_gen = &ng;
+                else if (sconf.dim == DIM_END) curr_gen = &eg;
+
+                for (int j = rz0; j <= rz1; j++) {
+                    for (int k = rx0; k <= rx1; k++) {
+                        Pos pos;
+                        if (!getStructurePos(stype, MC_1_21, seed, k, j, &pos))
+                            continue;
+                        if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
+                            continue;
+                        if (!isViableStructurePos(stype, curr_gen, pos.x, pos.z, 0))
+                            continue;
+                        if (clusterCount == capacity) {
+                            capacity *= 2;
+                            clusterPositions = realloc(clusterPositions, capacity * sizeof(StructurePos));
+                            if (!clusterPositions) { perror("realloc"); exit(1); }
+                        }
+                        clusterPositions[clusterCount].structureType = stype;
+                        clusterPositions[clusterCount].x = pos.x;
+                        clusterPositions[clusterCount].z = pos.z;
+                        clusterCount++;
+                    }
+                }
+            }
+
+            if (clusterCount >= 2) {
+                int *parent = malloc(clusterCount * sizeof(int));
+                for (int i = 0; i < clusterCount; i++) parent[i] = i;
+                for (int i = 0; i < clusterCount; i++) {
+                    for (int j = i + 1; j < clusterCount; j++) {
+                        int dx = clusterPositions[i].x - clusterPositions[j].x;
+                        int dz = clusterPositions[i].z - clusterPositions[j].z;
+                        if (sqrt(dx * dx + dz * dz) <= clusterReq.clusterDistance)
+                            unionSets(parent, i, j);
+                    }
+                }
+
+                bool atLeastOneValidCluster = false;
+                bool *clusterProcessed = calloc(clusterCount, sizeof(bool));
+                for (int i = 0; i < clusterCount; i++) {
+                    int root = findSet(parent, i);
+                    if (clusterProcessed[root]) continue;
+                    clusterProcessed[root] = true;
+                    atLeastOneValidCluster = true;
+                    printf("Seed %llu: Cluster of %d structures found\n", seed, clusterCount);
+                }
+                free(clusterProcessed);
+                free(parent);
+                clusterValid = atLeastOneValidCluster;
+            }
+            free(clusterPositions);
+        }
+
 
     if (!hasAnyRequirements) {
         printf("Warning: No requirements set, skipping validation\n");
