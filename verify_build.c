@@ -720,7 +720,7 @@ int main() {
             .sz =searchRadius / 2,
             .y = 0,
             .sy = 1
-        };
+};
 
         // Allocate cache for biome generation
         int *biomeIds = allocCache(&g, r);
@@ -783,21 +783,32 @@ int main() {
                 int cellCount = 0;
                 double sumX = 0, sumZ = 0;
 
-                // Simple flood fill to find connected cells
+                // Only proceed if we have at least two different valid biomes touching
                 int *stack = malloc(r.sx * r.sz * sizeof(int));
                 int stackSize = 0;
                 stack[stackSize++] = idx;
                 visited[idx] = 1;
 
+                int foundBiomes[256] = {0}; // Track which biomes we've found
+                int differentBiomesCount = 0;
+
                 while (stackSize > 0) {
                     int curr = stack[--stackSize];
                     int cx = curr % r.sx;
                     int cz = curr / r.sx;
+                    int currentBiome = biomeIds[curr];
+
+                    // Add this biome to our found list if it's new
+                    if (!foundBiomes[currentBiome]) {
+                        foundBiomes[currentBiome] = 1;
+                        differentBiomesCount++;
+                    }
+
                     cellCount++;
                     sumX += cx;
                     sumZ += cz;
 
-                    // Check adjacent cells
+                    // Check directly adjacent cells only
                     for (int d = 0; d < 4; d++) {
                         int nx = cx + dx[d];
                         int nz = cz + dz[d];
@@ -805,17 +816,16 @@ int main() {
                             continue;
                         }
                         int nidx = nz * r.sx + nx;
+                        if (visited[nidx]) continue;
+
                         int biomeid = biomeIds[nidx];
-                        int isValidBiome = 0;
+                        // Check if this is a valid biome from our cluster group
                         for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
                             if (biomeid == clusterGroup0[i]) {
-                                isValidBiome = 1;
+                                stack[stackSize++] = nidx;
+                                visited[nidx] = groupCount + 1;
                                 break;
                             }
-                        }
-                        if (!visited[nidx] && isValidBiome) {
-                            stack[stackSize++] = nidx;
-                            visited[nidx] = groupCount + 1;
                         }
                     }
                 }
