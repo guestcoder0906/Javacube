@@ -635,16 +635,16 @@ bool scanSeed(uint64_t seed) {
     // Check if any requirements were set and met
     bool structuresValid = NUM_STRUCTURE_REQUIREMENTS == 0 || allRequirementsMet;
     bool biomesValid = (biomeSearch.requiredCount == 0 && biomeSearch.clusterCount == 0) || allRequirementsMet;
-    
+
     // Consider seed valid if at least one type of requirement was set and met
     if (hasAnyRequirements && (structuresValid || biomesValid)) {
         printf("Valid seed found: %llu\n", seed);
         seedsFound++;
         if (seedsFound >= MAX_SEEDS_TO_FIND) {
             printf("Found required number of seeds (%d). Stopping search.\n", MAX_SEEDS_TO_FIND);
+            foundValidSeed = true;
             return true;
         }
-        return true;
     }
     return false;
 }
