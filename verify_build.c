@@ -730,13 +730,22 @@ int main() {
                     // Check adjacent cells
                     const int dx[] = {-1, 1, 0, 0};
                     const int dz[] = {0, 0, -1, 1};
-                    for (int d = 0; d < 4; d++) {                        int nx = cx + dx[d];
+                    for (int d = 0; d < 4; d++) {
+                        int nx = cx + dx[d];
                         int nz = cz + dz[d];
                         if (nx < 0 || nx >= r.sx || nz < 0 || nz >= r.sz) {
                             continue;
                         }
                         int nidx = nz * r.sx + nx;
-                        if (!visited[nidx] && biomeIds[nidx] == 185) { //check for cherry grove (185)
+                        // Check if the biome is in clusterGroup0
+                        int validBiome = 0;
+                        for (int b = 0; b < sizeof(clusterGroup0)/sizeof(clusterGroup0[0]); b++) {
+                            if (biomeIds[nidx] == clusterGroup0[b]) {
+                                validBiome = 1;
+                                break;
+                            }
+                        }
+                        if (!visited[nidx] && validBiome) {
                             stack[stackSize++] = nidx;
                             visited[nidx] = 1;
                         }
@@ -744,17 +753,35 @@ int main() {
                 }
                 free(stack);
 
-                // Output the center and size of the group
+                // Build cluster biome name string
+                char clusterBiomes[256] = "";
+                int seenBiomes[256] = {0};
+                for (int z = 0; z < r.sz; z++) {
+                    for (int x = 0; x < r.sx; x++) {
+                        int idx = z * r.sx + x;
+                        if (!visited[idx]) continue;
+                        int biomeId = biomeIds[idx];
+                        if (!seenBiomes[biomeId]) {
+                            seenBiomes[biomeId] = 1;
+                            if (strlen(clusterBiomes) > 0) {
+                                strcat(clusterBiomes, " + ");
+                            }
+                            strcat(clusterBiomes, getBiomeName(biomeId));
+                        }
+                    }
+                }
+
+                // Calculate true center of entire cluster
                 double centerX = (sumX / cellCount) * 4 + r.x * 4;
                 double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
-                printf("Clustered biome cluster %d: Cherry Grove + Plains, center at (%.1f, %.1f), total cell count %d\n",
-                       groupCount, centerX, centerZ, cellCount);
+                printf("Clustered biome cluster %d: %s, center at (%.1f, %.1f), total cell count %d\n",
+                       groupCount, clusterBiomes, centerX, centerZ, cellCount);
             }
         }
 
-        // Log if any Cherry Grove biomes were found
+        // Log if any clusters were found
         if (groupCount > 0) {
-            printf("Valid seed %llu found with %d Cherry Grove + Plains biome clusters\n", seed, groupCount);
+            printf("Valid seed %llu found with %d biome clusters\n", seed, groupCount);
             printf("Search area: (%d,%d) to (%d,%d)\n",
                    r.x * 4, r.z * 4,
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
