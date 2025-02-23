@@ -629,7 +629,7 @@ bool scanSeed(uint64_t seed) {
         printf("Warning: No requirements set, skipping validation\n");
         return false;
     }
-    
+
     if (allRequirementsMet) {
         printf("Valid seed found: %llu\n", seed);
         return true;
@@ -842,7 +842,8 @@ int main() {
                    r.x * 4, r.z * 4,
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
 
-            // Exit if we found enough seeds (1 in this case)
+            // Exit if we found enough seeds (maxSeeds = 1)
+            printf("Found %d valid seeds (maximum %d)\n", seedsFound + 1, MAX_SEEDS_TO_FIND);
             free(visited);
             free(biomeIds);
             return 0;
