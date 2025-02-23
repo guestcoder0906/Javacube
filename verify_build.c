@@ -10,7 +10,9 @@
 // -----------------------------------------------------------------------------
 // Global variables for seed finding
 // main: Starts scanning tasks.
-#define MAX_SEEDS_TO_FIND 1
+// Configuration parameters
+int MAX_SEEDS_TO_FIND = 1;  // Default value, can be changed
+int NUM_THREADS = 4;        // Default number of parallel threads
 int seedsFound = 0;
 
 // -----------------------------------------------------------------------------
@@ -958,16 +960,27 @@ void *scanTask(void *arg) {
 
 // -----------------------------------------------------------------------------
 
-int main() {
+int main(int argc, char *argv[]) {
     printf("Checking cubiomes library...\n");
+
+    // Parse command line arguments
+    if (argc > 1) {
+        MAX_SEEDS_TO_FIND = atoi(argv[1]);
+    }
+    if (argc > 2) {
+        NUM_THREADS = atoi(argv[2]);
+    }
+    if (NUM_THREADS < 1) NUM_THREADS = 1;
+    if (NUM_THREADS > 32) NUM_THREADS = 32;
+
+    printf("Searching for %d seeds using %d threads\n", MAX_SEEDS_TO_FIND, NUM_THREADS);
 
     // Initialize generator for MC 1.21
     Generator g;
     setupGenerator(&g, MC_1_21, 0);
 
     // Set search parameters
-    uint64_t start_seed = 5031130760383654775;
-    uint64_t end_seed = start_seed + 1000; // Check 1000 seeds
+    currentSeed = 5031130760383654775;
     int searchRadius = 1000; // Search within 500 blocks
 
     // Initialize reqGroup and requiredBiomes in main
@@ -979,10 +992,34 @@ int main() {
     requiredBiomes[0] = reqGroup;
 
 
-    for (uint64_t seed = start_seed; seedsFound <= MAX_SEEDS_TO_FIND; seed++) {
-        // Apply seed to generator
-        applySeed(&g, DIM_OVERWORLD, seed);
-        printf("Checking seed: %llu\n", (unsigned long long) seed);
+    // Initialize and start threads
+    pthread_t *threads = malloc(NUM_THREADS * sizeof(pthread_t));
+    if (!threads) {
+        printf("Failed to allocate thread array\n");
+        return 1;
+    }
+
+    // Start threads
+    for (int i = 0; i < NUM_THREADS; i++) {
+        if (pthread_create(&threads[i], NULL, scanTask, NULL) != 0) {
+            printf("Failed to create thread %d\n", i);
+            free(threads);
+            return 1;
+        }
+    }
+
+    // Wait for threads to finish
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    free(threads);
+
+    if (seedsFound > 0) {
+        printf("Found %d valid seeds. Last valid seed: %llu\n", 
+               seedsFound, (unsigned long long)validSeed);
+        return 0;
+    }
 
         // Call scanSeed to check if this seed contains required structures
         bool structureRequirementsEmpty = (NUM_STRUCTURE_REQUIREMENTS == 0);
