@@ -504,7 +504,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs) {
 
 // -----------------------------------------------------------------------------
 // Global configuration parameters.
-uint64_t starting_seed = 12346;
+uint64_t starting_seed = 12345;
 int searchRadius = 500;
 int useSpawn = 1;      // 1 = use spawn point; 0 = use custom coordinates.
 int customX = 0;
@@ -663,7 +663,7 @@ int main() {
     setupGenerator(&g, MC_1_21, 0);
 
     // Set search parameters
-    uint64_t start_seed = 12346;
+    uint64_t start_seed = 12345;
     uint64_t end_seed = start_seed + 1000; // Check 1000 seeds
     int searchRadius = 500; // Search within 500 blocks
 
@@ -707,7 +707,7 @@ int main() {
                 if (visited[idx]) {
                     continue;
                 }
-
+                
                 int isValidStartBiome = 0;
                 for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
                     if (biomeIds[idx] == clusterGroup0[i]) {
@@ -719,8 +719,8 @@ int main() {
                     continue;
                 }
 
-                // Reset group count for each cluster
-                groupCount = 1;
+                // Found a new cherry grove group
+                groupCount++;
                 int cellCount = 0;
                 double sumX = 0, sumZ = 0;
 
@@ -767,18 +767,18 @@ int main() {
                 // Build cluster biome name string
                 char clusterBiomes[256] = "";
                 int seenBiomes[256] = {0};
-                int uniqueBiomeCount = 0;
-
+                int validBiomeFound = 0;
+                
                 // Only check biomes that are in clusterGroup0
                 for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
                     int biomeId = clusterGroup0[i];
                     for (int z = 0; z < r.sz; z++) {
                         for (int x = 0; x < r.sx; x++) {
                             int idx = z * r.sx + x;
-                            if (visited[idx] != groupCount + 1) continue;
+                            if (!visited[idx]) continue;
                             if (biomeIds[idx] == biomeId && !seenBiomes[biomeId]) {
                                 seenBiomes[biomeId] = 1;
-                                uniqueBiomeCount++;
+                                validBiomeFound = 1;
                                 if (strlen(clusterBiomes) > 0) {
                                     strcat(clusterBiomes, " + ");
                                 }
@@ -787,21 +787,20 @@ int main() {
                         }
                     }
                 }
-
-                // Skip if less than 2 unique biomes or cell count is too small
-                if (uniqueBiomeCount < 2 || cellCount < 2) continue;
+                
+                if (!validBiomeFound) continue; // Skip if no valid biomes found
 
                 // Calculate true center of entire cluster
                 double centerX = (sumX / cellCount) * 4 + r.x * 4;
                 double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
-                printf("Clustered biome cluster: %s, center at (%.1f, %.1f), total cell count %d\n",
-                       clusterBiomes, centerX, centerZ, cellCount);
+                printf("Clustered biome cluster %d: %s, center at (%.1f, %.1f), total cell count %d\n",
+                       groupCount, clusterBiomes, centerX, centerZ, cellCount);
             }
         }
 
         // Log if any clusters were found
         if (groupCount > 0) {
-            printf("Valid seed %llu found valid biome clusters\n", seed);
+            printf("Valid seed %llu found with %d biome clusters\n", seed, groupCount);
             printf("Search area: (%d,%d) to (%d,%d)\n",
                    r.x * 4, r.z * 4,
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
