@@ -214,9 +214,9 @@ static BiomeRequirement reqGroup = {
     .logCenters = 1
 };*/
 
-static int reqGroup0[] = {}; // This group includes Plains.
+static int reqGroup0[] = {1}; // 1 is plains biome ID
     static BiomeSizeConfig reqSizeConfigs[] = {
-        { 1, -1, -1 }   // Plains: no max, maximum 50 cells per patch
+        { 1, 20, 100 }   // Plains: min 20, max 100 cells per patch
     };
     static const BiomeRequirement reqGroup = {
         .biomeIds   = reqGroup0,
@@ -240,8 +240,8 @@ static const BiomeCluster clustGroup0 = {
 
 
 // By default, we initialize with one required group and one cluster group.
-static BiomeRequirement requiredBiomes[] = { {0} }; // Initialize with empty requirement
-static int requiredBiomesCount = 0; // Set count to 0
+static BiomeRequirement requiredBiomes[] = { reqGroup }; // Initialize with plains requirement
+static int requiredBiomesCount = 1; // Set count to 1
 
 static const BiomeCluster biomeClusters[] = { clustGroup0 };
 static const int biomeClustersCount = sizeof(biomeClusters) / sizeof(biomeClusters[0]);
