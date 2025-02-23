@@ -632,9 +632,13 @@ bool scanSeed(uint64_t seed) {
         return false;
     }
 
-    // Consider seed valid if it meets its active requirements
-    if (hasAnyRequirements && allRequirementsMet) {
-        printf("Valid seed found: %llu (meets all active requirements)\n", seed);
+    // Check if any requirements were set and met
+    bool structuresValid = NUM_STRUCTURE_REQUIREMENTS == 0 || allRequirementsMet;
+    bool biomesValid = (biomeSearch.requiredCount == 0 && biomeSearch.clusterCount == 0) || allRequirementsMet;
+    
+    // Consider seed valid if at least one type of requirement was set and met
+    if (hasAnyRequirements && (structuresValid || biomesValid)) {
+        printf("Valid seed found: %llu\n", seed);
         seedsFound++;
         if (seedsFound >= MAX_SEEDS_TO_FIND) {
             printf("Found required number of seeds (%d). Stopping search.\n", MAX_SEEDS_TO_FIND);
@@ -686,7 +690,7 @@ int main() {
     uint64_t end_seed = start_seed + 1000; // Check 1000 seeds
     int searchRadius = 1000; // Search within 500 blocks
 
-    for (uint64_t seed = start_seed; seed < end_seed; seed++) {
+    for (uint64_t seed = start_seed; seed < end_seed && seedsFound < MAX_SEEDS_TO_FIND; seed++) {
         // Apply seed to generator
         applySeed(&g, DIM_OVERWORLD, seed);
         printf("Checking seed: %llu\n", (unsigned long long) seed);
