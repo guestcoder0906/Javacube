@@ -663,7 +663,6 @@ bool scanSeed(uint64_t seed) {
     initSurfaceNoise(&esn, DIM_END, seed);
 
     // ---- Structure Cluster Scanning (if enabled) ----
-    printf("Structure clustering is %s\n", clusterReq.enabled ? "enabled" : "disabled");
     if (clusterReq.enabled)
     {
         hasAnyRequirements = true;
