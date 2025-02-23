@@ -313,7 +313,7 @@ bool arraysEqual(int a[], int aCount, int b[], int bCount) {
 // Structure requirements examples (fixed, not dynamic)
 #define NUM_STRUCTURE_REQUIREMENTS 2
 StructureRequirement structureRequirements[NUM_STRUCTURE_REQUIREMENTS] = {
-    // EXAMPLE: { 5, 1, -10000, 10000, 1, 50, -1 },  // Village (5) in Plains (1), patch must have at least 50 cells
+    { Village, 1, -10000, 10000, -1, -1, -1 },  // Any Village
     // EXAMPLE: { 7, 1, -10000, 10000, 24, 20, -1 }   // Shipwreck (7) in Deep Ocean (24), patch must have at least 20 cells
 };
 
