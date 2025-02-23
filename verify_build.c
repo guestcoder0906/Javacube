@@ -861,56 +861,55 @@ bool scanSeed(uint64_t seed) {
             StructureRequirement req = structureRequirements[rIndex];
             int foundCount = 0;
             StructureConfig sconf;
-            if (!getStructureConfig(req.structureType, MC_1_21, &sconf))
-                continue;
-            Generator *curr_gen = &g;
-            SurfaceNoise *curr_sn = &sn;
-            if (sconf.dim == DIM_NETHER)
-                curr_gen = &ng;
-            else if (sconf.dim == DIM_END) {
-                curr_gen = &eg;
-                curr_sn = &esn;
-            }
-            double blocksPerRegion = sconf.regionSize * 16.0;
-            int rx0 = (int)floor(x0 / blocksPerRegion);
-            int rz0 = (int)floor(z0 / blocksPerRegion);
-            int rx1 = (int)ceil(x1 / blocksPerRegion);
-            int rz1 = (int)ceil(z1 / blocksPerRegion);
+        if (!getStructureConfig(req.structureType, MC_1_21, &sconf))
+            continue;
+        Generator *curr_gen = &g;
+        SurfaceNoise *curr_sn = &sn;
+        if (sconf.dim == DIM_NETHER)
+            curr_gen = &ng;
+        else if (sconf.dim == DIM_END) {
+            curr_gen = &eg;
+            curr_sn = &esn;
+        }
+        double blocksPerRegion = sconf.regionSize * 16.0;
+        int rx0 = (int)floor(x0 / blocksPerRegion);
+        int rz0 = (int)floor(z0 / blocksPerRegion);
+        int rx1 = (int)ceil(x1 / blocksPerRegion);
+        int rz1 = (int)ceil(z1 / blocksPerRegion);
 
-            for (int j = rz0; j <= rz1; j++) {
-                for (int i = rx0; i <= rx1; i++) {
-                    Pos pos;
-                    if (!getStructurePos(req.structureType, MC_1_21, seed, i, j, &pos))
-                        continue;
-                    if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
-                        continue;
-                    if (!isViableStructurePos(req.structureType, curr_gen, pos.x, pos.z, 0))
-                        continue;
-                    int biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, pos.z >> 2, 320 >> 2);
-                    if (biome_id == -1) {
-                        float heightArr[256];
-                        int w = 16, h = 16;
-                        Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 320 >> 2, 1};
-                        mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
-                        int lx = pos.x & 15;
-                        int lz = pos.z & 15;
-                        int surface_y = (int)heightArr[lz * w + lx];
-                        biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
-                    }
-                    if (req.requiredBiome != -1 && biome_id != req.requiredBiome)
-                        continue;
-                    if (req.requiredBiome != -1 && (req.minBiomeSize != -1 || req.maxBiomeSize != -1)) {
-                        int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
-                        if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
-                            (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
-                            continue;
-                    }
-                    foundCount++;
-                    printf("Seed %llu: Found structure %d at (%d, %d) in biome %s\n",
-                           seed, req.structureType, pos.x, pos.z, getBiomeName(biome_id));
-                    seedsFound++;
-                    hasAnyRequirements = true;
+        for (int j = rz0; j <= rz1; j++) {
+            for (int i = rx0; i <= rx1; i++) {
+                Pos pos;
+                if (!getStructurePos(req.structureType, MC_1_21, seed, i, j, &pos))
+                    continue;
+                if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
+                    continue;
+                if (!isViableStructurePos(req.structureType, curr_gen, pos.x, pos.z, 0))
+                    continue;
+                int biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, pos.z >> 2, 320 >> 2);
+                if (biome_id == -1) {
+                    float heightArr[256];
+                    int w = 16, h = 16;
+                    Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 320 >> 2, 1};
+                    mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
+                    int lx = pos.x & 15;
+                    int lz = pos.z & 15;
+                    int surface_y = (int)heightArr[lz * w + lx];
+                    biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
                 }
+                if (req.requiredBiome != -1 && biome_id != req.requiredBiome)
+                    continue;
+                if (req.requiredBiome != -1 && (req.minBiomeSize != -1 || req.maxBiomeSize != -1)) {
+                    int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
+                    if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
+                        (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
+                        continue;
+                }
+                foundCount++;
+                printf("Seed %llu: Found structure %d at (%d, %d) in biome %s\n",
+                       seed, req.structureType, pos.x, pos.z, getBiomeName(biome_id));
+                seedsFound++;
+                hasAnyRequirements = true;
             }
         }
     }
@@ -924,6 +923,8 @@ bool scanSeed(uint64_t seed) {
         printf("Valid seed found: %llu\n", seed);
         return true;
     }
+    return false;
+}
     return false;
 }
 
@@ -983,10 +984,10 @@ int main() {
         // Call scanSeed to check if this seed contains required structures
         bool structureRequirementsEmpty = (NUM_STRUCTURE_REQUIREMENTS == 0);
         if (!structureRequirementsEmpty || biomeSearch.requiredCount != 0 || clusterReq.enabled) {
-            if (scanSeed(seed)) {
-                printf("Valid seed found: %llu (meets structure requirements)\n", (unsigned long long) seed);
-                return 0;
-            }
+       if (scanSeed(seed)) {
+            printf("Valid seed found: %llu (meets structure requirements)\n", (unsigned long long) seed);
+            return 0;
+        }
         }
 
         // Define search range at biome scale (1:4)
