@@ -767,7 +767,7 @@ int main() {
                 // Build cluster biome name string
                 char clusterBiomes[256] = "";
                 int seenBiomes[256] = {0};
-                int validBiomeFound = 0;
+                int uniqueBiomeCount = 0;
                 
                 // Only check biomes that are in clusterGroup0
                 for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
@@ -775,10 +775,10 @@ int main() {
                     for (int z = 0; z < r.sz; z++) {
                         for (int x = 0; x < r.sx; x++) {
                             int idx = z * r.sx + x;
-                            if (!visited[idx]) continue;
+                            if (visited[idx] != groupCount + 1) continue;
                             if (biomeIds[idx] == biomeId && !seenBiomes[biomeId]) {
                                 seenBiomes[biomeId] = 1;
-                                validBiomeFound = 1;
+                                uniqueBiomeCount++;
                                 if (strlen(clusterBiomes) > 0) {
                                     strcat(clusterBiomes, " + ");
                                 }
@@ -788,7 +788,8 @@ int main() {
                     }
                 }
                 
-                if (!validBiomeFound) continue; // Skip if no valid biomes found
+                // Skip if less than 2 unique biomes or cell count is too small
+                if (uniqueBiomeCount < 2 || cellCount < 2) continue;
 
                 // Calculate true center of entire cluster
                 double centerX = (sumX / cellCount) * 4 + r.x * 4;
