@@ -599,10 +599,7 @@ int searchRadius = 1000;
 int useSpawn = 1;      // 1 = use spawn point; 0 = use custom coordinates.
 int customX = 0;
 int customZ = 0;
-volatile uint64_t currentSeed;  // Shared seed counter
-volatile bool foundValidSeed = false;
-pthread_mutex_t seedMutex = PTHREAD_MUTEX_INITIALIZER;
-uint64_t validSeed = 0;
+int tasksCount = 1;    // Number of parallel scanning tasks.
 
 // Global variables for multithreading.
 volatile bool foundValidSeed = false;
@@ -964,13 +961,13 @@ void *scanTask(void *arg) {
 int main() {
     printf("Checking cubiomes library...\n");
 
-    // Initialize parameters
-    int numThreads = 4; // Default number of simultaneous scans
-    printf("Running with %d simultaneous scans...\n", numThreads);
+    // Initialize generator for MC 1.21
+    Generator g;
+    setupGenerator(&g, MC_1_21, 0);
 
     // Set search parameters
     uint64_t start_seed = 5031130760383654775;
-    currentSeed = start_seed;
+    uint64_t end_seed = start_seed + 1000; // Check 1000 seeds
     int searchRadius = 1000; // Search within 500 blocks
 
     // Initialize reqGroup and requiredBiomes in main
@@ -981,39 +978,11 @@ int main() {
     reqGroup.logCenters = 1;
     requiredBiomes[0] = reqGroup;
 
-    // Create threads
-    pthread_t *threads = malloc(numThreads * sizeof(pthread_t));
-    if (!threads) {
-        printf("Failed to allocate memory for threads\n");
-        return 1;
-    }
 
-
-    // Start threads
-    for (int i = 0; i < numThreads; i++) {
-        if (pthread_create(&threads[i], NULL, scanTask, NULL) != 0) {
-            printf("Failed to create thread %d\n", i);
-            free(threads);
-            return 1;
-        }
-    }
-
-    // Wait for threads to complete
-    for (int i = 0; i < numThreads; i++) {
-        pthread_join(threads[i], NULL);
-    }
-
-    // Clean up
-    free(threads);
-
-    if (foundValidSeed) {
-        printf("Found valid seed: %llu\n", (unsigned long long)validSeed);
-        return 0;
-    }
-
-    printf("No valid seeds found\n");
-    return 1;
-}
+    for (uint64_t seed = start_seed; seedsFound <= MAX_SEEDS_TO_FIND; seed++) {
+        // Apply seed to generator
+        applySeed(&g, DIM_OVERWORLD, seed);
+        printf("Checking seed: %llu\n", (unsigned long long) seed);
 
         // Call scanSeed to check if this seed contains required structures
         bool structureRequirementsEmpty = (NUM_STRUCTURE_REQUIREMENTS == 0);
