@@ -700,6 +700,16 @@ int main() {
             if (visited[idx]) continue;
 
             int currentBiome = biomeIds[idx];
+            // Check if current biome is one we're looking for
+            bool isValidBiome = false;
+            for(int i = 0; i < sizeof(clusterGroup0)/sizeof(clusterGroup0[0]); i++) {
+                if(currentBiome == clusterGroup0[i]) {
+                    isValidBiome = true;
+                    break;
+                }
+            }
+            if(!isValidBiome) continue;
+
             int *foundBiomes = calloc(256, sizeof(int));
             int uniqueBiomeCount = 0;
             int cellCount = 0;
@@ -716,6 +726,16 @@ int main() {
                 int cx = curr % r.sx;
                 int cz = curr / r.sx;
                 int currBiome = biomeIds[curr];
+
+                // Only process valid biomes
+                bool isValid = false;
+                for(int i = 0; i < sizeof(clusterGroup0)/sizeof(clusterGroup0[0]); i++) {
+                    if(currBiome == clusterGroup0[i]) {
+                        isValid = true;
+                        break;
+                    }
+                }
+                if(!isValid) continue;
                 
                 if (!foundBiomes[currBiome]) {
                     foundBiomes[currBiome] = 1;
