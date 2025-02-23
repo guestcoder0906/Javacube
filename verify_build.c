@@ -632,6 +632,11 @@ bool scanSeed(uint64_t seed) {
 
     if (allRequirementsMet) {
         printf("Valid seed found: %llu\n", seed);
+        seedsFound++;
+        if (seedsFound >= MAX_SEEDS_TO_FIND) {
+            printf("Found required number of seeds (%d). Stopping search.\n", MAX_SEEDS_TO_FIND);
+            return true;
+        }
         return true;
     }
     return false;
@@ -843,10 +848,13 @@ int main() {
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
 
             // Exit if we found enough seeds (maxSeeds = 1)
-            printf("Found %d valid seeds (maximum %d)\n", seedsFound + 1, MAX_SEEDS_TO_FIND);
-            free(visited);
-            free(biomeIds);
-            return 0;
+            seedsFound++;
+            printf("Found %d valid seeds (maximum %d)\n", seedsFound, MAX_SEEDS_TO_FIND);
+            if (seedsFound >= MAX_SEEDS_TO_FIND) {
+                free(visited);
+                free(biomeIds);
+                return 0;
+            }
         }
 
         free(visited);
