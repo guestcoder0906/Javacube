@@ -258,7 +258,7 @@ typedef struct {
 
 int clusterTypesArray[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16, 18 };
 ClusterRequirement clusterReq = {
-    .enabled = true,      // Change to true to enable structure clustering check.
+    .enabled = false,      // Set to false by default, change to true to enable structure clustering
     .clusterDistance = 16,
     .structureTypes = clusterTypesArray,
     .count = sizeof(clusterTypesArray) / sizeof(clusterTypesArray[0])
