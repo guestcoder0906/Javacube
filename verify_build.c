@@ -229,9 +229,9 @@ static BiomeRequirement reqGroup = {
 // For clustered biomes, all cells that belong to the group are merged regardless of individual type.
 // For example, define one cluster group that contains Plains and Cherry Grove with no size filtering.
 static int clusterGroup0[] = {0}; // Initialize with dummy value
-static const BiomeCluster clustGroup0 = {
-    .biomeIds = NULL, //clusterGroup0,
-    .biomeCount = 0, //sizeof(clusterGroup0) / sizeof(clusterGroup0[0]),
+static BiomeCluster clustGroup0 = {
+    .biomeIds = NULL,
+    .biomeCount = 0,
     .minSize = -1,
     .maxSize = -1,
     .logCenters = 1
@@ -241,7 +241,7 @@ static const BiomeCluster clustGroup0 = {
 static BiomeRequirement requiredBiomes[] = { {0} }; // Initialize with empty requirement
 static int requiredBiomesCount = 0; // Set count to 0
 
-static const BiomeCluster biomeClusters[] = { clustGroup0 };
+static BiomeCluster biomeClusters[] = { {NULL, 0, -1, -1, 1} };
 static const int biomeClustersCount = sizeof(biomeClusters) / sizeof(biomeClusters[0]);
 
 static BiomeSearch biomeSearch = {
@@ -313,7 +313,7 @@ bool arraysEqual(int a[], int aCount, int b[], int bCount) {
 // Structure requirements examples (fixed, not dynamic)
 #define NUM_STRUCTURE_REQUIREMENTS 2
 StructureRequirement structureRequirements[NUM_STRUCTURE_REQUIREMENTS] = {
-    { 5, 1, -10000, 10000, -1, -1, -1 },  // Village (5), min amount, in Plains (1), min height, max height, required biome, patch must have at least 50 cells
+    // EXAMPLE: { 5, 1, -10000, 10000, 1, 50, -1 },  // Village (5) in Plains (1), patch must have at least 50 cells
     // EXAMPLE: { 7, 1, -10000, 10000, 24, 20, -1 }   // Shipwreck (7) in Deep Ocean (24), patch must have at least 20 cells
 };
 
@@ -497,7 +497,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs) {
 // -----------------------------------------------------------------------------
 // Global configuration parameters.
 uint64_t starting_seed = 12345;
-int searchRadius = 1000;
+int searchRadius = 500;
 int useSpawn = 1;      // 1 = use spawn point; 0 = use custom coordinates.
 int customX = 0;
 int customZ = 0;
@@ -588,19 +588,13 @@ bool scanSeed(uint64_t seed) {
                     int surface_y = (int)heightArr[lz * w + lx];
                     biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
                 }
-
-                // Skip biome check if requiredBiome is -1
-                if (req.requiredBiome != -1) {
-                    if (biome_id != req.requiredBiome)
+                if (req.requiredBiome != -1 && biome_id != req.requiredBiome)
+                    continue;
+                if (req.requiredBiome != -1 && (req.minBiomeSize != -1 || req.maxBiomeSize != -1)) {
+                    int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
+                    if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
+                        (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
                         continue;
-
-                    // Only check biome size if we have a required biome and size requirements
-                    if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
-                        int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
-                        if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
-                            (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
-                            continue;
-                    }
                 }
                 foundCount++;
                 printf("Seed %llu: Found structure %d at (%d, %d) in biome %s\n",
@@ -731,7 +725,7 @@ int main() {
                 int cx = curr % r.sx;
                 int cz = curr / r.sx;
                 int currBiome = biomeIds[curr];
-
+                
                 // Only count biomes that are in the valid group
                 for (int i = 0; i < sizeof(clusterGroup0)/sizeof(clusterGroup0[0]); i++) {
                     if (currBiome == clusterGroup0[i] && !foundBiomes[currBiome]) {
@@ -740,7 +734,7 @@ int main() {
                         break;
                     }
                 }
-
+                
                 cellCount++;
                 sumX += cx;
                 sumZ += cz;
@@ -768,7 +762,7 @@ int main() {
                 groupCount++;
                 double centerX = (sumX / cellCount) * 4 + r.x * 4;
                 double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
-
+                
                 // Build biome list string
                 char biomeList[256] = "";
                 int first = 1;
@@ -779,7 +773,7 @@ int main() {
                         first = 0;
                     }
                 }
-
+                
                 printf("Biome group %d: %s, center at (%.1f, %.1f), total cell count %d\n",
                        groupCount, biomeList, centerX, centerZ, cellCount);
             }
@@ -794,7 +788,7 @@ int main() {
                    r.x * 4, r.z * 4, 
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
             printf("----------------------------------------\n");
-
+            
             // Exit if we found enough seeds (1 in this case)
             free(visited);
             free(biomeIds);
@@ -817,50 +811,4 @@ int main() {
     }
 
     return 0;
-}
-
-int checkViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t flags)
-{
-    bool individualValid = true;
-    bool clusterValid = true; // For structure clusters (if enabled)
-
-    // Process structure requirements
-    for (int rIndex = 0; rIndex < NUM_STRUCTURE_REQUIREMENTS; rIndex++) {
-        StructureRequirement req = structureRequirements[rIndex];
-        if (req.structureType != structureType)
-            continue;
-
-        int foundCount = 0;
-        StructureConfig sconf;
-        if (!getStructureConfig(req.structureType, MC_1_21, &sconf))
-            continue;
-
-        // Get biome at structure position
-        int biome_id = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
-
-        // Check biome requirement only if specific biome is requested (not -1)
-        if (req.requiredBiome != -1) {
-            if (biome_id != req.requiredBiome)
-                continue;
-
-            // Check biome size requirements if applicable
-            if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
-                int patchSize = getBiomePatchSize(g, x, z, biome_id);
-                if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
-                    (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
-                    continue;
-            }
-        }
-        foundCount++;
-        printf("Found structure %d at (%d, %d) in biome %s\n",
-               req.structureType, x, z, getBiomeName(biome_id));
-
-        if (foundCount < req.minCount)
-            individualValid = false;
-    }
-
-    if (individualValid && clusterValid) {
-        return true;
-    }
-    return false;
 }
