@@ -603,6 +603,31 @@ pthread_mutex_t seedMutex = PTHREAD_MUTEX_INITIALIZER;
 uint64_t validSeed = 0;
 volatile uint64_t currentSeed;
 
+// Function to check if a cluster (of any size) is invalid via a subset check.
+bool isInvalidClusterDynamic(int *groupTypes, int groupSize) {
+    for (int ic = 0; ic < NUM_INVALID_COMBINATIONS; ic++) {
+        int *invalidSet = invalidCombinations[ic].types;
+        int invalidCount = invalidCombinations[ic].count;
+        bool isSubset = true;
+        for (int k = 0; k < invalidCount; k++) {
+            bool found = false;
+            for (int j = 0; j < groupSize; j++) {
+                if (groupTypes[j] == invalidSet[k]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                isSubset = false;
+                break;
+            }
+        }
+        if (isSubset)
+            return true;
+    }
+    return false;
+}
+
 // -----------------------------------------------------------------------------
 // scanSeed: Scans a single seed for both structure and biome requirements.
 bool scanSeed(uint64_t seed) {
@@ -637,6 +662,182 @@ bool scanSeed(uint64_t seed) {
     initSurfaceNoise(&sn, DIM_OVERWORLD, seed);
     initSurfaceNoise(&esn, DIM_END, seed);
 
+    // ---- Structure Cluster Scanning (if enabled) ----
+    printf("LOL: ", clusterReq.enabled);
+    if (clusterReq.enabled)
+    {
+        hasAnyRequirements = true;
+
+        // 1) Collect all structure positions of the clusterReq.structureTypes into one array.
+        int capacity = 128;         // initial capacity
+        int clusterCount = 0;       // how many structure positions we actually store
+        StructurePos *clusterPositions = malloc(capacity * sizeof(StructurePos));
+        if (!clusterPositions)
+        {
+            perror("malloc");
+            exit(1);
+        }
+
+        // For each structure type we want to cluster
+        for (int i = 0; i < clusterReq.count; i++)
+        {
+            int stype = clusterReq.structureTypes[i];
+            StructureConfig sconf;
+            if (!getStructureConfig(stype, MC_1_21, &sconf))
+                continue; // skip if not valid for this MC version
+
+            // Decide which generator to use
+            Generator *curr_gen = &g;
+            SurfaceNoise *curr_sn = &sn;
+            if (sconf.dim == DIM_NETHER)
+            {
+                curr_gen = &ng;
+                curr_sn  = NULL; // if not needed for nether
+            }
+            else if (sconf.dim == DIM_END)
+            {
+                curr_gen = &eg;
+                curr_sn  = &esn;
+            }
+
+            // Convert our (x0,z0,x1,z1) bounding box to structure-region coords
+            double blocksPerRegion = sconf.regionSize * 16.0;
+            int rx0 = (int) floor(x0 / blocksPerRegion);
+            int rz0 = (int) floor(z0 / blocksPerRegion);
+            int rx1 = (int) ceil(x1 / blocksPerRegion);
+            int rz1 = (int) ceil(z1 / blocksPerRegion);
+
+            // Scan each region for the given structure type
+            for (int rz = rz0; rz <= rz1; rz++)
+            {
+                for (int rx = rx0; rx <= rx1; rx++)
+                {
+                    Pos pos;
+                    if (!getStructurePos(stype, MC_1_21, seed, rx, rz, &pos))
+                        continue; // structure not in this region
+                    if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
+                        continue; // out of bounding box
+                    if (!isViableStructurePos(stype, curr_gen, pos.x, pos.z, 0))
+                        continue; // structure generation fails biome/height checks
+
+                    // We have a valid structure in range; add to array
+                    if (clusterCount == capacity)
+                    {
+                        capacity *= 2;
+                        clusterPositions = realloc(clusterPositions, capacity * sizeof(StructurePos));
+                        if (!clusterPositions)
+                        {
+                            perror("realloc");
+                            exit(1);
+                        }
+                    }
+                    clusterPositions[clusterCount].structureType = stype;
+                    clusterPositions[clusterCount].x = pos.x;
+                    clusterPositions[clusterCount].z = pos.z;
+                    clusterCount++;
+                }
+            }
+        } // end for each structure type
+
+
+        // 2) If no structures or only one was found, you can’t form a cluster
+        bool atLeastOneValidCluster = false;
+        if (clusterCount >= 2)
+        {
+            // 3) Union–find (by distance)
+            int *parent = malloc(clusterCount * sizeof(int));
+            for (int i = 0; i < clusterCount; i++)
+                parent[i] = i;
+
+            // Merge if they’re within clusterDistance
+            for (int i = 0; i < clusterCount; i++)
+            {
+                for (int j = i + 1; j < clusterCount; j++)
+                {
+                    int dx = clusterPositions[i].x - clusterPositions[j].x;
+                    int dz = clusterPositions[i].z - clusterPositions[j].z;
+                    // Euclidean distance or squared distance check
+                    if (dx * dx + dz * dz <= clusterReq.clusterDistance * clusterReq.clusterDistance)
+                    {
+                        unionSets(parent, i, j);
+                    }
+                }
+            }
+
+            // 4) For each root, gather its members
+            bool *processed = calloc(clusterCount, sizeof(bool));
+            for (int i = 0; i < clusterCount; i++)
+            {
+                int root = findSet(parent, i);
+                if (processed[root])
+                    continue; // skip if already processed
+
+                // Collect all structure indices in this same union-find group
+                int groupSize = 0;
+                int indicesCap = 16;
+                int *indices = malloc(indicesCap * sizeof(int));
+                for (int j = 0; j < clusterCount; j++)
+                {
+                    if (findSet(parent, j) == root)
+                    {
+                        if (groupSize == indicesCap)
+                        {
+                            indicesCap *= 2;
+                            indices = realloc(indices, indicesCap * sizeof(int));
+                        }
+                        indices[groupSize++] = j;
+                    }
+                }
+                processed[root] = true;
+
+                // If you only care about clusters with at least 2 structures:
+                if (groupSize < 2)
+                {
+                    free(indices);
+                    continue;
+                }
+
+                // 5) Check for invalid combos if you have that logic
+                // Gather structure types in ascending order
+                int *groupTypes = malloc(groupSize * sizeof(int));
+                for (int n = 0; n < groupSize; n++)
+                    groupTypes[n] = clusterPositions[indices[n]].structureType;
+                qsort(groupTypes, groupSize, sizeof(int), compareInts);
+
+                bool clusterIsInvalid = isInvalidClusterDynamic(groupTypes, groupSize);
+                if (!clusterIsInvalid)
+                {
+                    // 6) We have a valid cluster
+                    atLeastOneValidCluster = true;
+
+                    // Optionally print info
+                    printf("== Seed %llu: Found cluster of size %d ==\n", 
+                           (unsigned long long) seed, groupSize);
+                    for (int n = 0; n < groupSize; n++)
+                    {
+                        int idx = indices[n];
+                        printf("   Type %d at (%d, %d)\n",
+                               clusterPositions[idx].structureType,
+                               clusterPositions[idx].x,
+                               clusterPositions[idx].z);
+                    }
+                    printf("\n");
+                }
+                free(groupTypes);
+                free(indices);
+            } // end for each root
+
+            free(processed);
+            free(parent);
+        } // end if (clusterCount >= 2)
+
+        free(clusterPositions);
+
+        // 7) If no valid cluster found, fail the requirement
+        if (!atLeastOneValidCluster)
+            allRequirementsMet = false;  // or handle however you prefer
+    }
+
     // ---- DYNAMIC BIOME REQUIREMENT CHECK ----
     if (biomeSearch.requiredCount > 0 || biomeSearch.clusterCount > 0) {
         hasAnyRequirements = true;
@@ -663,10 +864,10 @@ bool scanSeed(uint64_t seed) {
             curr_sn = &esn;
         }
         double blocksPerRegion = sconf.regionSize * 16.0;
-        int rz0 = (int)floor(z0 / blocksPerRegion);
-        int rz1 = (int)ceil(z1 / blocksPerRegion);
         int rx0 = (int)floor(x0 / blocksPerRegion);
+        int rz0 = (int)floor(z0 / blocksPerRegion);
         int rx1 = (int)ceil(x1 / blocksPerRegion);
+        int rz1 = (int)ceil(z1 / blocksPerRegion);
 
         for (int j = rz0; j <= rz1; j++) {
             for (int i = rx0; i <= rx1; i++) {
@@ -704,73 +905,6 @@ bool scanSeed(uint64_t seed) {
             }
         }
     }
-
-    // ---- Structure Cluster Scanning (if enabled) ----
-        if (clusterReq.enabled) {
-            int capacity = 64, clusterCount = 0;
-            StructurePos *clusterPositions = malloc(capacity * sizeof(StructurePos));
-            if (!clusterPositions) { perror("malloc"); exit(1); }
-
-            for (int i = 0; i < clusterReq.count; i++) {
-                int stype = clusterReq.structureTypes[i];
-                StructureConfig sconf;
-                if (!getStructureConfig(stype, MC_1_21, &sconf))
-                    continue;
-                Generator *curr_gen = &g;
-                if (sconf.dim == DIM_NETHER) curr_gen = &ng;
-                else if (sconf.dim == DIM_END) curr_gen = &eg;
-
-                for (int j = rz0; j <= rz1; j++) {
-                    for (int k = rx0; k <= rx1; k++) {
-                        Pos pos;
-                        if (!getStructurePos(stype, MC_1_21, seed, k, j, &pos))
-                            continue;
-                        if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
-                            continue;
-                        if (!isViableStructurePos(stype, curr_gen, pos.x, pos.z, 0))
-                            continue;
-                        if (clusterCount == capacity) {
-                            capacity *= 2;
-                            clusterPositions = realloc(clusterPositions, capacity * sizeof(StructurePos));
-                            if (!clusterPositions) { perror("realloc"); exit(1); }
-                        }
-                        clusterPositions[clusterCount].structureType = stype;
-                        clusterPositions[clusterCount].x = pos.x;
-                        clusterPositions[clusterCount].z = pos.z;
-                        clusterCount++;
-                    }
-                }
-            }
-
-            if (clusterCount >= 2) {
-                int *parent = malloc(clusterCount * sizeof(int));
-                for (int i = 0; i < clusterCount; i++) parent[i] = i;
-                for (int i = 0; i < clusterCount; i++) {
-                    for (int j = i + 1; j < clusterCount; j++) {
-                        int dx = clusterPositions[i].x - clusterPositions[j].x;
-                        int dz = clusterPositions[i].z - clusterPositions[j].z;
-                        if (sqrt(dx * dx + dz * dz) <= clusterReq.clusterDistance)
-                            unionSets(parent, i, j);
-                    }
-                }
-
-                bool atLeastOneValidCluster = false;
-                bool clusterValid = false;
-                bool *clusterProcessed = calloc(clusterCount, sizeof(bool));
-                for (int i = 0; i < clusterCount; i++) {
-                    int root = findSet(parent, i);
-                    if (clusterProcessed[root]) continue;
-                    clusterProcessed[root] = true;
-                    atLeastOneValidCluster = true;
-                    printf("Seed %llu: Cluster of %d structures found\n", seed, clusterCount);
-                }
-                free(clusterProcessed);
-                free(parent);
-                clusterValid = atLeastOneValidCluster;
-            }
-            free(clusterPositions);
-        }
-
 
     if (!hasAnyRequirements) {
         printf("Warning: No requirements set, skipping validation\n");
