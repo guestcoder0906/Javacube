@@ -736,12 +736,13 @@ int main() {
                     }
                 }
             }
+            free(stack);
+
+            // Output the center and size of the group
             double centerX = (sumX / cellCount) * 4 + r.x * 4;
             double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
-            printf("Biome group: center at (%.1f, %.1f), total cell count %d\n",
+            printf("Clustered biome group 0: center at (%.1f, %.1f), total cell count %d\n",
                    centerX, centerZ, cellCount);
-            
-            free(stack);
         }
     }
 
@@ -752,7 +753,7 @@ int main() {
                    r.x * 4, r.z * 4, 
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
             printf("----------------------------------------\n");
-            
+
             // Exit if we found enough seeds (1 in this case)
             free(visited);
             free(biomeIds);
