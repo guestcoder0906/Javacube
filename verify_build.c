@@ -737,15 +737,15 @@ int main() {
                             continue;
                         }
                         int nidx = nz * r.sx + nx;
-                        // Check if the biome is in clusterGroup0
-                        int validBiome = 0;
-                        for (int b = 0; b < sizeof(clusterGroup0)/sizeof(clusterGroup0[0]); b++) {
-                            if (biomeIds[nidx] == clusterGroup0[b]) {
-                                validBiome = 1;
+                        int biomeid = biomeIds[nidx];
+                        int isValidBiome = 0;
+                        for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
+                            if (biomeid == clusterGroup0[i]) {
+                                isValidBiome = 1;
                                 break;
                             }
                         }
-                        if (!visited[nidx] && validBiome) {
+                        if (!visited[nidx] && isValidBiome) {
                             stack[stackSize++] = nidx;
                             visited[nidx] = 1;
                         }
