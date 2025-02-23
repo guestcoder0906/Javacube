@@ -704,7 +704,18 @@ int main() {
         for (int z = 0; z < r.sz; z++) {
             for (int x = 0; x < r.sx; x++) {
                 int idx = z * r.sx + x;
-                if (visited[idx] || biomeIds[idx] != 185) { //check for cherry grove (185)
+                if (visited[idx]) {
+                    continue;
+                }
+                
+                int isValidStartBiome = 0;
+                for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
+                    if (biomeIds[idx] == clusterGroup0[i]) {
+                        isValidStartBiome = 1;
+                        break;
+                    }
+                }
+                if (!isValidStartBiome) {
                     continue;
                 }
 
