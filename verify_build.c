@@ -228,11 +228,11 @@ static BiomeRequirement reqGroup = {
 // --- Dynamic initialization for clustered biomes ---
 // For clustered biomes, all cells that belong to the group are merged regardless of individual type.
 // For example, define one cluster group that contains Plains and Cherry Grove with no size filtering.
-static int clusterGroup0[] = {4, 1};
+static int clusterGroup0[] = {};//{4, 1};
 static const BiomeCluster clustGroup0 = {
-    .biomeIds   = clusterGroup0,
-    .biomeCount = sizeof(clusterGroup0) / sizeof(clusterGroup0[0]),
-    .minSize    = 2, // Minimum 2 cells for a cluster
+    .biomeIds   = NULL,//clusterGroup0,
+    .biomeCount = 0,//sizeof(clusterGroup0) / sizeof(clusterGroup0[0]),
+    .minSize    = -1,//2, // Minimum 2 cells for a cluster
     .maxSize    = -1,
     .logCenters = 1
 };
@@ -314,7 +314,7 @@ bool arraysEqual(int a[], int aCount, int b[], int bCount) {
 // Structure requirements examples (fixed, not dynamic)
 #define NUM_STRUCTURE_REQUIREMENTS 2
 StructureRequirement structureRequirements[NUM_STRUCTURE_REQUIREMENTS] = {
-    // EXAMPLE: { 5, 1, -10000, 10000, 1, 50, -1 },  // Village (5) in Plains (1), patch must have at least 50 cells
+    { 5, 1, -10000, 10000, 1, -1, -1 },  // Village (5) in Plains (1), patch must have at least 50 cells
     // EXAMPLE: { 7, 1, -10000, 10000, 24, 20, -1 }   // Shipwreck (7) in Deep Ocean (24), patch must have at least 20 cells
 };
 
@@ -504,8 +504,8 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs) {
 
 // -----------------------------------------------------------------------------
 // Global configuration parameters.
-uint64_t starting_seed = 12345;
-int searchRadius = 500;
+uint64_t starting_seed = 3895964444822401111;
+int searchRadius = 1000;
 int useSpawn = 1;      // 1 = use spawn point; 0 = use custom coordinates.
 int customX = 0;
 int customZ = 0;
@@ -663,14 +663,20 @@ int main() {
     setupGenerator(&g, MC_1_21, 0);
 
     // Set search parameters
-    uint64_t start_seed = 12345;
+    uint64_t start_seed = 3895964444822401111;
     uint64_t end_seed = start_seed + 1000; // Check 1000 seeds
-    int searchRadius = 500; // Search within 500 blocks
+    int searchRadius = 1000; // Search within 500 blocks
 
     for (uint64_t seed = start_seed; seed < end_seed; seed++) {
         // Apply seed to generator
         applySeed(&g, DIM_OVERWORLD, seed);
-        printf("Checking seed: %llu\n", seed);
+        printf("Checking seed: %llu\n", (unsigned long long) seed);
+
+        // Call scanSeed to check if this seed contains required structures
+        if (scanSeed(seed)) {
+            printf("Valid seed found: %llu (meets structure requirements)\n", (unsigned long long) seed);
+            return 0;
+        }
 
         // Define search range at biome scale (1:4)
         Range r = {
@@ -707,13 +713,13 @@ int main() {
                 if (visited[idx]) {
                     continue;
                 }
-                
+
                 // Check for neighboring cells with different valid biomes first
                 int hasMultipleBiomes = 0;
                 int currentBiome = biomeIds[idx];
                 const int dx[] = {-1, 1, 0, 0};
                 const int dz[] = {0, 0, -1, 1};
-                
+
                 for (int d = 0; d < 4; d++) {
                     int nx = x + dx[d];
                     int nz = z + dz[d];
@@ -722,7 +728,7 @@ int main() {
                     }
                     int nidx = nz * r.sx + nx;
                     int neighborBiome = biomeIds[nidx];
-                    
+
                     // Check if both current and neighbor are valid biomes and different
                     int currentValid = 0, neighborValid = 0;
                     for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
@@ -734,7 +740,7 @@ int main() {
                         break;
                     }
                 }
-                
+
                 if (!hasMultipleBiomes) {
                     continue;
                 }
@@ -759,8 +765,6 @@ int main() {
                     sumZ += cz;
 
                     // Check adjacent cells
-                    const int dx[] = {-1, 1, 0, 0};
-                    const int dz[] = {0, 0, -1, 1};
                     for (int d = 0; d < 4; d++) {
                         int nx = cx + dx[d];
                         int nz = cz + dz[d];
@@ -788,7 +792,7 @@ int main() {
                 char clusterBiomes[256] = "";
                 int seenBiomes[256] = {0};
                 int validBiomeFound = 0;
-                
+
                 // Only check biomes that are in clusterGroup0
                 for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
                     int biomeId = clusterGroup0[i];
@@ -807,7 +811,7 @@ int main() {
                         }
                     }
                 }
-                
+
                 if (!validBiomeFound) continue; // Skip if no valid biomes found
 
                 // Calculate true center of entire cluster
@@ -819,22 +823,8 @@ int main() {
         }
 
         // Log if any valid clusters were found (cell count > 1)
-        int validClusters = 0;
-        for (int i = 0; i < groupCount; i++) {
-            for (int z = 0; z < r.sz; z++) {
-                for (int x = 0; x < r.sx; x++) {
-                    int idx = z * r.sx + x;
-                    if (visited[idx] == i + 1) {
-                        validClusters++;
-                        break;
-                    }
-                }
-                if (validClusters > i) break;
-            }
-        }
-        
-        if (validClusters > 0) {
-            printf("Valid seed %llu found with %d biome clusters\n", seed, validClusters);
+        if (groupCount > 0) {
+            printf("Valid seed %llu found with %d biome clusters\n", seed, groupCount);
             printf("Search area: (%d,%d) to (%d,%d)\n",
                    r.x * 4, r.z * 4,
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
@@ -847,18 +837,8 @@ int main() {
 
         free(visited);
         free(biomeIds);
-
-        // Reallocate for next iteration
-        biomeIds = allocCache(&g, r);
-        visited = calloc(r.sx * r.sz, sizeof(int));
-        if (!biomeIds || !visited) {
-            printf("Failed to allocate memory\n");
-            return 1;
-        }
-
-        // Reset group count for next seed
-        groupCount = 0;
     }
 
+    printf("Finished searching, no valid seeds found.\n");
     return 0;
 }
