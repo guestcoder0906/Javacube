@@ -645,6 +645,7 @@ bool scanSeed(uint64_t seed) {
             foundValidSeed = true;
             exit(0);  // Exit the program immediately
         }
+        return true;  // Return true when valid seed is found
     }
     return false;
 }
