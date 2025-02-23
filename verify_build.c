@@ -216,7 +216,7 @@ static BiomeRequirement reqGroup = {
 
 static int reqGroup0[] = {1}; // 1 is plains biome ID
     static BiomeSizeConfig reqSizeConfigs[] = {
-        { 1, 20, 100 }   // Plains: min 20, max 100 cells per patch
+        { 1, -1, -1 }   // Plains: min 20, max 100 cells per patch
     };
     static const BiomeRequirement reqGroup = {
         .biomeIds   = reqGroup0,
