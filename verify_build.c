@@ -520,8 +520,8 @@ volatile uint64_t currentSeed;
 // -----------------------------------------------------------------------------
 // scanSeed: Scans a single seed for both structure and biome requirements.
 bool scanSeed(uint64_t seed) {
-    bool individualValid = true;
-    bool clusterValid = true; // For structure clusters (if enabled)
+    bool hasAnyRequirements = false;
+    bool allRequirementsMet = true;
 
     // Set up Overworld generator and get spawn.
     Generator g;
@@ -552,11 +552,17 @@ bool scanSeed(uint64_t seed) {
     initSurfaceNoise(&esn, DIM_END, seed);
 
     // ---- DYNAMIC BIOME REQUIREMENT CHECK ----
-    if (!scanBiomes(&g, x0, z0, x1, z1, (BiomeSearch *)&biomeSearch))
-        return false;
+    if (biomeSearch.requiredCount > 0 || biomeSearch.clusterCount > 0) {
+        hasAnyRequirements = true;
+        if (!scanBiomes(&g, x0, z0, x1, z1, (BiomeSearch *)&biomeSearch)) {
+            allRequirementsMet = false;
+        }
+    }
 
-    // ---- Structure Scanning (example) ----
-    for (int rIndex = 0; rIndex < NUM_STRUCTURE_REQUIREMENTS; rIndex++) {
+    // ---- Structure Scanning ----
+    if (NUM_STRUCTURE_REQUIREMENTS > 0) {
+        hasAnyRequirements = true;
+        for (int rIndex = 0; rIndex < NUM_STRUCTURE_REQUIREMENTS; rIndex++) {
         StructureRequirement req = structureRequirements[rIndex];
         int foundCount = 0;
         StructureConfig sconf;
@@ -619,7 +625,12 @@ bool scanSeed(uint64_t seed) {
         clusterValid = true;
     }
 
-    if (individualValid && clusterValid) {
+    if (!hasAnyRequirements) {
+        printf("Warning: No requirements set, skipping validation\n");
+        return false;
+    }
+    
+    if (allRequirementsMet) {
         printf("Valid seed found: %llu\n", seed);
         return true;
     }
