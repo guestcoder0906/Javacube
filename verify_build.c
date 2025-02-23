@@ -229,11 +229,11 @@ static BiomeRequirement reqGroup = {
 // --- Dynamic initialization for clustered biomes ---
 // For clustered biomes, all cells that belong to the group are merged regardless of individual type.
 // For example, define one cluster group that contains Plains and Cherry Grove with no size filtering.
-static int clusterGroup0[] = {};//{4, 1};
+static int clusterGroup0[] = {4, 1};
 static const BiomeCluster clustGroup0 = {
-    .biomeIds   = NULL,//clusterGroup0,
-    .biomeCount = 0,//sizeof(clusterGroup0) / sizeof(clusterGroup0[0]),
-    .minSize    = -1,//2, // Minimum 2 cells for a cluster
+    .biomeIds   = clusterGroup0,
+    .biomeCount = sizeof(clusterGroup0) / sizeof(clusterGroup0[0]),
+    .minSize    = 2, // Minimum 2 cells for a cluster
     .maxSize    = -1,
     .logCenters = 1
 };
@@ -265,7 +265,7 @@ typedef struct {
 int clusterTypesArray[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16, 18 };
 ClusterRequirement clusterReq = {
     .enabled = false,      // Change to true to enable structure clustering check.
-    .clusterDistance = 16,
+    .clusterDistance = 32,
     .structureTypes = clusterTypesArray,
     .count = sizeof(clusterTypesArray) / sizeof(clusterTypesArray[0])
 };
@@ -315,7 +315,7 @@ bool arraysEqual(int a[], int aCount, int b[], int bCount) {
 // Structure requirements examples (fixed, not dynamic)
 #define NUM_STRUCTURE_REQUIREMENTS 2
 StructureRequirement structureRequirements[NUM_STRUCTURE_REQUIREMENTS] = {
-    { 5, 1, -10000, 10000, 1, -1, -1 },  // Village (5) in Plains (1), patch must have at least 50 cells
+    //{ 5, 1, -10000, 10000, 1, -1, -1 },  // Village (5) in Plains (1), patch must have at least 50 cells
     // EXAMPLE: { 7, 1, -10000, 10000, 24, 20, -1 }   // Shipwreck (7) in Deep Ocean (24), patch must have at least 20 cells
 };
 
