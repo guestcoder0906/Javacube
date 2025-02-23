@@ -720,7 +720,7 @@ int main() {
             .sz =searchRadius / 2,
             .y = 0,
             .sy = 1
-};
+        };
 
         // Allocate cache for biome generation
         int *biomeIds = allocCache(&g, r);
@@ -747,15 +747,13 @@ int main() {
                     continue;
                 }
 
-                // Check for neighboring cells with different valid biomes first
-                int hasMultipleBiomes = 0;
-                int currentBiome = biomeIds[idx];
-                const int dx[] = {-1, 1, 0, 0};
-                const int dz[] = {0, 0, -1, 1};
+                // Only start a new cluster if this cell hasn't been visited
+                bool isValidStart = false;
 
+                // Check neighbors for different valid biomes that are directly adjacent
                 for (int d = 0; d < 4; d++) {
-                    int nx = x + dx[d];
-                    int nz = z + dz[d];
+                    int nx = x + ((d % 2) ? 1 : -1) * (d < 2);
+                    int nz = z + ((d % 2) ? 0 : 1) * (d >= 2);
                     if (nx < 0 || nx >= r.sx || nz < 0 || nz >= r.sz) {
                         continue;
                     }
@@ -765,16 +763,16 @@ int main() {
                     // Check if both current and neighbor are valid biomes and different
                     int currentValid = 0, neighborValid = 0;
                     for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
-                        if (currentBiome == clusterGroup0[i]) currentValid = 1;
+                        if (biomeIds[idx] == clusterGroup0[i]) currentValid = 1;
                         if (neighborBiome == clusterGroup0[i]) neighborValid = 1;
                     }
-                    if (currentValid && neighborValid && currentBiome != neighborBiome) {
-                        hasMultipleBiomes = 1;
+                    if (currentValid && neighborValid && biomeIds[idx] != neighborBiome) {
+                        isValidStart = true;
                         break;
                     }
                 }
 
-                if (!hasMultipleBiomes) {
+                if (!isValidStart) {
                     continue;
                 }
 
@@ -810,8 +808,8 @@ int main() {
 
                     // Check directly adjacent cells only
                     for (int d = 0; d < 4; d++) {
-                        int nx = cx + dx[d];
-                        int nz = cz + dz[d];
+                        int nx = cx + ((d % 2) ? 1 : -1) * (d < 2);
+                        int nz = cz + ((d % 2) ? 0 : 1) * (d >= 2);
                         if (nx < 0 || nx >= r.sx || nz < 0 || nz >= r.sz) {
                             continue;
                         }
@@ -819,13 +817,18 @@ int main() {
                         if (visited[nidx]) continue;
 
                         int biomeid = biomeIds[nidx];
-                        // Check if this is a valid biome from our cluster group
+                        // Only add to cluster if it's a valid biome and directly adjacent
+                        bool isValidBiome = false;
                         for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
                             if (biomeid == clusterGroup0[i]) {
-                                stack[stackSize++] = nidx;
-                                visited[nidx] = groupCount + 1;
+                                isValidBiome = true;
                                 break;
                             }
+                        }
+
+                        if (isValidBiome) {
+                            stack[stackSize++] = nidx;
+                            visited[nidx] = groupCount;
                         }
                     }
                 }
