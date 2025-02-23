@@ -794,14 +794,14 @@ int main() {
                 // Calculate true center of entire cluster
                 double centerX = (sumX / cellCount) * 4 + r.x * 4;
                 double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
-                printf("Clustered biome cluster %d: %s, center at (%.1f, %.1f), total cell count %d\n",
-                       groupCount, clusterBiomes, centerX, centerZ, cellCount);
+                printf("Clustered biome cluster: %s, center at (%.1f, %.1f), total cell count %d\n",
+                       clusterBiomes, centerX, centerZ, cellCount);
             }
         }
 
         // Log if any clusters were found
         if (groupCount > 0) {
-            printf("Valid seed %llu found with %d biome clusters\n", seed, groupCount);
+            printf("Valid seed %llu found valid biome clusters\n", seed);
             printf("Search area: (%d,%d) to (%d,%d)\n",
                    r.x * 4, r.z * 4,
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
