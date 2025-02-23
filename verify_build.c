@@ -800,19 +800,20 @@ int main() {
         }
 
         // Log if any clusters were found
-        printf("Valid seed %llu found with %d biome clusters\n", seed, groupCount);
-        printf("Search area: (%d,%d) to (%d,%d)\n",
-               r.x * 4, r.z * 4,
-               (r.x + r.sx) * 4, (r.z + r.sz) * 4);
-
-        // Clean up before next seed
-        free(visited);
-        free(biomeIds);
-
-        // Exit if any valid clusters were found
         if (groupCount > 0) {
+            printf("Valid seed %llu found with %d biome clusters\n", seed, groupCount);
+            printf("Search area: (%d,%d) to (%d,%d)\n",
+                   r.x * 4, r.z * 4,
+                   (r.x + r.sx) * 4, (r.z + r.sz) * 4);
+
+            // Exit if we found enough seeds (1 in this case)
+            free(visited);
+            free(biomeIds);
             return 0;
         }
+
+        free(visited);
+        free(biomeIds);
 
         // Reallocate for next iteration
         biomeIds = allocCache(&g, r);
@@ -821,6 +822,9 @@ int main() {
             printf("Failed to allocate memory\n");
             return 1;
         }
+
+        // Reset group count for next seed
+        groupCount = 0;
     }
 
     return 0;
