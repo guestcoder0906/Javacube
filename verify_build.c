@@ -313,7 +313,7 @@ bool arraysEqual(int a[], int aCount, int b[], int bCount) {
 // Structure requirements examples (fixed, not dynamic)
 #define NUM_STRUCTURE_REQUIREMENTS 2
 StructureRequirement structureRequirements[NUM_STRUCTURE_REQUIREMENTS] = {
-    { Village, 1, -10000, 10000, -1, -1, -1 },  // Any Village
+    // EXAMPLE: { 5, 1, -10000, 10000, 1, 50, -1 },  // Village (5) in Plains (1), patch must have at least 50 cells
     // EXAMPLE: { 7, 1, -10000, 10000, 24, 20, -1 }   // Shipwreck (7) in Deep Ocean (24), patch must have at least 20 cells
 };
 
@@ -577,8 +577,6 @@ bool scanSeed(uint64_t seed) {
                     continue;
                 if (!isViableStructurePos(req.structureType, curr_gen, pos.x, pos.z, 0))
                     continue;
-
-                // Determine the biome at the structure position.
                 int biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, pos.z >> 2, 320 >> 2);
                 if (biome_id == -1) {
                     float heightArr[256];
@@ -587,34 +585,17 @@ bool scanSeed(uint64_t seed) {
                     mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
                     int lx = pos.x & 15;
                     int lz = pos.z & 15;
-                    biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, ((int)heightArr[lz * w + lx]) >> 2, pos.z >> 2);
+                    int surface_y = (int)heightArr[lz * w + lx];
+                    biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
                 }
-
-                // Only perform biome-checks if a specific biome is required.
                 if (req.requiredBiome != -1 && biome_id != req.requiredBiome)
                     continue;
-
-                // If patch size restrictions are set, apply them only when a specific biome is required.
                 if (req.requiredBiome != -1 && (req.minBiomeSize != -1 || req.maxBiomeSize != -1)) {
                     int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
                     if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
                         (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
                         continue;
                 }
-
-                // Check height restrictions (using req.minHeight and req.maxHeight).
-                {
-                    float heightArr[256];
-                    int w = 16, h = 16;
-                    Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 320 >> 2, 1};
-                    mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
-                    int lx = pos.x & 15;
-                    int lz = pos.z & 15;
-                    int structureY = (int)heightArr[lz * w + lx];
-                    if (structureY < req.minHeight || structureY > req.maxHeight)
-                        continue;
-                }
-
                 foundCount++;
                 printf("Seed %llu: Found structure %d at (%d, %d) in biome %s\n",
                        seed, req.structureType, pos.x, pos.z, getBiomeName(biome_id));
