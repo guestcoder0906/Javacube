@@ -204,7 +204,7 @@ typedef struct {
 // --- Dynamic initialization for required biomes ---
 // In this example, we require a patch for Plains with a maximum size of 50 cells.
 // (Uncomment and modify as needed for your requirements.)
-/*static int reqGroup0[] = {0}; // Empty array with one element to avoid zero-size array
+static int reqGroup0[] = {0}; // Empty array with one element to avoid zero-size array
 static BiomeSizeConfig reqSizeConfigs[] = {{0, 0, 0}}; // Empty config with one element
 static BiomeRequirement reqGroup = {
     .biomeIds = reqGroup0,
@@ -212,11 +212,11 @@ static BiomeRequirement reqGroup = {
     .sizeConfigs = reqSizeConfigs,
     .configCount = 0,
     .logCenters = 1
-};*/
+};
 
-static int reqGroup0[] = {1}; // 1 is plains biome ID
+/*static int reqGroup0[] = {1}; // 1 is plains biome ID
     static BiomeSizeConfig reqSizeConfigs[] = {
-        { 1, -1, -1 }   // Plains: minimum 20, maximum 100 cells per patch
+        { 1, -1, -1 }   // Plains: min 20, max 100 cells per patch
     };
     static const BiomeRequirement reqGroup = {
         .biomeIds   = reqGroup0,
@@ -224,7 +224,7 @@ static int reqGroup0[] = {1}; // 1 is plains biome ID
         .sizeConfigs = reqSizeConfigs,
         .configCount = sizeof(reqSizeConfigs) / sizeof(reqSizeConfigs[0]),
         .logCenters = 1
-    };
+    };*/
 
 // --- Dynamic initialization for clustered biomes ---
 // For clustered biomes, all cells that belong to the group are merged regardless of individual type.
@@ -241,14 +241,14 @@ static const BiomeCluster clustGroup0 = {
 
 // By default, we initialize with one required group and one cluster group.
 static BiomeRequirement requiredBiomes[] = { reqGroup }; // Initialize with plains requirement
-static int requiredBiomesCount = sizeof(requiredBiomes) / sizeof(requiredBiomes[0]); // Set count correctly
+static int requiredBiomesCount = 1; // Set count to 1
 
 static const BiomeCluster biomeClusters[] = { clustGroup0 };
 static const int biomeClustersCount = sizeof(biomeClusters) / sizeof(biomeClusters[0]);
 
 static BiomeSearch biomeSearch = {
     .required = (BiomeRequirement *) requiredBiomes,
-    .requiredCount = 0,  // Initialize to 0, will be set later if needed
+    .requiredCount = sizeof(requiredBiomes) / sizeof(requiredBiomes[0]),
     .clusters = (BiomeCluster *) biomeClusters,
     .clusterCount = sizeof(biomeClusters) / sizeof(biomeClusters[0])
 };
@@ -264,7 +264,7 @@ typedef struct {
 
 int clusterTypesArray[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16, 18 };
 ClusterRequirement clusterReq = {
-    .enabled = false,      // Change to true to enable structure clustering check.
+    .enabled = true,      // Change to true to enable structure clustering check.
     .clusterDistance = 16,
     .structureTypes = clusterTypesArray,
     .count = sizeof(clusterTypesArray) / sizeof(clusterTypesArray[0])
@@ -408,6 +408,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs) {
                         printf("Required biome patch (group %d, biome %s): center at (%.1f, %.1f), cell count %d\n",
                                i, getBiomeName(patchBiome), centerX, centerZ, compCount);
                         requiredFound = true;
+                        seedsFound++;
                     }
                 }
                 free(processed);
@@ -776,7 +777,7 @@ int main() {
 
         // Call scanSeed to check if this seed contains required structures
         bool structureRequirementsEmpty = (NUM_STRUCTURE_REQUIREMENTS == 0);
-        if (!structureRequirementsEmpty) {
+        if (!structureRequirementsEmpty || biomeSearch.requiredCount != 0 || clusterReq.enabled) {
        if (scanSeed(seed)) {
             printf("Valid seed found: %llu (meets structure requirements)\n", (unsigned long long) seed);
             return 0;
