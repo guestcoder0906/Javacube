@@ -707,7 +707,7 @@ int main() {
                 if (visited[idx]) {
                     continue;
                 }
-                
+
                 int isValidStartBiome = 0;
                 for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
                     if (biomeIds[idx] == clusterGroup0[i]) {
@@ -719,8 +719,8 @@ int main() {
                     continue;
                 }
 
-                // Found a new cherry grove group
-                groupCount++;
+                // Reset group count for each cluster
+                groupCount = 1;
                 int cellCount = 0;
                 double sumX = 0, sumZ = 0;
 
@@ -768,7 +768,7 @@ int main() {
                 char clusterBiomes[256] = "";
                 int seenBiomes[256] = {0};
                 int uniqueBiomeCount = 0;
-                
+
                 // Only check biomes that are in clusterGroup0
                 for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
                     int biomeId = clusterGroup0[i];
@@ -787,7 +787,7 @@ int main() {
                         }
                     }
                 }
-                
+
                 // Skip if less than 2 unique biomes or cell count is too small
                 if (uniqueBiomeCount < 2 || cellCount < 2) continue;
 
