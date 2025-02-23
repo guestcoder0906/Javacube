@@ -206,13 +206,7 @@ typedef struct {
 // (Uncomment and modify as needed for your requirements.)
 static int reqGroup0[] = {0}; // Empty array with one element to avoid zero-size array
 static BiomeSizeConfig reqSizeConfigs[] = {{0, 0, 0}}; // Empty config with one element
-static BiomeRequirement reqGroup = {
-    .biomeIds = reqGroup0,
-    .biomeCount = 0,
-    .sizeConfigs = reqSizeConfigs,
-    .configCount = 0,
-    .logCenters = 1
-};
+static BiomeRequirement reqGroup;
 
 /*static int reqGroup0[] = {1}; // 1 is plains biome ID
     static BiomeSizeConfig reqSizeConfigs[] = {
@@ -240,7 +234,7 @@ static const BiomeCluster clustGroup0 = {
 
 
 // By default, we initialize with one required group and one cluster group.
-static BiomeRequirement requiredBiomes[] = { reqGroup }; // Initialize with plains requirement
+static BiomeRequirement requiredBiomes[1]; // Initialize with plains requirement
 static int requiredBiomesCount = 1; // Set count to 1
 
 static const BiomeCluster biomeClusters[] = { clustGroup0 };
@@ -721,7 +715,7 @@ bool scanSeed(uint64_t seed) {
         printf("Warning: No requirements set, skipping validation\n");
         return false;
     }
-    
+
     if (allRequirementsMet) {
         printf("Valid seed found: %llu\n", seed);
         return true;
@@ -769,6 +763,15 @@ int main() {
     uint64_t start_seed = 3895964444822401111;
     uint64_t end_seed = start_seed + 1000; // Check 1000 seeds
     int searchRadius = 1000; // Search within 500 blocks
+
+    // Initialize reqGroup and requiredBiomes in main
+    reqGroup.biomeIds = reqGroup0;
+    reqGroup.biomeCount = sizeof(reqGroup0) / sizeof(reqGroup0[0]);
+    reqGroup.sizeConfigs = reqSizeConfigs;
+    reqGroup.configCount = sizeof(reqSizeConfigs) /sizeof(reqSizeConfigs[0]);
+    reqGroup.logCenters = 1;
+    requiredBiomes[0] = reqGroup;
+
 
     for (uint64_t seed = start_seed; seedsFound <= MAX_SEEDS_TO_FIND; seed++) {
         // Apply seed to generator
