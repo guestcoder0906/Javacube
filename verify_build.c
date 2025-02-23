@@ -779,10 +779,7 @@ int main() {
                 }
 
                 // Only start a new cluster if we find two different valid biomes touching
-                int currentBiome = biomeIds[idx];
-                bool isValidStart = false;
-                const int dx[] = {-1, 1, 0, 0};
-                const int dz[] = {0, 0, -1, 1};
+                isValidStart = false;
                 
                 // Check neighbors for different valid biomes
                 for (int d = 0; d < 4; d++) {
