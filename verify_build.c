@@ -618,7 +618,12 @@ bool scanSeed(uint64_t seed) {
             }
             if (foundCount >= req.minCount) {
                 printf("Found required number of structures. Stopping search.\n");
-                exit(0);  // Exit immediately when we find enough structures
+                seedsFound++;
+                if (seedsFound >= MAX_SEEDS_TO_FIND) {
+                    printf("Found required number of seeds (%d). Stopping search.\n", MAX_SEEDS_TO_FIND);
+                    exit(0);
+                }
+                return true;
             }
         }
     }
