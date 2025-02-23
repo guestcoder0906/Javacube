@@ -8,8 +8,7 @@
 #include <string.h> // For memcpy
 
 // -----------------------------------------------------------------------------
-// Constants and global variables
-#define MAX_SEEDS_TO_FIND 1
+// Global variables for seed finding
 int maxSeeds = 1;
 int seedsFound = 0;
 
@@ -229,11 +228,11 @@ static BiomeRequirement reqGroup = {
 // --- Dynamic initialization for clustered biomes ---
 // For clustered biomes, all cells that belong to the group are merged regardless of individual type.
 // For example, define one cluster group that contains Plains and Cherry Grove with no size filtering.
-static int clusterGroup0[] = {4, 1};
+static int clusterGroup0[] = {};//{4, 1};
 static const BiomeCluster clustGroup0 = {
-    .biomeIds   = clusterGroup0,
-    .biomeCount = sizeof(clusterGroup0) / sizeof(clusterGroup0[0]),
-    .minSize    = 2, // Minimum 2 cells for a cluster
+    .biomeIds   = NULL,//clusterGroup0,
+    .biomeCount = 0,//sizeof(clusterGroup0) / sizeof(clusterGroup0[0]),
+    .minSize    = -1,//2, // Minimum 2 cells for a cluster
     .maxSize    = -1,
     .logCenters = 1
 };
@@ -265,7 +264,7 @@ typedef struct {
 int clusterTypesArray[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16, 18 };
 ClusterRequirement clusterReq = {
     .enabled = false,      // Change to true to enable structure clustering check.
-    .clusterDistance = 32,
+    .clusterDistance = 16,
     .structureTypes = clusterTypesArray,
     .count = sizeof(clusterTypesArray) / sizeof(clusterTypesArray[0])
 };
@@ -315,7 +314,7 @@ bool arraysEqual(int a[], int aCount, int b[], int bCount) {
 // Structure requirements examples (fixed, not dynamic)
 #define NUM_STRUCTURE_REQUIREMENTS 2
 StructureRequirement structureRequirements[NUM_STRUCTURE_REQUIREMENTS] = {
-    //{ 5, 1, -10000, 10000, 1, -1, -1 },  // Village (5) in Plains (1), patch must have at least 50 cells
+    { 5, 1, -10000, 10000, 1, -1, -1 },  // Village (5) in Plains (1), patch must have at least 50 cells
     // EXAMPLE: { 7, 1, -10000, 10000, 24, 20, -1 }   // Shipwreck (7) in Deep Ocean (24), patch must have at least 20 cells
 };
 
@@ -429,21 +428,22 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs) {
                 for (int x = x0; x <= x1; x += step) {
                     int biome = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
                     bool foundBiomeInCluster = false;
-                    // Only include biomes that are in our cluster group
                     for (int j = 0; j < cluster->biomeCount; j++) {
                         if (biome == cluster->biomeIds[j]) {
                             foundBiomeInCluster = true;
-                            if (count == capacity) {
-                                capacity *= 2;
-                                positions = realloc(positions, capacity * sizeof(StructurePos));
-                                if (!positions) { perror("realloc"); exit(1); }
-                            }
-                            positions[count].structureType = biome;
-                            positions[count].x = x;
-                            positions[count].z = z;
-                            count++;
                             break;
                         }
+                    }
+                    if (foundBiomeInCluster) {
+                        if (count == capacity) {
+                            capacity *= 2;
+                            positions = realloc(positions, capacity * sizeof(StructurePos));
+                            if (!positions) { perror("realloc"); exit(1); }
+                        }
+                        positions[count].structureType = biome;
+                        positions[count].x = x;
+                        positions[count].z = z;
+                        count++;
                     }
                 }
             }
@@ -566,65 +566,57 @@ bool scanSeed(uint64_t seed) {
             StructureRequirement req = structureRequirements[rIndex];
             int foundCount = 0;
             StructureConfig sconf;
-            if (!getStructureConfig(req.structureType, MC_1_21, &sconf))
-                continue;
-            Generator *curr_gen = &g;
-            SurfaceNoise *curr_sn = &sn;
-            if (sconf.dim == DIM_NETHER)
-                curr_gen = &ng;
-            else if (sconf.dim == DIM_END) {
-                curr_gen = &eg;
-                curr_sn = &esn;
-            }
-            double blocksPerRegion = sconf.regionSize * 16.0;
-            int rx0 = (int)floor(x0 / blocksPerRegion);
-            int rz0 = (int)floor(z0 / blocksPerRegion);
-            int rx1 = (int)ceil(x1 / blocksPerRegion);
-            int rz1 = (int)ceil(z1 / blocksPerRegion);
+        if (!getStructureConfig(req.structureType, MC_1_21, &sconf))
+            continue;
+        Generator *curr_gen = &g;
+        SurfaceNoise *curr_sn = &sn;
+        if (sconf.dim == DIM_NETHER)
+            curr_gen = &ng;
+        else if (sconf.dim == DIM_END) {
+            curr_gen = &eg;
+            curr_sn = &esn;
+        }
+        double blocksPerRegion = sconf.regionSize * 16.0;
+        int rx0 = (int)floor(x0 / blocksPerRegion);
+        int rz0 = (int)floor(z0 / blocksPerRegion);
+        int rx1 = (int)ceil(x1 / blocksPerRegion);
+        int rz1 = (int)ceil(z1 / blocksPerRegion);
 
-            for (int j = rz0; j <= rz1; j++) {
-                for (int i = rx0; i <= rx1; i++) {
-                    Pos pos;
-                    if (!getStructurePos(req.structureType, MC_1_21, seed, i, j, &pos))
-                        continue;
-                    if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
-                        continue;
-                    if (!isViableStructurePos(req.structureType, curr_gen, pos.x, pos.z, 0))
-                        continue;
-                    int biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, pos.z >> 2, 320 >> 2);
-                    if (biome_id == -1) {
-                        float heightArr[256];
-                        int w = 16, h = 16;
-                        Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 320 >> 2, 1};
-                        mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
-                        int lx = pos.x & 15;
-                        int lz = pos.z & 15;
-                        int surface_y = (int)heightArr[lz * w + lx];
-                        biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
-                    }
-                    if (req.requiredBiome != -1 && biome_id != req.requiredBiome)
-                        continue;
-                    if (req.requiredBiome != -1 && (req.minBiomeSize != -1 || req.maxBiomeSize != -1)) {
-                        int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
-                        if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
-                            (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
-                            continue;
-                    }
-                    foundCount++;
-                    printf("Seed %llu: Found structure %d at (%d, %d) in biome %s\n",
-                           seed, req.structureType, pos.x, pos.z, getBiomeName(biome_id));
+        for (int j = rz0; j <= rz1; j++) {
+            for (int i = rx0; i <= rx1; i++) {
+                Pos pos;
+                if (!getStructurePos(req.structureType, MC_1_21, seed, i, j, &pos))
+                    continue;
+                if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
+                    continue;
+                if (!isViableStructurePos(req.structureType, curr_gen, pos.x, pos.z, 0))
+                    continue;
+                int biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, pos.z >> 2, 320 >> 2);
+                if (biome_id == -1) {
+                    float heightArr[256];
+                    int w = 16, h = 16;
+                    Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 320 >> 2, 1};
+                    mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
+                    int lx = pos.x & 15;
+                    int lz = pos.z & 15;
+                    int surface_y = (int)heightArr[lz * w + lx];
+                    biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
                 }
-            }
-            if (foundCount >= req.minCount) {
-                printf("Found required number of structures. Stopping search.\n");
-                seedsFound++;
-                if (seedsFound >= MAX_SEEDS_TO_FIND) {
-                    printf("Found required number of seeds (%d). Stopping search.\n", MAX_SEEDS_TO_FIND);
-                    exit(0);
+                if (req.requiredBiome != -1 && biome_id != req.requiredBiome)
+                    continue;
+                if (req.requiredBiome != -1 && (req.minBiomeSize != -1 || req.maxBiomeSize != -1)) {
+                    int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
+                    if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
+                        (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
+                        continue;
                 }
-                return true;
+                foundCount++;
+                printf("Seed %llu: Found structure %d at (%d, %d) in biome %s\n",
+                       seed, req.structureType, pos.x, pos.z, getBiomeName(biome_id));
             }
         }
+        if (foundCount < req.minCount)
+            allRequirementsMet = false;
     }
 
     // ---- Structure Cluster Scanning (if enabled) ----
@@ -637,22 +629,13 @@ bool scanSeed(uint64_t seed) {
         printf("Warning: No requirements set, skipping validation\n");
         return false;
     }
-
-    // Check if any requirements were set and met
-    bool structuresValid = NUM_STRUCTURE_REQUIREMENTS == 0 || allRequirementsMet;
-    bool biomesValid = (biomeSearch.requiredCount == 0 && biomeSearch.clusterCount == 0) || allRequirementsMet;
-
-    // Consider seed valid if at least one type of requirement was set and met
-    if (hasAnyRequirements && (structuresValid || biomesValid)) {
+    
+    if (allRequirementsMet) {
         printf("Valid seed found: %llu\n", seed);
-        seedsFound++;
-        if (seedsFound >= MAX_SEEDS_TO_FIND) {
-            printf("Found required number of seeds (%d). Stopping search.\n", MAX_SEEDS_TO_FIND);
-            foundValidSeed = true;
-            exit(0);  // Exit the program immediately
-        }
-        return true;  // Return true when valid seed is found
+        return true;
     }
+    return false;
+}
     return false;
 }
 
@@ -697,7 +680,7 @@ int main() {
     uint64_t end_seed = start_seed + 1000; // Check 1000 seeds
     int searchRadius = 1000; // Search within 500 blocks
 
-    for (uint64_t seed = start_seed; seed < end_seed && seedsFound < MAX_SEEDS_TO_FIND; seed++) {
+    for (uint64_t seed = start_seed; seed < end_seed; seed++) {
         // Apply seed to generator
         applySeed(&g, DIM_OVERWORLD, seed);
         printf("Checking seed: %llu\n", (unsigned long long) seed);
@@ -705,10 +688,7 @@ int main() {
         // Call scanSeed to check if this seed contains required structures
         if (scanSeed(seed)) {
             printf("Valid seed found: %llu (meets structure requirements)\n", (unsigned long long) seed);
-            if (seedsFound >= MAX_SEEDS_TO_FIND) {
-                printf("Found required number of seeds (%d). Stopping search.\n", MAX_SEEDS_TO_FIND);
-                return 0;
-            }
+            return 0;
         }
 
         // Define search range at biome scale (1:4)
@@ -717,7 +697,7 @@ int main() {
             .x = -searchRadius / 4,
             .z = -searchRadius / 4,
             .sx = searchRadius / 2,
-            .sz =searchRadius / 2,
+            .sz = searchRadius / 2,
             .y = 0,
             .sy = 1
         };
@@ -747,13 +727,15 @@ int main() {
                     continue;
                 }
 
-                // Only start a new cluster if this cell hasn't been visited
-                bool isValidStart = false;
+                // Check for neighboring cells with different valid biomes first
+                int hasMultipleBiomes = 0;
+                int currentBiome = biomeIds[idx];
+                const int dx[] = {-1, 1, 0, 0};
+                const int dz[] = {0, 0, -1, 1};
 
-                // Check neighbors for different valid biomes that are directly adjacent
                 for (int d = 0; d < 4; d++) {
-                    int nx = x + ((d % 2) ? 1 : -1) * (d < 2);
-                    int nz = z + ((d % 2) ? 0 : 1) * (d >= 2);
+                    int nx = x + dx[d];
+                    int nz = z + dz[d];
                     if (nx < 0 || nx >= r.sx || nz < 0 || nz >= r.sz) {
                         continue;
                     }
@@ -763,16 +745,16 @@ int main() {
                     // Check if both current and neighbor are valid biomes and different
                     int currentValid = 0, neighborValid = 0;
                     for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
-                        if (biomeIds[idx] == clusterGroup0[i]) currentValid = 1;
+                        if (currentBiome == clusterGroup0[i]) currentValid = 1;
                         if (neighborBiome == clusterGroup0[i]) neighborValid = 1;
                     }
-                    if (currentValid && neighborValid && biomeIds[idx] != neighborBiome) {
-                        isValidStart = true;
+                    if (currentValid && neighborValid && currentBiome != neighborBiome) {
+                        hasMultipleBiomes = 1;
                         break;
                     }
                 }
 
-                if (!isValidStart) {
+                if (!hasMultipleBiomes) {
                     continue;
                 }
 
@@ -781,54 +763,39 @@ int main() {
                 int cellCount = 0;
                 double sumX = 0, sumZ = 0;
 
-                // Only proceed if we have at least two different valid biomes touching
+                // Simple flood fill to find connected cells
                 int *stack = malloc(r.sx * r.sz * sizeof(int));
                 int stackSize = 0;
                 stack[stackSize++] = idx;
                 visited[idx] = 1;
 
-                int foundBiomes[256] = {0}; // Track which biomes we've found
-                int differentBiomesCount = 0;
-
                 while (stackSize > 0) {
                     int curr = stack[--stackSize];
                     int cx = curr % r.sx;
                     int cz = curr / r.sx;
-                    int currentBiome = biomeIds[curr];
-
-                    // Add this biome to our found list if it's new
-                    if (!foundBiomes[currentBiome]) {
-                        foundBiomes[currentBiome] = 1;
-                        differentBiomesCount++;
-                    }
-
                     cellCount++;
                     sumX += cx;
                     sumZ += cz;
 
-                    // Check directly adjacent cells only
+                    // Check adjacent cells
                     for (int d = 0; d < 4; d++) {
-                        int nx = cx + ((d % 2) ? 1 : -1) * (d < 2);
-                        int nz = cz + ((d % 2) ? 0 : 1) * (d >= 2);
+                        int nx = cx + dx[d];
+                        int nz = cz + dz[d];
                         if (nx < 0 || nx >= r.sx || nz < 0 || nz >= r.sz) {
                             continue;
                         }
                         int nidx = nz * r.sx + nx;
-                        if (visited[nidx]) continue;
-
                         int biomeid = biomeIds[nidx];
-                        // Only add to cluster if it's a valid biome and directly adjacent
-                        bool isValidBiome = false;
+                        int isValidBiome = 0;
                         for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
                             if (biomeid == clusterGroup0[i]) {
-                                isValidBiome = true;
+                                isValidBiome = 1;
                                 break;
                             }
                         }
-
-                        if (isValidBiome) {
+                        if (!visited[nidx] && isValidBiome) {
                             stack[stackSize++] = nidx;
-                            visited[nidx] = groupCount;
+                            visited[nidx] = groupCount + 1;
                         }
                     }
                 }
@@ -875,14 +842,10 @@ int main() {
                    r.x * 4, r.z * 4,
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
 
-            // Exit if we found enough seeds (maxSeeds = 1)
-            seedsFound++;
-            printf("Found %d valid seeds (maximum %d)\n", seedsFound, MAX_SEEDS_TO_FIND);
-            if (seedsFound >= MAX_SEEDS_TO_FIND) {
-                free(visited);
-                free(biomeIds);
-                return 0;
-            }
+            // Exit if we found enough seeds (1 in this case)
+            free(visited);
+            free(biomeIds);
+            return 0;
         }
 
         free(visited);
