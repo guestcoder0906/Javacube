@@ -700,6 +700,9 @@ int main() {
         // Count connected Cherry Grove biomes
         int *visited = calloc(r.sx * r.sz, sizeof(int));
         int groupCount = 0;
+        int w = r.sx;
+        int h = r.sz;
+        int i, j;
 
         for (int z = 0; z < r.sz; z++) {
             for (int x = 0; x < r.sx; x++) {
@@ -707,7 +710,7 @@ int main() {
                 if (visited[idx]) {
                     continue;
                 }
-                
+
                 int isValidStartBiome = 0;
                 for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
                     if (biomeIds[idx] == clusterGroup0[i]) {
@@ -739,7 +742,7 @@ int main() {
                     sumZ += cz;
 
                     // Check adjacent cells
-                    const int dx[] = {-1, 1, 0, 0};
+                    const int dx[] = {-1, 1, 0,0};
                     const int dz[] = {0, 0, -1, 1};
                     for (int d = 0; d < 4; d++) {
                         int nx = cx + dx[d];
@@ -768,7 +771,7 @@ int main() {
                 char clusterBiomes[256] = "";
                 int seenBiomes[256] = {0};
                 int uniqueBiomeCount = 0;
-                
+
                 // Only check biomes that are in clusterGroup0
                 for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
                     int biomeId = clusterGroup0[i];
@@ -787,7 +790,7 @@ int main() {
                         }
                     }
                 }
-                
+
                 // Skip if less than 2 unique biomes or cell count is too small
                 if (uniqueBiomeCount < 2 || cellCount < 2) continue;
 
@@ -799,9 +802,21 @@ int main() {
             }
         }
 
-        // Log if any clusters were found
-        if (groupCount > 0) {
-            printf("Valid seed %llu found with %d biome clusters\n", seed, groupCount);
+        // Track logged clusters
+        int loggedClusters = 0;
+        for (j = 0; j < h; j++) {
+            for (i = 0; i < w; i++) {
+                if (visited[j*w + i] == groupCount + 1) {
+                    loggedClusters = groupCount;
+                    break;
+                }
+            }
+            if (loggedClusters > 0) break;
+        }
+
+        // Log if any clusters were found and logged
+        if (loggedClusters > 0) {
+            printf("Valid seed %llu found with %d biome clusters\n", seed, loggedClusters);
             printf("Search area: (%d,%d) to (%d,%d)\n",
                    r.x * 4, r.z * 4,
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
