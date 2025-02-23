@@ -466,21 +466,13 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs) {
                     processed[root] = true;
                     double sumX = 0, sumZ = 0;
                     int compCount = 0;
-                    int biomeCount = 0;
-                    int seenBiomes[256] = {0};
                     for (int m = 0; m < count; m++) {
                         if (findSet(parent, m) == root) {
                             sumX += positions[m].x;
                             sumZ += positions[m].z;
                             compCount++;
-                            if (!seenBiomes[positions[m].structureType]) {
-                                seenBiomes[positions[m].structureType] = 1;
-                                biomeCount++;
-                            }
                         }
                     }
-                    if (compCount < 2 || biomeCount < 2) continue; //Skip invalid clusters
-
                     double centerX = sumX / compCount;
                     double centerZ = sumZ / compCount;
                     bool sizeOk = true;
@@ -715,7 +707,7 @@ int main() {
                 if (visited[idx]) {
                     continue;
                 }
-
+                
                 int isValidStartBiome = 0;
                 for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
                     if (biomeIds[idx] == clusterGroup0[i]) {
@@ -731,10 +723,8 @@ int main() {
                 groupCount++;
                 int cellCount = 0;
                 double sumX = 0, sumZ = 0;
-                int seenBiomes[256] = {0}; // Track biomes within the cluster
-                int biomeCount = 0; // Count of distinct biomes
 
-                //                // Simple flood fill to find connected cells
+                // Simple flood fill to find connected cells
                 int *stack = malloc(r.sx * r.sz * sizeof(int));
                 int stackSize = 0;
                 stack[stackSize++] = idx;
@@ -747,10 +737,6 @@ int main() {
                     cellCount++;
                     sumX += cx;
                     sumZ += cz;
-                    if (!seenBiomes[biomeIds[curr]]) {
-                        seenBiomes[biomeIds[curr]] = 1;
-                        biomeCount++;
-                    }
 
                     // Check adjacent cells
                     const int dx[] = {-1, 1, 0, 0};
@@ -778,13 +764,12 @@ int main() {
                 }
                 free(stack);
 
-                //Skip clusters with only one biome or one cell
-                if (biomeCount < 2 || cellCount < 2) continue;
-
-
                 // Build cluster biome name string
                 char clusterBiomes[256] = "";
-                memset(seenBiomes, 0, sizeof(seenBiomes)); //Reset seenBiomes
+                int seenBiomes[256] = {0};
+                int validBiomeFound = 0;
+                
+                // Only check biomes that are in clusterGroup0
                 for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
                     int biomeId = clusterGroup0[i];
                     for (int z = 0; z < r.sz; z++) {
@@ -793,6 +778,7 @@ int main() {
                             if (!visited[idx]) continue;
                             if (biomeIds[idx] == biomeId && !seenBiomes[biomeId]) {
                                 seenBiomes[biomeId] = 1;
+                                validBiomeFound = 1;
                                 if (strlen(clusterBiomes) > 0) {
                                     strcat(clusterBiomes, " + ");
                                 }
@@ -801,7 +787,8 @@ int main() {
                         }
                     }
                 }
-
+                
+                if (!validBiomeFound) continue; // Skip if no valid biomes found
 
                 // Calculate true center of entire cluster
                 double centerX = (sumX / cellCount) * 4 + r.x * 4;
@@ -811,14 +798,14 @@ int main() {
             }
         }
 
-        // Check if we have any valid clusters (more than 1 cell and more than 1 biome)
-        bool hasValidCluster = false;
-        for (int i = 1; i <= groupCount; i++) {
-            hasValidCluster = true;
-            break;
-        }
+        // Log if any clusters were found
+        if (groupCount > 0) {
+            printf("Valid seed %llu found with %d biome clusters\n", seed, groupCount);
+            printf("Search area: (%d,%d) to (%d,%d)\n",
+                   r.x * 4, r.z * 4,
+                   (r.x + r.sx) * 4, (r.z + r.sz) * 4);
 
-        if (hasValidCluster) {
+            // Exit if we found enough seeds (1 in this case)
             free(visited);
             free(biomeIds);
             return 0;
