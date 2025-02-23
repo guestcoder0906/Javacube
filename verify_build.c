@@ -259,7 +259,7 @@ typedef struct {
 int clusterTypesArray[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16, 18 };
 ClusterRequirement clusterReq = {
     .enabled = true,      // Change to true to enable structure clustering check.
-    .clusterDistance = 16,
+    .clusterDistance = 32,
     .structureTypes = clusterTypesArray,
     .count = sizeof(clusterTypesArray) / sizeof(clusterTypesArray[0])
 };
@@ -279,10 +279,12 @@ typedef struct {
     int count;
 } InvalidCombination;
 
-#define NUM_INVALID_COMBINATIONS 1
-int invComb1Arr[] = {};  // No invalid combinations defined.
+#define NUM_INVALID_COMBINATIONS 2
+int invComb1Arr[] = {16, 11}; 
+int invComb2Arr[] = {16, 6};  
 InvalidCombination invalidCombinations[NUM_INVALID_COMBINATIONS] = {
-    { invComb1Arr, sizeof(invComb1Arr) / sizeof(invComb1Arr[0]) }
+    { invComb1Arr, sizeof(invComb1Arr) / sizeof(invComb1Arr[0]) },
+    { invComb2Arr, sizeof(invComb2Arr) / sizeof(invComb2Arr[0]) }
 };
 
 // -----------------------------------------------------------------------------
@@ -804,26 +806,33 @@ bool scanSeed(uint64_t seed) {
                 qsort(groupTypes, groupSize, sizeof(int), compareInts);
 
                 bool clusterIsInvalid = isInvalidClusterDynamic(groupTypes, groupSize);
-                if (!clusterIsInvalid)
+                if (clusterIsInvalid)
                 {
-                    // 6) We have a valid cluster
-                    atLeastOneValidCluster = true;
-
-                    // Optionally print info
-                    printf("== Seed %llu: Found cluster of size %d ==\n", 
-                           (unsigned long long) seed, groupSize);
-                    for (int n = 0; n < groupSize; n++)
-                    {
-                        int idx = indices[n];
-                        printf("   Type %d at (%d, %d)\n",
-                               clusterPositions[idx].structureType,
-                               clusterPositions[idx].x,
-                               clusterPositions[idx].z);
-                    }
-                    printf("\n");
+                    // Skip this cluster and continue checking others.
+                    printf("Skipping invalid cluster at seed %llu (contains an invalid combination)\n", seed);
+                    free(groupTypes);
+                    free(indices);
+                    continue; // Skip processing this cluster, but do not mark the seed as invalid.
                 }
+
+                // 6) We have a valid cluster
+                atLeastOneValidCluster = true;
+
+                // Optionally print info
+                printf("== Seed %llu: Found cluster of size %d ==\n", 
+                       (unsigned long long) seed, groupSize);
+                for (int n = 0; n < groupSize; n++)
+                {
+                    int idx = indices[n];
+                    printf("   Type %d at (%d, %d)\n",
+                           clusterPositions[idx].structureType,
+                           clusterPositions[idx].x,
+                           clusterPositions[idx].z);
+                }
+                printf("\n");
                 free(groupTypes);
                 free(indices);
+                seedsFound++;
             } // end for each root
 
             free(processed);
