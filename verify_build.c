@@ -708,14 +708,34 @@ int main() {
                     continue;
                 }
                 
-                int isValidStartBiome = 0;
-                for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
-                    if (biomeIds[idx] == clusterGroup0[i]) {
-                        isValidStartBiome = 1;
+                // Check for neighboring cells with different valid biomes first
+                int hasMultipleBiomes = 0;
+                int currentBiome = biomeIds[idx];
+                const int dx[] = {-1, 1, 0, 0};
+                const int dz[] = {0, 0, -1, 1};
+                
+                for (int d = 0; d < 4; d++) {
+                    int nx = x + dx[d];
+                    int nz = z + dz[d];
+                    if (nx < 0 || nx >= r.sx || nz < 0 || nz >= r.sz) {
+                        continue;
+                    }
+                    int nidx = nz * r.sx + nx;
+                    int neighborBiome = biomeIds[nidx];
+                    
+                    // Check if both current and neighbor are valid biomes and different
+                    int currentValid = 0, neighborValid = 0;
+                    for (int i = 0; i < sizeof(clusterGroup0)/sizeof(int); i++) {
+                        if (currentBiome == clusterGroup0[i]) currentValid = 1;
+                        if (neighborBiome == clusterGroup0[i]) neighborValid = 1;
+                    }
+                    if (currentValid && neighborValid && currentBiome != neighborBiome) {
+                        hasMultipleBiomes = 1;
                         break;
                     }
                 }
-                if (!isValidStartBiome) {
+                
+                if (!hasMultipleBiomes) {
                     continue;
                 }
 
@@ -798,9 +818,23 @@ int main() {
             }
         }
 
-        // Log if any clusters were found
-        if (groupCount > 0) {
-            printf("Valid seed %llu found with %d biome clusters\n", seed, groupCount);
+        // Log if any valid clusters were found (cell count > 1)
+        int validClusters = 0;
+        for (int i = 0; i < groupCount; i++) {
+            for (int z = 0; z < r.sz; z++) {
+                for (int x = 0; x < r.sx; x++) {
+                    int idx = z * r.sx + x;
+                    if (visited[idx] == i + 1) {
+                        validClusters++;
+                        break;
+                    }
+                }
+                if (validClusters > i) break;
+            }
+        }
+        
+        if (validClusters > 0) {
+            printf("Valid seed %llu found with %d biome clusters\n", seed, validClusters);
             printf("Search area: (%d,%d) to (%d,%d)\n",
                    r.x * 4, r.z * 4,
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
