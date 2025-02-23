@@ -504,7 +504,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs) {
 
 // -----------------------------------------------------------------------------
 // Global configuration parameters.
-uint64_t starting_seed = 12345;
+uint64_t starting_seed = 12346;
 int searchRadius = 500;
 int useSpawn = 1;      // 1 = use spawn point; 0 = use custom coordinates.
 int customX = 0;
@@ -663,7 +663,7 @@ int main() {
     setupGenerator(&g, MC_1_21, 0);
 
     // Set search parameters
-    uint64_t start_seed = 12345;
+    uint64_t start_seed = 12346;
     uint64_t end_seed = start_seed + 1000; // Check 1000 seeds
     int searchRadius = 500; // Search within 500 blocks
 
