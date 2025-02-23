@@ -228,11 +228,11 @@ static BiomeRequirement reqGroup = {
 // --- Dynamic initialization for clustered biomes ---
 // For clustered biomes, all cells that belong to the group are merged regardless of individual type.
 // For example, define one cluster group that contains Plains and Cherry Grove with no size filtering.
-static int clusterGroup0[] = {185, 1}; 
+static int clusterGroup0[] = {185, 1};
 static const BiomeCluster clustGroup0 = {
     .biomeIds   = clusterGroup0,
-    .biomeCount = sizeof(clusterGroup0) / sizeof(clusterGroup0[0]), //0
-    .minSize    = -1,
+    .biomeCount = sizeof(clusterGroup0) / sizeof(clusterGroup0[0]),
+    .minSize    = 2, // Minimum 2 cells for a cluster
     .maxSize    = -1,
     .logCenters = 1
 };
@@ -427,19 +427,23 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs) {
             for (int z = z0; z <= z1; z += step) {
                 for (int x = x0; x <= x1; x += step) {
                     int biome = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
+                    bool foundBiomeInCluster = false;
                     for (int j = 0; j < cluster->biomeCount; j++) {
                         if (biome == cluster->biomeIds[j]) {
-                            if (count == capacity) {
-                                capacity *= 2;
-                                positions = realloc(positions, capacity * sizeof(StructurePos));
-                                if (!positions) { perror("realloc"); exit(1); }
-                            }
-                            positions[count].structureType = biome;
-                            positions[count].x = x;
-                            positions[count].z = z;
-                            count++;
+                            foundBiomeInCluster = true;
                             break;
                         }
+                    }
+                    if (foundBiomeInCluster) {
+                        if (count == capacity) {
+                            capacity *= 2;
+                            positions = realloc(positions, capacity * sizeof(StructurePos));
+                            if (!positions) { perror("realloc"); exit(1); }
+                        }
+                        positions[count].structureType = biome;
+                        positions[count].x = x;
+                        positions[count].z = z;
+                        count++;
                     }
                 }
             }
@@ -447,22 +451,18 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs) {
                 clustersFound = false;
             } else {
                 int *parent = malloc(count * sizeof(int));
-                for (int k = 0; k < count; k++)
-                    parent[k] = k;
-                // For clusters, group all touching cells regardless of individual biome type.
+                for (int k = 0; k < count; k++) parent[k] = k;
                 for (int k = 0; k < count; k++) {
                     for (int l = k + 1; l < count; l++) {
                         int dx = abs(positions[k].x - positions[l].x);
                         int dz = abs(positions[k].z - positions[l].z);
-                        if (dx <= step && dz <= step)
-                            unionSets(parent, k, l);
+                        if (dx <= step && dz <= step) unionSets(parent, k, l);
                     }
                 }
                 bool *processed = calloc(count, sizeof(bool));
                 for (int k = 0; k < count; k++) {
                     int root = findSet(parent, k);
-                    if (processed[root])
-                        continue;
+                    if (processed[root]) continue;
                     processed[root] = true;
                     double sumX = 0, sumZ = 0;
                     int compCount = 0;
@@ -476,13 +476,20 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs) {
                     double centerX = sumX / compCount;
                     double centerZ = sumZ / compCount;
                     bool sizeOk = true;
-                    if (cluster->minSize > -1 && compCount < cluster->minSize)
-                        sizeOk = false;
-                    if (cluster->maxSize > -1 && compCount > cluster->maxSize)
-                        sizeOk = false;
+                    if (cluster->minSize > -1 && compCount < cluster->minSize) sizeOk = false;
+                    if (cluster->maxSize > -1 && compCount > cluster->maxSize) sizeOk = false;
                     if (sizeOk) {
-                        printf("Clustered biome group %d: center at (%.1f, %.1f), total cell count %d\n",
-                               i, centerX, centerZ, compCount);
+                        char biomeNames[256] = "";
+                        for (int m = 0; m < count; m++) {
+                            if (findSet(parent, m) == root) {
+                                strcat(biomeNames, getBiomeName(positions[m].structureType));
+                                strcat(biomeNames, " + ");
+                            }
+                        }
+                        biomeNames[strlen(biomeNames) - 3] = '\0'; //remove trailing " + "
+
+                        printf("Clustered biome cluster %d: %s, center at (%.1f, %.1f), total cell count %d\n",
+                               i + 1, biomeNames, centerX, centerZ, compCount);
                     }
                 }
                 free(processed);
@@ -665,92 +672,91 @@ int main() {
         applySeed(&g, DIM_OVERWORLD, seed);
         printf("Checking seed: %llu\n", seed);
 
-    // Define search range at biome scale (1:4)
-    Range r = {
-        .scale = 4,
-        .x = -searchRadius/4,
-        .z = -searchRadius/4,
-        .sx = searchRadius/2,
-        .sz = searchRadius/2,
-        .y = 0,
-        .sy = 1
-    };
+        // Define search range at biome scale (1:4)
+        Range r = {
+            .scale = 4,
+            .x = -searchRadius / 4,
+            .z = -searchRadius / 4,
+            .sx = searchRadius / 2,
+            .sz = searchRadius / 2,
+            .y = 0,
+            .sy = 1
+        };
 
-    // Allocate cache for biome generation
-    int *biomeIds = allocCache(&g, r);
-    if (!biomeIds) {
-        printf("Failed to allocate cache\n");
-        return 1;
-    }
+        // Allocate cache for biome generation
+        int *biomeIds = allocCache(&g, r);
+        if (!biomeIds) {
+            printf("Failed to allocate cache\n");
+            return 1;
+        }
 
-    // Generate biomes for the area
-    if (genBiomes(&g, biomeIds, r)) {
-        printf("Failed to generate biomes\n");
-        free(biomeIds);
-        return 1;
-    }
+        // Generate biomes for the area
+        if (genBiomes(&g, biomeIds, r)) {
+            printf("Failed to generate biomes\n");
+            free(biomeIds);
+            return 1;
+        }
 
-    // Count connected Cherry Grove biomes
-    int *visited = calloc(r.sx * r.sz, sizeof(int));
-    int groupCount = 0;
+        // Count connected Cherry Grove biomes
+        int *visited = calloc(r.sx * r.sz, sizeof(int));
+        int groupCount = 0;
 
-    for (int z = 0; z < r.sz; z++) {
-        for (int x = 0; x < r.sx; x++) {
-            int idx = z * r.sx + x;
-            if (visited[idx] || biomeIds[idx] != cherry_grove) {
-                continue;
-            }
+        for (int z = 0; z < r.sz; z++) {
+            for (int x = 0; x < r.sx; x++) {
+                int idx = z * r.sx + x;
+                if (visited[idx] || biomeIds[idx] != 185) { //check for cherry grove (185)
+                    continue;
+                }
 
-            // Found a new cherry grove group
-            groupCount++;
-            int cellCount = 0;
-            double sumX = 0, sumZ = 0;
+                // Found a new cherry grove group
+                groupCount++;
+                int cellCount = 0;
+                double sumX = 0, sumZ = 0;
 
-            // Simple flood fill to find connected cells
-            int *stack = malloc(r.sx * r.sz * sizeof(int));
-            int stackSize = 0;
-            stack[stackSize++] = idx;
-            visited[idx] = 1;
+                // Simple flood fill to find connected cells
+                int *stack = malloc(r.sx * r.sz * sizeof(int));
+                int stackSize = 0;
+                stack[stackSize++] = idx;
+                visited[idx] = 1;
 
-            while (stackSize > 0) {
-                int curr = stack[--stackSize];
-                int cx = curr % r.sx;
-                int cz = curr / r.sx;
-                cellCount++;
-                sumX += cx;
-                sumZ += cz;
+                while (stackSize > 0) {
+                    int curr = stack[--stackSize];
+                    int cx = curr % r.sx;
+                    int cz = curr / r.sx;
+                    cellCount++;
+                    sumX += cx;
+                    sumZ += cz;
 
-                // Check adjacent cells
-                const int dx[] = {-1, 1, 0, 0};
-                const int dz[] = {0, 0, -1, 1};
-                for (int d = 0; d < 4; d++) {
-                    int nx = cx + dx[d];
-                    int nz = cz + dz[d];
-                    if (nx < 0 || nx >= r.sx || nz < 0 || nz >= r.sz) {
-                        continue;
-                    }
-                    int nidx = nz * r.sx + nx;
-                    if (!visited[nidx] && biomeIds[nidx] == cherry_grove) {
-                        stack[stackSize++] = nidx;
-                        visited[nidx] = 1;
+                    // Check adjacent cells
+                    const int dx[] = {-1, 1, 0, 0};
+                    const int dz[] = {0, 0, -1, 1};
+                    for (int d = 0; d < 4; d++) {                        int nx = cx + dx[d];
+                        int nz = cz + dz[d];
+                        if (nx < 0 || nx >= r.sx || nz < 0 || nz >= r.sz) {
+                            continue;
+                        }
+                        int nidx = nz * r.sx + nx;
+                        if (!visited[nidx] && biomeIds[nidx] == 185) { //check for cherry grove (185)
+                            stack[stackSize++] = nidx;
+                            visited[nidx] = 1;
+                        }
                     }
                 }
+                free(stack);
+
+                // Output the center and size of the group
+                double centerX = (sumX / cellCount) * 4 + r.x * 4;
+                double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
+                printf("Clustered biome group 0: center at (%.1f, %.1f), total cell count %d\n",
+                       centerX, centerZ, cellCount);
             }
-            free(stack);
-
-            // Output the center and size of the group
-            double centerX = (sumX / cellCount) * 4 + r.x * 4;
-            double centerZ = (sumZ / cellCount) * 4 + r.z * 4;
-            printf("Clustered biome group 0: center at (%.1f, %.1f), total cell count %d\n",
-                   centerX, centerZ, cellCount);
         }
-    }
 
-    // Log if any Cherry Grove biomes were found
+        // Log if any Cherry Grove biomes were found
         if (groupCount > 0) {
             printf("\nValid seed %llu found with %d Cherry Grove biome groups\n", seed, groupCount);
-            printf("Search area: (%d,%d) to (%d,%d)\n", 
-                   r.x * 4, r.z * 4, 
+            printf("Search area: (%d,%d) to (%d,%d)\n",
+                   r.x * 4, r.z * 4,
                    (r.x + r.sx) * 4, (r.z + r.sz) * 4);
             printf("----------------------------------------\n");
 
