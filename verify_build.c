@@ -694,7 +694,10 @@ int main() {
         // Call scanSeed to check if this seed contains required structures
         if (scanSeed(seed)) {
             printf("Valid seed found: %llu (meets structure requirements)\n", (unsigned long long) seed);
-            return 0;
+            if (seedsFound >= MAX_SEEDS_TO_FIND) {
+                printf("Found required number of seeds (%d). Stopping search.\n", MAX_SEEDS_TO_FIND);
+                return 0;
+            }
         }
 
         // Define search range at biome scale (1:4)
