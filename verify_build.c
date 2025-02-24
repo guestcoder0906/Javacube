@@ -769,8 +769,8 @@ bool scanSeed(uint64_t seed)
             int biome_id;
         } FoundPos;
 
-        static FoundPos foundPositions[256];
-        static int foundPosCount = 0;
+        FoundPos foundPositions[256];
+        int foundPosCount = 0;
 
         for (int rIndex = 0; rIndex < NUM_STRUCTURE_REQUIREMENTS; rIndex++) {
             StructureRequirement req = structureRequirements[rIndex];
