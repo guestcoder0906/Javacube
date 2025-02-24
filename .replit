@@ -4,7 +4,7 @@ modules = ["c"]
 channel = "stable-24_05"
 
 [workflows]
-runButton = "Project"
+runButton = "Run"
 
 [[workflows.workflow]]
 name = "Project"
@@ -28,6 +28,14 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "chmod +x build.sh && ./build.sh && cd cubiomes && gcc ../verify_build.c -o verify_build -I. libcubiomes.a -lm && ./verify_build"
+
+[[workflows.workflow]]
+name = "Run"
+author = 4148307
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "./verify_build"
 
 [deployment]
 run = ["sh", "-c", "chmod +x build.sh && ./build.sh && cd cubiomes && gcc ../verify_build.c -o verify_build -I. libcubiomes.a -lm && ./verify_build"]
