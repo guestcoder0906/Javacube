@@ -1,16 +1,38 @@
-// verify_build.c
-#include "cubiomes/finders.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <math.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <pthread.h>
-#include <limits.h>
-#include <string.h> // For memcpy, strcmp, etc.
+#include "cubiomes/finders.h"
 
+#define PORT 8080
+#define BUFFER_SIZE 8192
+#define MAX_CLIENTS 10
+
+typedef struct {
+    int sock;
+    struct sockaddr_in addr;
+} client_t;
+
+client_t clients[MAX_CLIENTS];
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void broadcast_message(const char* message) {
+    pthread_mutex_lock(&clients_mutex);
+    for(int i = 0; i < MAX_CLIENTS; i++) {
+        if(clients[i].sock > 0) {
+            send(clients[i].sock, message, strlen(message), 0);
+        }
+    }
+    pthread_mutex_unlock(&clients_mutex);
+}
+
+// Your existing scanning code here
 // -----------------------------------------------------------------------------
 // Global configuration / defaults
-#define MAX_SEEDS_TO_FIND 1 
+#define MAX_SEEDS_TO_FIND 1
 int seedsFound = 0;          // Tracks how many seeds have been found so far
 
 // Range for seed scanning:
@@ -145,7 +167,7 @@ const char* getBiomeName(int id)
 // Approx. function to measure the "patch size" of a given biome around (x,z).
 int getBiomePatchSize(Generator *g, int x, int z, int biome_id)
 {
-    int radius = 128; 
+    int radius = 128;
     int sx = (x - radius) >> 2;
     int sz = (z - radius) >> 2;
     int w = radius >> 1;
@@ -225,7 +247,7 @@ typedef struct {
 } BiomeSearch;
 
 // We will dynamically build these from the parameter file
-BiomeRequirement *g_requiredBiomes   = NULL; 
+BiomeRequirement *g_requiredBiomes   = NULL;
 int g_requiredBiomesCount            = 0;
 
 BiomeCluster    *g_biomeClusters     = NULL;
@@ -245,7 +267,7 @@ typedef struct {
     int clusterDistance;
     int *structureTypes;
     int count;
-    int minClusterSize;  
+    int minClusterSize;
 } ClusterRequirement;
 
 // We will fill this from the parameter file
@@ -260,7 +282,7 @@ ClusterRequirement clusterReq = {
 // -----------------------------------------------------------------------------
 // Found positions
 typedef struct {
-    int structureType; 
+    int structureType;
     int x;
     int z;
 } StructurePos;
@@ -328,11 +350,11 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
         // If no biome requirements are present, we consider it "passing" or you can handle otherwise
         return true;
     }
-    bool success = true; 
+    bool success = true;
     int step = 4;
 
     // 1) Required biome patches
-    if (bs->requiredCount > 0) 
+    if (bs->requiredCount > 0)
     {
         bool allRequirementsFound = true;
 
@@ -362,7 +384,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
                             positions[count].x = xx;
                             positions[count].z = zz;
                             count++;
-                            break; 
+                            break;
                         }
                     }
                 }
@@ -452,7 +474,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
     }
 
     // 2) Clustered biomes
-    if (bs->clusterCount > 0) 
+    if (bs->clusterCount > 0)
     {
         // For each cluster definition, check if we can find it
         for (int i = 0; i < bs->clusterCount; i++) {
@@ -477,7 +499,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
                             positions[count].x = xx;
                             positions[count].z = zz;
                             count++;
-                            break; 
+                            break;
                         }
                     }
                 }
@@ -810,8 +832,8 @@ bool scanSeed(uint64_t seed)
                     int biome_id = -1;
                     if (req.requiredBiome != -1) {
                         // Only check biome if it's required
-                        int checkUnderground = (req.structureType == 17 || req.structureType == 15 || 
-                                              req.structureType == 14 || req.structureType == 11);
+                        int checkUnderground = (req.structureType == 17 || req.structureType == 15 ||
+                                               req.structureType == 14 || req.structureType == 11);
 
                         if (checkUnderground) {
                             biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, 0, pos.z >> 2);
@@ -839,8 +861,8 @@ bool scanSeed(uint64_t seed)
 
                     // Get height based on structure type
                     int height = 0;
-                    if (req.structureType == 19 || req.structureType == 17 || 
-                        req.structureType == 15 || req.structureType == 14 || 
+                    if (req.structureType == 19 || req.structureType == 17 ||
+                        req.structureType == 15 || req.structureType == 14 ||
                         req.structureType == 11) {
                         // For special structures, get height directly from structure data
                         StructureVariant sv;
@@ -869,7 +891,7 @@ bool scanSeed(uint64_t seed)
                     foundPositions[foundPosCount].z = pos.z;
                     foundPositions[foundPosCount].y = height;
                     foundPositions[foundPosCount].biome_id = biome_id;
-                    foundPositions[foundPosCount].biome_size = 
+                    foundPositions[foundPosCount].biome_size =
                         (biome_id != -1) ? getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id) : -1;
                     foundPosCount++;
                     foundCount++;
@@ -964,7 +986,7 @@ static void trim(char *str)
 
     // right trim
     int len = (int)strlen(str);
-    while (len > 0 && (str[len-1] == ' ' || str[len-1] == '\t' 
+    while (len > 0 && (str[len-1] == ' ' || str[len-1] == '\t'
                        || str[len-1] == '\r' || str[len-1] == '\n')) {
         str[len-1] = '\0';
         len--;
@@ -981,7 +1003,7 @@ void parseConfigLine(const char *section, char *line)
     // "Search radius: 1000"
     // "Use spawn: false"
     // ...
-    if (strcmp(section, "===== Scanning options =====") == 0) 
+    if (strcmp(section, "===== Scanning options =====") == 0)
     {
         // We'll parse scanning options
         if (strstr(line, "Starting seed:") == line) {
@@ -994,7 +1016,7 @@ void parseConfigLine(const char *section, char *line)
             char val[16];
             if (sscanf(line, "Use spawn: %15s", val) == 1) {
                 // interpret "true"/"1" as 1, else 0
-                if (strcmp(val, "true") == 0 || strcmp(val, "1") == 0) 
+                if (strcmp(val, "true") == 0 || strcmp(val, "1") == 0)
                     useSpawn = 1;
                 else
                     useSpawn = 0;
@@ -1028,11 +1050,11 @@ void parseParameterLine(char *line)
     }
 
     // Otherwise, parse based on the currentSection
-    if (strcmp(currentSection, "===== Scanning options =====") == 0) 
+    if (strcmp(currentSection, "===== Scanning options =====") == 0)
     {
         parseConfigLine(currentSection, line);
     }
-    else if (strcmp(currentSection, "===== Required structures =====") == 0) 
+    else if (strcmp(currentSection, "===== Required structures =====") == 0)
     {
         // Lines look like:
         // 1. 5 (min amount: 1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
@@ -1058,8 +1080,8 @@ void parseParameterLine(char *line)
         }
 
         // Special case for height handling for certain structure types
-        int skipSurfaceHeight = (structureType == 19 || structureType == 17 || 
-                                structureType == 15 || structureType == 14 || 
+        int skipSurfaceHeight = (structureType == 19 || structureType == 17 ||
+                                structureType == 15 || structureType == 14 ||
                                 structureType == 11);
 
         // Validate structure type
@@ -1069,7 +1091,7 @@ void parseParameterLine(char *line)
         }
 
         // Add to requirements array
-        structureRequirements = realloc(structureRequirements, 
+        structureRequirements = realloc(structureRequirements,
                                       (NUM_STRUCTURE_REQUIREMENTS + 1) * sizeof(StructureRequirement));
         if (!structureRequirements) {
             fprintf(stderr, "Failed to allocate memory for structure requirement\n");
@@ -1085,7 +1107,7 @@ void parseParameterLine(char *line)
         structureRequirements[NUM_STRUCTURE_REQUIREMENTS].maxBiomeSize = maxSz;
         NUM_STRUCTURE_REQUIREMENTS++;
     }
-    else if (strcmp(currentSection, "===== Structure Clusters =====") == 0) 
+    else if (strcmp(currentSection, "===== Structure Clusters =====") == 0)
     {
         // Example lines:
         //   Enabled: true
@@ -1096,15 +1118,15 @@ void parseParameterLine(char *line)
         if (strstr(line, "Enabled:") == line) {
             char val[16];
             if (sscanf(line, "Enabled: %15s", val) == 1) {
-                if (strcmp(val, "true") == 0 || strcmp(val, "1") == 0) 
+                if (strcmp(val, "true") == 0 || strcmp(val, "1") == 0)
                     clusterReq.enabled = true;
-                else 
+                else
                     clusterReq.enabled = false;
             }
         }
         else if (strstr(line, "Valid biomes:") == line) {
-            // Actually, the example said "Valid biomes: 1,2,3..." 
-            // but the code snippet you gave uses structure IDs, not biome IDs, 
+            // Actually, the example said "Valid biomes: 1,2,3..."
+            // but the code snippet you gave uses structure IDs, not biome IDs,
             // so let's assume these are the structure *types* we want to cluster:
             // We'll parse them into clusterReq.structureTypes
             const char *p = strchr(line, ':');
@@ -1198,7 +1220,7 @@ void parseParameterLine(char *line)
         // "min size: 50, max size: -1"
         sscanf(parenPart, "min size: %d, max size: %d", &minSz, &maxSz);
 
-        // We'll store them in a temporary array. 
+        // We'll store them in a temporary array.
         tmpConfigs = realloc(tmpConfigs, (tmpConfigsCount+1)*sizeof(BiomeSizeConfig));
         tmpConfigs[tmpConfigsCount].biomeId = biomeId;
         tmpConfigs[tmpConfigsCount].minSize = minSz;
@@ -1206,12 +1228,12 @@ void parseParameterLine(char *line)
         tmpConfigsCount++;
 
         // For demonstration, let's keep them all in a single "required group".
-        // Or you might want each line to be a separate requirement. 
+        // Or you might want each line to be a separate requirement.
         // For simplicity, let's do *one* BiomeRequirement that includes multiple biome IDs.
 
         // If your logic requires each line to be its own BiomeRequirement, you'd do so here.
 
-        // We'll create or expand a single BiomeRequirement with all these. 
+        // We'll create or expand a single BiomeRequirement with all these.
         if (g_requiredBiomesCount == 0) {
             g_requiredBiomes = malloc(sizeof(BiomeRequirement));
             g_requiredBiomesCount = 1;
@@ -1227,8 +1249,8 @@ void parseParameterLine(char *line)
         br->biomeIds[br->biomeCount] = biomeId;
         br->biomeCount++;
 
-        // Also store the size constraints. 
-        // In a more robust design, you'd match them by index or by biome ID. 
+        // Also store the size constraints.
+        // In a more robust design, you'd match them by index or by biome ID.
         // For now, let's just store them all in a single array:
         br->sizeConfigs = realloc(br->sizeConfigs, tmpConfigsCount*sizeof(BiomeSizeConfig));
         memcpy(br->sizeConfigs, tmpConfigs, tmpConfigsCount*sizeof(BiomeSizeConfig));
@@ -1355,6 +1377,149 @@ int main(int argc, char *argv[])
 
     // Clean up your dynamic allocations if you like
     // e.g. free(g_requiredBiomes), free(invalidCombinations[x].types), etc.
+
+    return 0;
+}
+
+void handle_client(void* arg) {
+    client_t* client = (client_t*)arg;
+    char buffer[BUFFER_SIZE];
+
+    while(1) {
+        memset(buffer, 0, BUFFER_SIZE);
+        int bytes_received = recv(client->sock, buffer, BUFFER_SIZE, 0);
+
+        if(bytes_received <= 0) {
+            break;
+        }
+
+        // Parse parameters and run scan
+        FILE* temp = tmpfile();
+        if(temp) {
+            fputs(buffer, temp);
+            rewind(temp);
+            parseParameterStream(temp);
+            fclose(temp);
+
+            // Start scanning with parsed parameters
+            pthread_t scan_thread;
+            pthread_create(&scan_thread, NULL, scanTask, &end_seed);
+            pthread_detach(scan_thread);
+        }
+    }
+
+    pthread_mutex_lock(&clients_mutex);
+    for(int i = 0; i < MAX_CLIENTS; i++) {
+        if(clients[i].sock == client->sock) {
+            close(clients[i].sock);
+            clients[i].sock = 0;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&clients_mutex);
+
+    free(client);
+}
+
+void serve_file(int client_sock, const char* path, const char* content_type) {
+    FILE* file = fopen(path, "rb");
+    if(!file) {
+        const char* response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
+        send(client_sock, response, strlen(response), 0);
+        return;
+    }
+
+    char buffer[8192];
+    sprintf(buffer, "HTTP/1.1 200 OK\r\nContent-Type: %s\r\n\r\n", content_type);
+    send(client_sock, buffer, strlen(buffer), 0);
+
+    size_t bytes_read;
+    while((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+        send(client_sock, buffer, bytes_read, 0);
+    }
+
+    fclose(file);
+}
+
+int main() {
+    int server_fd;
+    struct sockaddr_in address;
+
+    if((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(PORT);
+
+    if(bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if(listen(server_fd, 3) < 0) {
+        perror("listen failed");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Server running on port %d\n", PORT);
+
+    while(1) {
+        struct sockaddr_in client_addr;
+        int addrlen = sizeof(client_addr);
+        int new_socket = accept(server_fd, (struct sockaddr *)&client_addr, (socklen_t*)&addrlen);
+
+        if(new_socket < 0) {
+            perror("accept failed");
+            continue;
+        }
+
+        char buffer[8192] = {0};
+        recv(new_socket, buffer, 8192, 0);
+
+        if(strstr(buffer, "GET / ") == buffer) {
+            serve_file(new_socket, "index.html", "text/html");
+        }
+        else if(strstr(buffer, "GET /ws") == buffer) {
+            // Handle WebSocket upgrade
+            char *key_start = strstr(buffer, "Sec-WebSocket-Key: ") + 19;
+            char *key_end = strstr(key_start, "\r\n");
+            int key_length = key_end - key_start;
+
+            char response[1024];
+            sprintf(response,
+                "HTTP/1.1 101 Switching Protocols\r\n"
+                "Upgrade: websocket\r\n"
+                "Connection: Upgrade\r\n"
+                "Sec-WebSocket-Accept: %.*s\r\n\r\n",
+                key_length, key_start);
+
+            send(new_socket, response, strlen(response), 0);
+
+            // Add to clients list
+            pthread_mutex_lock(&clients_mutex);
+            for(int i = 0; i < MAX_CLIENTS; i++) {
+                if(clients[i].sock == 0) {
+                    clients[i].sock = new_socket;
+                    clients[i].addr = client_addr;
+
+                    client_t* client = malloc(sizeof(client_t));
+                    *client = clients[i];
+
+                    pthread_t thread;
+                    pthread_create(&thread, NULL, (void*)handle_client, client);
+                    pthread_detach(thread);
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&clients_mutex);
+        }
+        else {
+            close(new_socket);
+        }
+    }
 
     return 0;
 }
