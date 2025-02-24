@@ -765,8 +765,9 @@ bool scanSeed(uint64_t seed)
         hasAnyRequirements = true;
         // Store found structures for organized output later
         typedef struct {
-            int x, z;
+            int x, y, z;
             int biome_id;
+            int biome_size;
         } FoundPos;
 
         FoundPos foundPositions[256];
@@ -836,10 +837,40 @@ bool scanSeed(uint64_t seed)
                         }
                     }
 
-                    // Store the found position
+                    // Get height based on structure type
+                    int height = 0;
+                    if (req.structureType == 19 || req.structureType == 17 || 
+                        req.structureType == 15 || req.structureType == 14 || 
+                        req.structureType == 11) {
+                        // For special structures, get height directly from structure data
+                        StructureVariant sv;
+                        if (getVariant(&sv, req.structureType, MC_1_21, seed, pos.x, pos.z, biome_id)) {
+                            height = sv.y;
+                        }
+                    } else {
+                        // For other structures, get surface height
+                        float heightArr[256];
+                        int w = 16, h = 16;
+                        Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 1, 1};
+                        mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
+                        int lx = pos.x & 15;
+                        int lz = pos.z & 15;
+                        height = (int)heightArr[lz*w + lx];
+                    }
+
+                    // Check height constraints if they exist
+                    if ((req.minHeight != -9999 && height < req.minHeight) ||
+                        (req.maxHeight != 9999 && height > req.maxHeight)) {
+                        continue;
+                    }
+
+                    // Store the found position with height
                     foundPositions[foundPosCount].x = pos.x;
                     foundPositions[foundPosCount].z = pos.z;
+                    foundPositions[foundPosCount].y = height;
                     foundPositions[foundPosCount].biome_id = biome_id;
+                    foundPositions[foundPosCount].biome_size = 
+                        (biome_id != -1) ? getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id) : -1;
                     foundPosCount++;
                     foundCount++;
                 }
@@ -859,9 +890,10 @@ bool scanSeed(uint64_t seed)
                 printf("Structures %d:\n", req.structureType);
                 for (int j = 0; j < foundPosCount; j++) {
                     if (foundPositions[j].biome_id == req.requiredBiome || req.requiredBiome == -1) {
-                        printf("- Structure %d at (%d, %d) in biome %s\n",
+                        printf("Structure %d at (%d, %d) with height at %d in %s Biome with %d size\n",
                             req.structureType, foundPositions[j].x, foundPositions[j].z,
-                            getBiomeName(foundPositions[j].biome_id));
+                            foundPositions[j].y, getBiomeName(foundPositions[j].biome_id),
+                            foundPositions[j].biome_size);
                     }
                 }
             }
