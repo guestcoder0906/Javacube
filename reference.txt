@@ -17,7 +17,7 @@
 // 16  - Desert_Well --small
 // 17  - Geode --small --underground
 // 18  - Trail_Ruins --small
-// 19  - Trial_Chambers --underground
+// 19  - Trial_Chambers --underground 
 
 // Biome ID Reference
 //  0   - Ocean
