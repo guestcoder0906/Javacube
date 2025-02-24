@@ -1391,3 +1391,22 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+int estimateSurfaceHeight(Generator *g, int x, int z) {
+    // Only works for overworld currently
+    if (g->dim != DIM_OVERWORLD) {
+        return 64; // Default height if not overworld
+    }
+
+    // For heightmap sampling we use scale 1:4 and sample a 1x1 area
+    Range r = {4, x/4, z/4, 1, 1, 0, 1};
+    float height;
+    SurfaceNoise sn;
+    
+    // Initialize surface noise for heightmap generation
+    initSurfaceNoise(&sn, g->dim, g->seed);
+    
+    // Sample the height at the coordinates
+    mapApproxHeight(&height, NULL, g, &sn, r.x, r.z, r.sx, r.sz);
+    
+    return (int)height;
+}
