@@ -818,7 +818,7 @@ bool scanSeed(uint64_t seed)
                     int biome_id = id;
 
                     if (req.requiredBiome != -1 && biome_id != req.requiredBiome)
-                        continue                        continue;
+                    continue;
 
                     if (req.requiredBiome != -1 &&
                         (req.minBiomeSize != -1 || req.maxBiomeSize != -1))
