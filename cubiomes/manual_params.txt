@@ -1,0 +1,7 @@
+===== Scanning options =====
+Starting seed: 0
+Search radius: 1000
+Use spawn: true
+Custom z: 0
+Custom x: 0
+

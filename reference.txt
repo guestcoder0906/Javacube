@@ -5,20 +5,19 @@
 //  3  - Swamp_Hut
 //  4  - Igloo
 //  5  - Village
-//  6  - Ocean_Ruin
+//  6  - Ocean_Ruin --small
 //  7  - Shipwreck
 //  8  - Monument
 //  9  - Mansion
 // 10  - Outpost
-// 11  - Ruined_Portal
-// 12  - Ruined_Portal_N
-// 13  - Ancient_City
-// 14  - Treasure
-// 15  - Mineshaft
-// 16  - Desert_Well
-// 17  - Geode
-// 18  - Trail_Ruins
-// 19  - Trial_Chambers
+// 11  - Ruined_Portal --small
+// 13  - Ancient_City --underground
+// 14  - Treasure --small
+// 15  - Mineshaft --underground
+// 16  - Desert_Well --small
+// 17  - Geode --small --underground
+// 18  - Trail_Ruins --small
+// 19  - Trial_Chambers --underground
 
 // Biome ID Reference
 //  0   - Ocean
