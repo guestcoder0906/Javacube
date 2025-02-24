@@ -763,6 +763,15 @@ bool scanSeed(uint64_t seed)
     // 3) Additional structure requirements array
     if (NUM_STRUCTURE_REQUIREMENTS > 0) {
         hasAnyRequirements = true;
+        // Store found structures for organized output later
+        typedef struct {
+            int x, z;
+            int biome_id;
+        } FoundPos;
+
+        static FoundPos foundPositions[256];
+        static int foundPosCount = 0;
+
         for (int rIndex = 0; rIndex < NUM_STRUCTURE_REQUIREMENTS; rIndex++) {
             StructureRequirement req = structureRequirements[rIndex];
             int foundCount = 0;
@@ -797,50 +806,42 @@ bool scanSeed(uint64_t seed)
                     if (!isViableStructurePos(req.structureType, curr_gen, pos.x, pos.z, 0))
                         continue;
 
-                    // Check biome only if requiredBiome != -1
-                    int id;
-                    // For underground structures, check at y=0, otherwise check at surface
-                    int checkUnderground = (req.structureType == 17 || req.structureType == 15 || 
-                                          req.structureType == 14 || req.structureType == 11);
+                    int biome_id = -1;
+                    if (req.requiredBiome != -1) {
+                        // Only check biome if it's required
+                        int checkUnderground = (req.structureType == 17 || req.structureType == 15 || 
+                                              req.structureType == 14 || req.structureType == 11);
 
-                    if (checkUnderground) {
-                        id = getBiomeAt(curr_gen, 4, pos.x >> 2, 0, pos.z >> 2);
-                    } else {
-                        float heightArr[256];
-                        int w = 16, h = 16;
-                        Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 1, 1};
-                        mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
-                        int lx = pos.x & 15;
-                        int lz = pos.z & 15;
-                        int surface_y = (int)heightArr[lz*w + lx];
-                        id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
-                    }
-                    int biome_id = id;
+                        if (checkUnderground) {
+                            biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, 0, pos.z >> 2);
+                        } else {
+                            float heightArr[256];
+                            int w = 16, h = 16;
+                            Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 1, 1};
+                            mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
+                            int lx = pos.x & 15;
+                            int lz = pos.z & 15;
+                            int surface_y = (int)heightArr[lz*w + lx];
+                            biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
+                        }
 
-                    if (req.requiredBiome != -1 && biome_id != req.requiredBiome)
-                    continue;
-
-                    if (req.requiredBiome != -1 &&
-                        (req.minBiomeSize != -1 || req.maxBiomeSize != -1))
-                    {
-                        int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
-                        if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
-                            (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
+                        if (biome_id != req.requiredBiome)
                             continue;
+
+                        if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
+                            int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
+                            if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
+                                (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
+                                continue;
+                        }
                     }
 
-                    // Height check
-                    // (If your code uses terrain-based Y, you'll need to sample it. 
-                    //  Here we only do a simple pass, so let's skip. 
-                    //  But you can do something like:
-                    // int terrainY = estimateSurfaceHeight(...);
-                    // if (terrainY < req.minHeight || terrainY > req.maxHeight) continue;
-                    //)
-
+                    // Store the found position
+                    foundPositions[foundPosCount].x = pos.x;
+                    foundPositions[foundPosCount].z = pos.z;
+                    foundPositions[foundPosCount].biome_id = biome_id;
+                    foundPosCount++;
                     foundCount++;
-                    printf("Seed %llu: Found structure %d at (%d, %d) in biome %s\n",
-                           (unsigned long long)seed, req.structureType, pos.x, pos.z,
-                           getBiomeName(biome_id));
                 }
             }
 
@@ -848,6 +849,23 @@ bool scanSeed(uint64_t seed)
             if (foundCount < req.minCount) {
                 allRequirementsMet = false;
             }
+        }
+
+        // Organize and print the found structures
+        if (allRequirementsMet) {
+            for (int i = 0; i < NUM_STRUCTURE_REQUIREMENTS; i++) {
+                StructureRequirement req = structureRequirements[i];
+                printf("Valid seed found: %llu\n", (unsigned long long)seed);
+                printf("Structures %d:\n", req.structureType);
+                for (int j = 0; j < foundPosCount; j++) {
+                    if (foundPositions[j].biome_id == req.requiredBiome || req.requiredBiome == -1) {
+                        printf("- Structure %d at (%d, %d) in biome %s\n",
+                            req.structureType, foundPositions[j].x, foundPositions[j].z,
+                            getBiomeName(foundPositions[j].biome_id));
+                    }
+                }
+            }
+            return true;
         }
     }
 
