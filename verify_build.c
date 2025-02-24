@@ -798,21 +798,27 @@ bool scanSeed(uint64_t seed)
                         continue;
 
                     // Check biome only if requiredBiome != -1
-                    int biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, pos.z >> 2, 320 >> 2);
-                    if (biome_id == -1) {
-                        // fallback with approximate height
+                    int id;
+                    // For underground structures, check at y=0, otherwise check at surface
+                    int checkUnderground = (req.structureType == 17 || req.structureType == 15 || 
+                                          req.structureType == 14 || req.structureType == 11);
+
+                    if (checkUnderground) {
+                        id = getBiomeAt(curr_gen, 4, pos.x >> 2, 0, pos.z >> 2);
+                    } else {
                         float heightArr[256];
                         int w = 16, h = 16;
-                        Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 320 >> 2, 1};
+                        Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 1, 1};
                         mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
                         int lx = pos.x & 15;
                         int lz = pos.z & 15;
                         int surface_y = (int)heightArr[lz*w + lx];
-                        biome_id = getBiomeAt(curr_gen, 4, surface_y >> 2, surface_y >> 2, pos.z >> 2);
+                        id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
                     }
+                    int biome_id = id;
 
                     if (req.requiredBiome != -1 && biome_id != req.requiredBiome)
-                        continue;
+                        continue                        continue;
 
                     if (req.requiredBiome != -1 &&
                         (req.minBiomeSize != -1 || req.maxBiomeSize != -1))
@@ -981,20 +987,20 @@ void parseParameterLine(char *line)
         // Lines look like:
         // 1. 5 (min amount: 1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
         int idx, structureType, minCount, minH, maxH, biome, minSz, maxSz;
-        
+
         // Parse the line format: "1. 5 (min amount: ...)"
         char *openParen = strchr(line, '(');
         if (!openParen) return;
 
         // Get the structure ID directly
         sscanf(line, "%d. %d", &idx, &structureType);
-        
+
         // Parse parameters inside parentheses
         char parenPart[256];
         strcpy(parenPart, openParen + 1);
         char *endParen = strrchr(parenPart, ')');
         if (endParen) *endParen = '\0';
-        
+
         if (sscanf(parenPart, "min amount: %d, min height: %d, max height: %d, biome: %d, min size: %d, max size: %d",
                    &minCount, &minH, &maxH, &biome, &minSz, &maxSz) != 6) {
             fprintf(stderr, "Warning: Failed to parse structure parameters correctly\n");
@@ -1029,7 +1035,7 @@ void parseParameterLine(char *line)
         structureRequirements[NUM_STRUCTURE_REQUIREMENTS].maxBiomeSize = maxSz;
         NUM_STRUCTURE_REQUIREMENTS++;
     }
-    else if (strcmp(currentSection, "===== Structure Clusters =====") == 0)
+    else if (strcmp(currentSection, "===== Structure Clusters =====") == 0) 
     {
         // Example lines:
         //   Enabled: true
