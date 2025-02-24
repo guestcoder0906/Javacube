@@ -1391,16 +1391,3 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-int estimateSurfaceHeight(Generator *g, int x, int z) {
-    float height;
-    int *ids = NULL;
-    SurfaceNoise sn;
-    
-    // Initialize surface noise based on dimension
-    initSurfaceNoise(&sn, g->dim, g->seed);
-    
-    // Get approximate height at position
-    mapApproxHeight(&height, ids, g, &sn, x >> 2, z >> 2, 1, 1);
-    
-    return (int)height;
-}
