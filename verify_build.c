@@ -979,81 +979,54 @@ void parseParameterLine(char *line)
     else if (strcmp(currentSection, "===== Required structures =====") == 0) 
     {
         // Lines look like:
-        // 1. Village (min amount: 1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
-        // We just parse them
-        // We might do something like:
-        int idx, minCount, minH, maxH, biome, minSz, maxSz;
-        char nameBuf[64];
-        // Because the line might have the structure name in parentheses, 
-        // we can do a rough parse. Adjust as needed for your actual structure IDs.
-        // Example line:
-        // "2. Mansion (min amount: 1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)"
-        // We'll pretend we know how to map "Mansion" -> Cubiomes ID 6 or something.
-        // For demonstration, let's do a trivial approach:
-
-        // Find structure name: everything up to '(' minus the "x. " prefix
-        // This requires a robust approach or a known set of structure names -> IDs.
-
-        // For brevity, assume we can parse:
-        //   <idx>. <Name> (min amount: ...
-        // Then we look inside parentheses.
-
-        // This is an example. Real code might have a lookup table from "Village" to 5, "Mansion" to 6, etc.
-        // Let's do a small switch as a demo:
-        // We'll define a helper function or inline code.
-
-        // Quick parse (this is *very* naive):
-        // Step 1: parse out index and name:
-
+        // 1. 5 (min amount: 1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
+        int idx, structureType, minCount, minH, maxH, biome, minSz, maxSz;
+        
+        // Parse the line format: "1. 5 (min amount: ...)"
         char *openParen = strchr(line, '(');
-        if (!openParen) return; 
-        // parse "x. <Name>" part
-        // e.g. "1. Village "
-        char prefix[128];
-        strncpy(prefix, line, openParen - line);
-        prefix[openParen-line] = '\0';
-        trim(prefix);
+        if (!openParen) return;
 
-        // prefix might be "1. Village"
-        sscanf(prefix, "%d. %63[^\n]", &idx, nameBuf);
-        trim(nameBuf);
-
-        // Step 2: parse parentheses
-        // e.g. "min amount: 1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)"
+        // Get the structure ID directly
+        sscanf(line, "%d. %d", &idx, &structureType);
+        
+        // Parse parameters inside parentheses
         char parenPart[256];
-        strcpy(parenPart, openParen+1);
-        // remove trailing ')'
+        strcpy(parenPart, openParen + 1);
         char *endParen = strrchr(parenPart, ')');
         if (endParen) *endParen = '\0';
-        // Now parse the known fields:
-        // "min amount: 1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1"
-        sscanf(parenPart, "min amount: %d, min height: %d, max height: %d, biome: %d, min size: %d, max size: %d",
-                          &minCount, &minH, &maxH, &biome, &minSz, &maxSz);
-
-        // Map the nameBuf to actual structure ID
-        // Just as an example:
-        int structureType = -1;
-        if (strstr(nameBuf, "Village")) {
-            // For cubiomes: 5 is Village (in the structure enum)
-            structureType = 5; 
-        }
-        else if (strstr(nameBuf, "Mansion")) {
-            // 6 is Mansion in the structure enum? (Double-check your actual ID.)
-            structureType = 6;
-        }
-        else {
-            // add more mappings as needed
+        
+        if (sscanf(parenPart, "min amount: %d, min height: %d, max height: %d, biome: %d, min size: %d, max size: %d",
+                   &minCount, &minH, &maxH, &biome, &minSz, &maxSz) != 6) {
+            fprintf(stderr, "Warning: Failed to parse structure parameters correctly\n");
+            return;
         }
 
-        // Append to structureRequirements array
-        structureRequirements = realloc(structureRequirements, (NUM_STRUCTURE_REQUIREMENTS+1)*sizeof(StructureRequirement));
+        // Special case for height handling for certain structure types
+        int skipSurfaceHeight = (structureType == 19 || structureType == 17 || 
+                                structureType == 15 || structureType == 14 || 
+                                structureType == 11);
+
+        // Validate structure type
+        if (structureType < 0) {
+            fprintf(stderr, "Warning: Invalid structure type %d\n", structureType);
+            return;
+        }
+
+        // Add to requirements array
+        structureRequirements = realloc(structureRequirements, 
+                                      (NUM_STRUCTURE_REQUIREMENTS + 1) * sizeof(StructureRequirement));
+        if (!structureRequirements) {
+            fprintf(stderr, "Failed to allocate memory for structure requirement\n");
+            return;
+        }
+
         structureRequirements[NUM_STRUCTURE_REQUIREMENTS].structureType = structureType;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].minCount       = minCount;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].minHeight      = minH;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].maxHeight      = maxH;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].requiredBiome  = biome;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].minBiomeSize   = minSz;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].maxBiomeSize   = maxSz;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].minCount = minCount;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].minHeight = minH;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].maxHeight = maxH;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].requiredBiome = biome;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].minBiomeSize = minSz;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].maxBiomeSize = maxSz;
         NUM_STRUCTURE_REQUIREMENTS++;
     }
     else if (strcmp(currentSection, "===== Structure Clusters =====") == 0)
