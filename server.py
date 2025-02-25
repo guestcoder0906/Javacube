@@ -220,26 +220,20 @@ def heartbeat():
 
 # Session cleanup thread
 def cleanup_inactive_sessions():
-    with app.app_context():
-        while True:
-            try:
-                current_time = datetime.now().timestamp()
-                inactive_threshold = 30  # 30 seconds of inactivity
+    while True:
+        try:
+            current_time = datetime.now().timestamp()
+            inactive_threshold = 30  # 30 seconds of inactivity
 
-                # Create a copy of the keys to avoid modification during iteration
-                active_process_keys = list(active_processes.keys())
-                
-                for user_id in active_process_keys:
-                    # Check if process is still active
-                    if user_id in active_processes:
-                        process = active_processes[user_id]
-                        if process and process.poll() is not None:
-                            logger.info(f"Cleaning up completed process for session {user_id}")
-                            cleanup_session(user_id)
+            for user_id in list(active_processes.keys()):
+                last_active = session.get('last_active', 0)
+                if current_time - last_active > inactive_threshold:
+                    logger.info(f"Cleaning up inactive session {user_id}")
+                    cleanup_session(user_id)
 
-                time.sleep(10)  # Check every 10 seconds
-            except Exception as e:
-                logger.error(f"Error in cleanup thread: {str(e)}")
+            time.sleep(10)  # Check every 10 seconds
+        except Exception as e:
+            logger.error(f"Error in cleanup thread: {str(e)}")
 
 # Start cleanup thread
 cleanup_thread = threading.Thread(target=cleanup_inactive_sessions, daemon=True)
