@@ -155,6 +155,8 @@
             border: 1px solid var(--border-color);
             border-radius: 4px;
             min-height: 200px;
+            max-height: 500px;
+            overflow-y: auto;
             white-space: pre-wrap;
             font-family: monospace;
         }
@@ -534,7 +536,17 @@ Min cluster size  = 2
                 if (data.error) {
                     resultsDiv.textContent += `Error: ${data.error}\n\n`;
                 } else {
-                    resultsDiv.textContent += data.output + '\n\n';
+                    const elapsedTime = data.stats.elapsed_time;
+                    const hours = Math.floor(elapsedTime / 3600);
+                    const minutes = Math.floor((elapsedTime % 3600) / 60);
+                    const seconds = Math.floor(elapsedTime % 60);
+                    
+                    let timeStr = '';
+                    if (hours > 0) timeStr += `${hours}hr `;
+                    if (minutes > 0) timeStr += `${minutes}min `;
+                    timeStr += `${seconds}sec`;
+                    
+                    resultsDiv.textContent += data.output + `\nScan completed in ${timeStr}\n\n`;
                 }
                 resultsDiv.scrollTop = resultsDiv.scrollHeight;
             } catch (error) {
@@ -563,8 +575,6 @@ Min cluster size  = 2
 
                 document.getElementById('timeElapsed').textContent =
                     `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-
-                document.getElementById('seedsScanned').textContent = stats.seeds_scanned.toLocaleString();
             } catch (error) {
                 console.error('Error fetching scan stats:', error);
             }
