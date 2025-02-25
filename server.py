@@ -30,7 +30,7 @@ def scan():
     try:
         # Create a process pipe to send parameters to verify_build
         process = subprocess.Popen(
-            ['./verify_build.c'],  # Direct execution of verify_build.c
+            ['./verify_build'],  # Run the compiled executable
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -68,7 +68,7 @@ def is_port_in_use(port):
 def kill_port_processes(port):
     for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
         try:
-            for conns in proc.connections(kind='inet'):
+            for conns in proc.net_connections(kind='inet'):  # Updated to use net_connections
                 if conns.laddr.port == port:
                     logger.warning(f"Killing process {proc.info['pid']} ({proc.info['name']}) using port {port}")
                     proc.kill()
