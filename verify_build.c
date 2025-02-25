@@ -1600,7 +1600,7 @@ void parseParameterLine(char *line)
         int idx, minSz, maxSz;
         int b1, b2;
         // naive parse: "1. 185, 1 (min size: -1, max size: -1)"
-        // or "2. 4, 1 (min size: 100, max size: -1)"
+        // or "2. 41 (min size: 100, max size: -1)"
         char *paren = strchr(line, '(');
         if (!paren) return;
 
