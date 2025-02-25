@@ -122,36 +122,17 @@ def scan():
                 }
             }), 500
 
-        # Compile verify_build.c first
-        try:
-            compile_process = subprocess.run(
-                ['sh', 'build.sh'],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                cwd=app_root
-            )
-            if compile_process.returncode != 0:
-                logger.error(f"Compilation failed: {compile_process.stderr}")
-                return jsonify({
-                    'error': f"Compilation failed: {compile_process.stderr}",
-                    'stats': {
-                        'seeds_scanned': 0,
-                        'elapsed_time': 0
-                    }
-                }), 500
-
-            # Create a process pipe to send parameters to verify_build
-            process = subprocess.Popen(
-                [verify_build_path],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                cwd=app_root,
-                bufsize=1,
-                universal_newlines=True
-            )
+        # Create a process pipe to send parameters to verify_build
+        process = subprocess.Popen(
+            [verify_build_path],  # Use absolute path
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=app_root,  # Use app root as working directory
+            bufsize=1,  # Line buffered
+            universal_newlines=True
+        )
 
         # Store process for cleanup
         active_processes[user_id] = process
