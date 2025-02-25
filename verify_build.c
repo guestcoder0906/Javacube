@@ -772,6 +772,8 @@ bool scanSeed(uint64_t seed)
     }
 
     // 3) Additional structure requirements array
+    printf("== Additional structure requirements (Seed: %llu) ==\n",
+       (unsigned long long) seed);
     if (NUM_STRUCTURE_REQUIREMENTS > 0) {
         hasAnyRequirements = true;
         // Store found structures for organized output later
@@ -837,8 +839,22 @@ bool scanSeed(uint64_t seed)
                             biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
                         }
 
-                        if (biome_id != req.requiredBiome)
-                            continue;
+                        bool nearRequiredBiome = false;
+                        for (int dx = -req.biomeProximity; dx <= req.biomeProximity && !nearRequiredBiome; dx++) {
+                            for (int dz = -req.biomeProximity; dz <= req.biomeProximity; dz++) {
+                                int checkBiome = getBiomeAt(curr_gen, 4, (pos.x + dx) >> 2, 0, (pos.z + dz) >> 2);
+
+                                // Loop through ALL required biomes
+                                for (int i = 0; i < req.nextToBiomeCount; i++) {
+                                    if (checkBiome == req.nextToBiomes[i]) {
+                                        nearRequiredBiome = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        if (!nearRequiredBiome)
+                            continue; // Skip this structure if it's not near any required biomes.
 
                         if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
                             int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
@@ -951,7 +967,11 @@ bool scanSeed(uint64_t seed)
                     for (int dz = -req.biomeProximity; dz <= req.biomeProximity; dz++) {
                         int checkX = foundPositions[j].x + dx;
                         int checkZ = foundPositions[j].z + dz;
-                        int checkBiome = getBiomeAt(curr_gen, 4, checkX >> 2, 0, checkZ >> 2);
+                        int checkY = (req.structureType == 19 || req.structureType == 17 ||
+                                      req.structureType == 15 || req.structureType == 14 ||
+                                      req.structureType == 11) ? 0 : foundPositions[j].y;
+                        int checkBiome = getBiomeAt(curr_gen, 4, checkX >> 2, checkY >> 2, checkZ >> 2);
+
 
                         // Check if this is one of our required nearby biomes
                         for (int i = 0; i < req.nextToBiomeCount; i++) {
@@ -982,6 +1002,8 @@ bool scanSeed(uint64_t seed)
                 if (nearestBiome != -1) {
                     printf(" next to %s that is %d blocks away with %d size", 
                         getBiomeName(nearestBiome), nearestDist, nearestSize);
+                } else {
+                    printf(" next to an unknown biome (no valid biomes found within %d blocks)", req.biomeProximity);
                 }
             }
             printf("\n");
@@ -1146,15 +1168,16 @@ void parseParameterLine(char *line)
         // Parse the next-to-biome field, which may contain several IDs separated by "or"
         int *nextToBiomes = NULL;
         int nextToBiomeCount = 0;
-        char *token = strtok(nextToBiomeStr, "or");
+        char *token = strtok(nextToBiomeStr, " ,");
         while (token != NULL) {
-            // Trim leading spaces
-            while (*token == ' ') token++;
-            int b = atoi(token);
-            nextToBiomes = realloc(nextToBiomes, (nextToBiomeCount + 1) * sizeof(int));
-            nextToBiomes[nextToBiomeCount] = b;
-            nextToBiomeCount++;
-            token = strtok(NULL, "or");
+            // Skip tokens that are just "or"
+            if (strcmp(token, "or") != 0) {
+                int b = atoi(token);
+                nextToBiomes = realloc(nextToBiomes, (nextToBiomeCount + 1) * sizeof(int));
+                nextToBiomes[nextToBiomeCount] = b;
+                nextToBiomeCount++;
+            }
+            token = strtok(NULL, " ,");
         }
 
         // Store the new requirement
