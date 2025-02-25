@@ -1391,13 +1391,10 @@ void parseParameterLine(char *line)
             maxH = 9999;
         }
 
-        // Parse biome and size constraints
-        char *biomePtr = strstr(parenPart, "biome:");
         char *minSizePtr = strstr(parenPart, "min size:");
         char *maxSizePtr = strstr(parenPart, "max size:");
 
-        if (biomePtr && minSizePtr && maxSizePtr) {
-            sscanf(biomePtr, "biome: %d", &biome);
+        if (minSizePtr && maxSizePtr) {
             sscanf(minSizePtr, "min size: %d", &minSz);
             sscanf(maxSizePtr, "max size: %d", &maxSz);
         } else {
