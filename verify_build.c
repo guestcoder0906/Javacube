@@ -781,6 +781,8 @@ bool scanSeed(uint64_t seed)
             int x, y, z;
             int biome_id;
             int biome_size;
+            int nearestBiomeDist;
+            int nearestBiomeId;
         } FoundPos;
 
         FoundPos foundPositions[256];
@@ -945,13 +947,15 @@ bool scanSeed(uint64_t seed)
                             continue;
                     }
 
-                    // Store the found position with height
+                    // Store the found position with all relevant info
                     foundPositions[foundPosCount].x = pos.x;
                     foundPositions[foundPosCount].z = pos.z;
                     foundPositions[foundPosCount].y = height;
                     foundPositions[foundPosCount].biome_id = biome_id;
                     foundPositions[foundPosCount].biome_size = 
                         (biome_id != -1) ? getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id) : -1;
+                    foundPositions[foundPosCount].nearestBiomeDist = nearestBiomeDist;
+                    foundPositions[foundPosCount].nearestBiomeId = nearestBiomeId;
                     foundPosCount++;
                     foundCount++;
                 }
