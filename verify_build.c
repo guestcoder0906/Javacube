@@ -913,9 +913,8 @@ int scanSeed(uint64_t seed)
                 // Check biome requirements
                 int biome_id = -1;
                 if (req.requiredBiome != -1) {
-                    int biome_id = getBiomeAt(&g, 4, spawnPos.x >> 2, 319 >> 2, spawnPos.z >> 2);
-                    // Check required biome if specified
-                    if (req.requiredBiome != -1 && biome_id != req.requiredBiome) {
+                    biome_id = getBiomeAt(&g, 4, spawnPos.x >> 2, 319 >> 2, spawnPos.z >> 2);
+                    if (biome_id != req.requiredBiome) {
                         continue; // Skip if biome doesn't match
                     }
                 }
@@ -986,25 +985,24 @@ int scanSeed(uint64_t seed)
                             continue;
 
                         int biome_id = -1;
-                        // Always check biome
-                        int checkUnderground = (req.structureType == 17 || req.structureType == 15 || 
-                                              req.structureType == 14 || req.structureType == 11);
-
-                        if (checkUnderground) {
-                            biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, 0, pos.z >> 2);
-                        } else {
-                            float heightArr[256];
-                            int w = 16, h = 16;
-                            Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 1, 1};
-                            mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
-                            int lx = pos.x & 15;
-                            int lz = pos.z & 15;
-                            int surface_y = (int)heightArr[lz*w + lx];
-                            biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
-                        }
-
-                        // Check required biome if specified
                         if (req.requiredBiome != -1) {
+                            // Only check biome if it's required
+                            int checkUnderground = (req.structureType == 17 || req.structureType == 15 || 
+                                                  req.structureType == 14 || req.structureType == 11);
+
+                            if (checkUnderground) {
+                                biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, 0, pos.z >> 2);
+                            } else {
+                                float heightArr[256];
+                                int w = 16, h = 16;
+                                Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 1, 1};
+                                mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
+                                int lx = pos.x & 15;
+                                int lz = pos.z & 15;
+                                int surface_y = (int)heightArr[lz*w + lx];
+                                biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
+                            }
+
                             if (biome_id != req.requiredBiome)
                                 continue;
 
