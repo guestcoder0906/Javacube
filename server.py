@@ -87,7 +87,7 @@ def scan():
 
         # Get absolute path to verify_build
         app_root = os.path.dirname(os.path.abspath(__file__))
-        verify_build_path = os.path.join(app_root, 'verify_build')
+        verify_build_path = os.path.join(app_root, 'verify_build')  # Using verify_build executable in root
 
         # Log paths for debugging
         logger.info(f"App root path: {app_root}")
