@@ -1107,7 +1107,7 @@ int scanSeed(uint64_t seed)
                 // Only print structures if we found valid ones
                 if (foundValidStructure) {
                     if (!printedHeader) {
-                        printf("Valid seed found: %llu\n", (unsigned long long)seed);
+                        //printf("Valid seed found: %llu\n", (unsigned long long)seed);
                         printedHeader = true;
                     }
                     printf("Structures %s:\n", getStructureName(req.structureType));
@@ -1654,7 +1654,7 @@ void parseParameterStream(FILE *fp)
 int main(int argc, char *argv[])
 {
     printf("=== Parameter-Based Scanning ===\n");
-    printf("Attach a .txt file or specify a path to the config, or paste config lines.\n");
+    //printf("Attach a .txt file or specify a path to the config, or paste config lines.\n");
 
     // 1) Try to read a file if given:
     FILE *fp = NULL;
@@ -1665,7 +1665,7 @@ int main(int argc, char *argv[])
         }
     }
     if (!fp) {
-        printf("Please paste your config (end with Ctrl+D or Ctrl+Z on Windows):\n");
+        //printf("Please paste your config (end with Ctrl+D or Ctrl+Z on Windows):\n");
         fp = stdin;
     }
 
