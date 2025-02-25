@@ -1029,7 +1029,7 @@ bool scanSeed(uint64_t seed)
                                             int distance = (int)sqrt(dx*dx + dz*dz);
                                             if (distance < nearestDist) {
                                                 nearestDist = distance;
-                                                nearestBiome = checkBiome;
+                                                nearestBiomeId = checkBiome;
                                                 nearestSize = getBiomePatchSize(curr_gen, checkX, checkZ, checkBiome);
                                             }
                                             break;
@@ -1038,9 +1038,9 @@ bool scanSeed(uint64_t seed)
                                 }
                             }
 
-                            if (nearestBiome != -1) {
+                            if (nearestBiomeId != -1) {
                                 printf(" next to %s that is %d blocks away with %d size", 
-                                    getBiomeName(nearestBiome), nearestDist, nearestSize);
+                                    getBiomeName(nearestBiomeId), nearestDist, nearestSize);
                             } else {
                                 printf(" next to an unknown biome (no valid biomes found within %d blocks)", req.biomeProximity);
                             }
