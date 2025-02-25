@@ -530,8 +530,12 @@ Min cluster size  = 2
                     body: JSON.stringify({ params }),
                 });
 
-                const result = await response.text();
-                resultsDiv.textContent += result + '\n\n';
+                const data = await response.json();
+                if (data.error) {
+                    resultsDiv.textContent += `Error: ${data.error}\n\n`;
+                } else {
+                    resultsDiv.textContent += data.output + '\n\n';
+                }
                 resultsDiv.scrollTop = resultsDiv.scrollHeight;
             } catch (error) {
                 resultsDiv.textContent += `Error: ${error.message}\n\n`;
@@ -545,30 +549,30 @@ Min cluster size  = 2
         });
 
 
-        let scanStartTime;
-        let scanInterval;
-        let seedsScanned = 0;
         const overlay = document.querySelector('.scan-overlay');
 
-        function updateOverlay() {
-            const now = new Date();
-            const elapsedTime = Math.floor((now - scanStartTime) / 1000);
-            const hours = Math.floor(elapsedTime / 3600);
-            const minutes = Math.floor((elapsedTime % 3600) / 60);
-            const seconds = elapsedTime % 60;
+        async function updateOverlay() {
+            try {
+                const response = await fetch('/scan_stats');
+                const stats = await response.json();
 
-            document.getElementById('timeElapsed').textContent =
-                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                const elapsedTime = Math.floor(stats.elapsed_time);
+                const hours = Math.floor(elapsedTime / 3600);
+                const minutes = Math.floor((elapsedTime % 3600) / 60);
+                const seconds = elapsedTime % 60;
 
-            // Simulate seeds scanned (approximately 100 per second)
-            seedsScanned += 100;
-            document.getElementById('seedsScanned').textContent = seedsScanned.toLocaleString();
+                document.getElementById('timeElapsed').textContent =
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+                document.getElementById('seedsScanned').textContent = stats.seeds_scanned.toLocaleString();
+            } catch (error) {
+                console.error('Error fetching scan stats:', error);
+            }
         }
 
         function showScanOverlay() {
             overlay.style.display = 'flex';
             scanStartTime = new Date();
-            seedsScanned = 0;
             scanInterval = setInterval(updateOverlay, 1000);
         }
 
