@@ -7,6 +7,7 @@ import time
 import psutil
 from datetime import datetime
 import threading
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -27,6 +28,13 @@ def home():
 @app.route('/CubioSeedFinderIcon.png')
 def icon():
     return send_from_directory('.', 'CubioSeedFinderIcon.png')
+
+def update_seeds_scanned(user_id, stdout_line):
+    if user_id in scan_stats:
+        # Look for seed count in the output
+        seed_match = re.search(r'Seeds scanned: (\d+)', stdout_line)
+        if seed_match:
+            scan_stats[user_id]['seeds_scanned'] = int(seed_match.group(1))
 
 @app.route('/scan', methods=['POST'])
 def scan():
@@ -53,11 +61,27 @@ def scan():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            cwd='cubiomes'
+            cwd='cubiomes',
+            bufsize=1,  # Line buffered
+            universal_newlines=True
         )
 
-        # Send parameters to stdin and get output
-        stdout, stderr = process.communicate(input=params)
+        # Send parameters to stdin
+        process.stdin.write(params)
+        process.stdin.close()
+
+        # Read output line by line to update stats in real-time
+        output_lines = []
+        while True:
+            line = process.stdout.readline()
+            if not line and process.poll() is not None:
+                break
+            output_lines.append(line)
+            update_seeds_scanned(user_id, line)
+            logger.debug(f"Read line: {line.strip()}")
+
+        stdout = ''.join(output_lines)
+        stderr = process.stderr.read()
 
         # Clean up scan stats
         stats = scan_stats.pop(user_id, {
