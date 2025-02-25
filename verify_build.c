@@ -921,37 +921,10 @@ bool scanSeed(uint64_t seed)
                 printf("Structures %d:\n", req.structureType);
                 for (int j = 0; j < foundPosCount; j++) {
                     if (foundPositions[j].biome_id == req.requiredBiome || req.requiredBiome == -1) {
-                        // Print structure location and base info
-                        printf("Structure %d at (%d, %d) with height at %d in %s Biome",
+                        printf("Structure %d at (%d, %d) with height at %d in %s Biome with %d size\n",
                             req.structureType, foundPositions[j].x, foundPositions[j].z,
-                            foundPositions[j].y, getBiomeName(foundPositions[j].biome_id));
-
-                        // Check and print nearby biomes if proximity check was used
-                        if (req.biomeProximity >= 0 && req.nextToBiomeCount > 0) {
-                            for (int dx = -req.biomeProximity; dx <= req.biomeProximity; dx++) {
-                                for (int dz = -req.biomeProximity; dz <= req.biomeProximity; dz++) {
-                                    int nearbyBiome = getBiomeAt(curr_gen, 4, 
-                                        (foundPositions[j].x + dx) >> 2, 
-                                        (foundPositions[j].y) >> 2, 
-                                        (foundPositions[j].z + dz) >> 2);
-                                    
-                                    for (int i = 0; i < req.nextToBiomeCount; i++) {
-                                        if (nearbyBiome == req.nextToBiomes[i]) {
-                                            int distance = (int)sqrt(dx*dx + dz*dz);
-                                            int biomeSize = getBiomePatchSize(curr_gen, 
-                                                foundPositions[j].x + dx, 
-                                                foundPositions[j].z + dz, 
-                                                nearbyBiome);
-                                            printf(" next to %s that is %d blocks away with %d size",
-                                                getBiomeName(nearbyBiome), distance, biomeSize);
-                                            goto found_nearby; // Break both loops after finding first match
-                                        }
-                                    }
-                                }
-                            }
-                            found_nearby:;
-                        }
-                        printf("\n");
+                            foundPositions[j].y, getBiomeName(foundPositions[j].biome_id),
+                            foundPositions[j].biome_size);
                     }
                 }
             }
