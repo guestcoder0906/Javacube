@@ -26,8 +26,11 @@ def parse_structure_line(line):
     """Parse a single structure requirement line with the new format."""
     logger.debug(f"Parsing structure line: {line}")
     try:
+        # Remove numbering prefix if present (e.g., "1. " or "1)")
+        line = re.sub(r'^\d+[\.\)]\s*', '', line.strip())
+
         # Extract structure ID and requirements
-        match = re.match(r'(\d+)\s*\(([^)]+)\)', line.strip())
+        match = re.match(r'(\d+)\s*\(([^)]+)\)', line)
         if not match:
             logger.error(f"Failed to parse structure line: {line}")
             return None
