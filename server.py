@@ -22,91 +22,6 @@ app.secret_key = os.environ.get('SESSION_SECRET', os.urandom(24))
 scan_stats = {}
 active_processes = {}
 
-def parse_structure_line(line):
-    """Parse a single structure requirement line with the new format."""
-    logger.debug(f"Parsing structure line: {line}")
-    try:
-        # Remove numbering prefix if present (e.g., "1. " or "1)")
-        line = re.sub(r'^\d+[\.\)]\s*', '', line.strip())
-
-        # Extract structure ID and requirements
-        match = re.match(r'(\d+)\s*\(([^)]+)\)', line)
-        if not match:
-            logger.error(f"Failed to parse structure line: {line}")
-            return None
-
-        structure_id = int(match.group(1))
-        requirements = match.group(2)
-
-        # Parse individual requirements
-        result = {
-            'structure_id': structure_id,
-            'min_amount': 1,  # default
-            'min_height': -9999,  # default
-            'max_height': 9999,  # default
-            'biome': -1,  # default
-            'min_size': -1,  # default
-            'max_size': -1,  # default
-            'next_to_biomes': [],  # default empty
-            'biome_proximity': -1,  # default
-        }
-
-        # Split requirements into key-value pairs
-        for pair in requirements.split(','):
-            pair = pair.strip()
-            if ':' in pair:
-                key, value = [p.strip() for p in pair.split(':', 1)]
-
-                if key == 'next to biome':
-                    # Split biomes on 'or' and convert to integers
-                    biomes = [int(b.strip()) for b in value.split('or')]
-                    result['next_to_biomes'] = biomes
-                elif key == 'biome proximity':
-                    result['biome_proximity'] = int(value)
-                elif key == 'min amount':
-                    result['min_amount'] = int(value)
-                elif key == 'min height':
-                    result['min_height'] = int(value)
-                elif key == 'max height':
-                    result['max_height'] = int(value)
-                elif key == 'biome':
-                    result['biome'] = int(value)
-                elif key == 'min size':
-                    result['min_size'] = int(value)
-                elif key == 'max size':
-                    result['max_size'] = int(value)
-
-        logger.debug(f"Parsed structure requirements: {result}")
-        return result
-    except Exception as e:
-        logger.error(f"Error parsing structure line: {str(e)}")
-        return None
-
-def format_structure_params(requirements):
-    """Convert parsed structure requirements back to the format expected by verify_build."""
-    lines = []
-    for req in requirements:
-        # Format the basic parameters
-        params = [
-            f"min amount: {req['min_amount']}",
-            f"min height: {req['min_height']}",
-            f"max height: {req['max_height']}",
-            f"biome: {req['biome']}",
-            f"min size: {req['min_size']}",
-            f"max size: {req['max_size']}"
-        ]
-
-        # Add the new parameters if they exist
-        if req['next_to_biomes']:
-            params.append(f"next to biome: {' or '.join(map(str, req['next_to_biomes']))}")
-        if req['biome_proximity'] != -1:
-            params.append(f"biome proximity: {req['biome_proximity']}")
-
-        line = f"{req['structure_id']} ({', '.join(params)})"
-        lines.append(line)
-
-    return '\n'.join(lines)
-
 def cleanup_session(user_id):
     """Clean up resources for a session"""
     logger.info(f"Starting cleanup for session {user_id}")
@@ -185,43 +100,9 @@ def scan():
             'start_time': datetime.now().timestamp()
         }
 
-        # Parse and process the structure requirements
-        lines = params.split('\n')
-        current_section = None
-        structure_requirements = []
-        modified_lines = []
-
-        for line in lines:
-            line = line.strip()
-            if not line:
-                modified_lines.append(line)
-                continue
-
-            if line.startswith('====='):
-                current_section = line
-                modified_lines.append(line)
-                continue
-
-            if current_section == "===== Required structures =====":
-                parsed_req = parse_structure_line(line)
-                if parsed_req:
-                    structure_requirements.append(parsed_req)
-                    logger.debug(f"Parsed structure requirement: {parsed_req}")
-                    # Format the line with all parameters
-                    modified_lines.append(format_structure_params([parsed_req]))
-                else:
-                    # If parsing fails, keep the original line
-                    modified_lines.append(line)
-            else:
-                modified_lines.append(line)
-
-        # Join the modified lines back together
-        modified_params = '\n'.join(modified_lines)
-        logger.debug(f"Modified params: {modified_params}")
-
         # Get absolute path to verify_build
         app_root = os.path.dirname(os.path.abspath(__file__))
-        verify_build_path = os.path.join(app_root, 'verify_build')
+        verify_build_path = os.path.join(app_root, 'verify_build')  # Using verify_build executable in root
 
         # Log paths for debugging
         logger.info(f"App root path: {app_root}")
@@ -243,21 +124,21 @@ def scan():
 
         # Create a process pipe to send parameters to verify_build
         process = subprocess.Popen(
-            [verify_build_path],
+            [verify_build_path],  # Use absolute path
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            cwd=app_root,
-            bufsize=1,
+            cwd=app_root,  # Use app root as working directory
+            bufsize=1,  # Line buffered
             universal_newlines=True
         )
 
         # Store process for cleanup
         active_processes[user_id] = process
 
-        # Send modified parameters to stdin
-        process.stdin.write(modified_params)
+        # Send parameters to stdin
+        process.stdin.write(params)
         process.stdin.close()
 
         # Read output line by line to update stats in real-time
