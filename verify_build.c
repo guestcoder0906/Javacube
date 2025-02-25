@@ -11,7 +11,7 @@
 // -----------------------------------------------------------------------------
 // Global configuration / defaults
 #define MAX_SEEDS_TO_FIND 1 
-#define STRUCTURE_TYPE_SPAWN 20  // Special type for spawn point
+#define STRUCTURE_TYPE_SPAWN 20  
 int seedsFound = 0;          // Tracks how many seeds have been found so far
 
 // Range for seed scanning:
@@ -1109,6 +1109,7 @@ int scanSeed(uint64_t seed)
                         //printf("Valid seed found: %llu\n", (unsigned long long)seed);
                         printedHeader = true;
                     }
+                    printf("Seed: %llu\n", (unsigned long long)seed);
                     printf("Structures %s:\n", getStructureName(req.structureType));
 
                     // Now print the actual structures
@@ -1119,7 +1120,7 @@ int scanSeed(uint64_t seed)
                         }
 
                         // Skip if has proximity requirements but no valid distance
-                        if (hasProximityReq && foundPositions[j].proximity_distance <= 0) {
+                        if (hasProximityReq && foundPositions[j].proximity_distance <= -1) {
                             continue;
                         }
 
