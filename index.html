@@ -13,6 +13,7 @@
             --button-bg: #4a4a4a;
             --button-hover: #5a5a5a;
             --border-color: #3d3d3d;
+            --active-tab: #007bff;
         }
 
         body {
@@ -25,7 +26,7 @@
         }
 
         .container {
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
         }
 
@@ -57,6 +58,37 @@
             font-size: 1.1em;
         }
 
+        /* Tab Styles */
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 1.1em;
+        }
+
+        .tab.active {
+            color: var(--active-tab);
+            border-bottom: 2px solid var(--active-tab);
+            margin-bottom: -2px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Form Styles */
         .form-group {
             margin-bottom: 15px;
         }
@@ -125,6 +157,46 @@
             white-space: pre-wrap;
             font-family: monospace;
         }
+
+        /* Tutorial Styles */
+        .tutorial {
+            line-height: 1.6;
+        }
+
+        .tutorial h2 {
+            color: #007bff;
+            margin-top: 30px;
+        }
+
+        .tutorial h3 {
+            color: #666;
+            margin-top: 20px;
+        }
+
+        .tutorial pre {
+            background-color: var(--input-bg);
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+
+        .tutorial ul {
+            padding-left: 20px;
+        }
+
+        .tutorial li {
+            margin: 5px 0;
+        }
+
+        .tutorial a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .tutorial a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -136,20 +208,118 @@
                 <div class="subtitle">Fast Minecraft Seed Finder for Java</div>
             </div>
         </div>
-        <form id="scanForm">
-            <div class="form-group">
-                <label for="params">Parameters:</label>
-                <textarea id="params" name="params" rows="4" placeholder="Enter your parameters here..."></textarea>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('seedFinder')">Seed Finder</button>
+            <button class="tab" onclick="switchTab('tutorial')">Tutorial</button>
+        </div>
+
+        <div id="seedFinder" class="tab-content active">
+            <form id="scanForm">
+                <div class="form-group">
+                    <label for="params">Parameters:</label>
+                    <textarea id="params" name="params" rows="4" placeholder="Enter your parameters here..."></textarea>
+                </div>
+                <div class="button-group">
+                    <button type="submit" id="scanButton">Scan</button>
+                    <button type="button" id="clearButton">Clear Results</button>
+                </div>
+            </form>
+            <div id="results"></div>
+        </div>
+
+        <div id="tutorial" class="tab-content">
+            <div class="tutorial">
+                <h2>About Cubio Seed Finder</h2>
+                <p>This tool automates finding Minecraft seeds by entering search parameters with about 100 seeds scanned per second. If you also want to check for ravines, caves, islands, valleys, and encircling tall terrain, consider using <a href="https://github.com/Dalle2fan/MC-SeedLocator" target="_blank">MC-SeedLocator</a> (note: it is slower).</p>
+
+                <h2>Features</h2>
+                <ul>
+                    <li>Find structures with biome constraints, height ranges, and minimum amount</li>
+                    <li>Find any biomes and any biome combinations</li>
+                    <li>Locate clustered structures (structures next to each other)</li>
+                    <li>Set biome size requirements</li>
+                </ul>
+
+                <h2>Usage</h2>
+                <p>Enter your parameters in the text box and press Control+D to submit them to start the scan.</p>
+
+                <h2>Example Parameters</h2>
+                <h3>Example 1:</h3>
+                <pre>===== Scanning options =====
+Starting seed: 0
+Search radius: 1000
+Use spawn: true
+Custom z: 0
+Custom x: 0
+
+===== Required structures =====
+
+===== Structure Clusters =====
+Enabled: false
+Valid biomes: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16, 18
+Min cluster distance = 32,
+Min cluster size  = 2
+
+===== Invalid Structure Clusters =====
+1. 16, 11
+2. 16, 6
+
+===== Required Biomes =====
+1. 185 (min size: -1, max size: -1)
+
+===== Clustered Biomes =====</pre>
+
+                <h3>Example 2:</h3>
+                <pre>===== Scanning options =====
+Starting seed: 0
+Search radius: 1000
+Use spawn: false
+Custom z: 0
+Custom x: 0
+
+===== Required structures =====
+1. 9 (min amount: 1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
+2. 5 (min amount: 1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
+
+===== Structure Clusters =====
+Enabled: true
+Valid biomes: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16, 18
+Min cluster distance = 32,
+Min cluster size  = 2
+
+===== Invalid Structure Clusters =====
+1. 16, 11
+2. 16, 6
+
+===== Required Biomes =====
+1. 1 (min size: 50, max size: -1)
+2. 185 (min size: -1, max size: -1)
+3. 4 (min size: -1, max size: -1)
+
+===== Clustered Biomes =====
+1. 185, 1 (min size: -1, max size: -1)
+2. 4, 1 (min size: 100, max size: -1)
+2. 185, 4 (min size: -1, max size: -1)</pre>
             </div>
-            <div class="button-group">
-                <button type="submit" id="scanButton">Scan</button>
-                <button type="button" id="clearButton">Clear Results</button>
-            </div>
-        </form>
-        <div id="results"></div>
+        </div>
     </div>
 
     <script>
+        function switchTab(tabId) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabId).classList.add('active');
+        }
+
         document.getElementById('scanForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const params = document.getElementById('params').value;

@@ -4,6 +4,7 @@ import os
 import logging
 import socket
 import time
+import psutil
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +30,7 @@ def scan():
     try:
         # Create a process pipe to send parameters to verify_build
         process = subprocess.Popen(
-            ['./verify_build'], #Corrected executable name
+            ['./verify_build.c'],  # Direct execution of verify_build.c
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -56,29 +57,52 @@ def is_port_in_use(port):
         try:
             s.bind(('0.0.0.0', port))
             return False
-        except socket.error:
-            return True
+        except OSError as e:
+            if e.errno == 98: #Address already in use
+                logger.error(f"Port {port} is already in use.")
+                return True
+            else:
+                logger.error(f"Port {port} check failed: {str(e)}")
+                return True
+
+def kill_port_processes(port):
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            for conns in proc.connections(kind='inet'):
+                if conns.laddr.port == port:
+                    logger.warning(f"Killing process {proc.info['pid']} ({proc.info['name']}) using port {port}")
+                    proc.kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
 
 if __name__ == '__main__':
     port = 5000
     retries = 3
+    retry_delay = 2
 
     logger.info("Starting Flask server...")
+
     while retries > 0:
+        kill_port_processes(port) #kill any existing processes using the port before trying to bind
         if not is_port_in_use(port):
             logger.info(f"Starting Flask server on port {port}...")
-            app.run(
-                host='0.0.0.0',
-                port=port,
-                debug=True,
-                use_reloader=False,
-                threaded=True
-            )
-            break
+            try:
+                app.run(
+                    host='0.0.0.0',
+                    port=port,
+                    debug=True,
+                    use_reloader=False,
+                    threaded=True
+                )
+                break
+            except Exception as e:
+                logger.error(f"Failed to start server: {str(e)}")
+                retries -= 1
+                time.sleep(retry_delay)
         else:
-            logger.warning(f"Port {port} is in use, waiting...")
+            logger.warning(f"Port {port} is in use, waiting {retry_delay} seconds...")
             retries -= 1
-            time.sleep(2)
+            time.sleep(retry_delay)
 
     if retries == 0:
         logger.error(f"Could not start server: port {port} is in use")
