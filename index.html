@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cubiomes Scanner</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #ffffff;
+            --input-bg: #2d2d2d;
+            --button-bg: #4a4a4a;
+            --button-hover: #5a5a5a;
+            --border-color: #3d3d3d;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #007bff;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"], 
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--button-bg);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: var(--button-hover);
+        }
+
+        button#scanButton {
+            background-color: #007bff;
+            flex: 2;
+        }
+
+        button#scanButton:hover {
+            background-color: #0056b3;
+        }
+
+        button#clearButton {
+            background-color: #dc3545;
+            flex: 1;
+        }
+
+        button#clearButton:hover {
+            background-color: #c82333;
+        }
+
+        #results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            min-height: 200px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cubiomes Scanner</h1>
+        <form id="scanForm">
+            <div class="form-group">
+                <label for="params">Parameters:</label>
+                <textarea id="params" name="params" rows="4" placeholder="Enter your parameters here..."></textarea>
+            </div>
+            <div class="button-group">
+                <button type="submit" id="scanButton">Scan</button>
+                <button type="button" id="clearButton">Clear Results</button>
+            </div>
+        </form>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        document.getElementById('scanForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const params = document.getElementById('params').value;
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                const response = await fetch('/scan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ params }),
+                });
+                
+                const result = await response.text();
+                resultsDiv.textContent += result + '\n\n';
+                resultsDiv.scrollTop = resultsDiv.scrollHeight;
+            } catch (error) {
+                resultsDiv.textContent += `Error: ${error.message}\n\n`;
+            }
+        });
+
+        document.getElementById('clearButton').addEventListener('click', () => {
+            document.getElementById('results').textContent = '';
+        });
+    </script>
+</body>
+</html>
