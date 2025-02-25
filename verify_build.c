@@ -1106,39 +1106,6 @@ void parseParameterLine(char *line)
         char *endParen = strrchr(parenPart, ')');
         if (endParen) *endParen = '\0';
 
-        // Parse next to biome part first
-        int nextToBiomes[64];  // Support up to 64 biomes
-        int nextToBiomesCount = 0;
-        int biomeProximity = -1;
-        
-        char *nextToBiomePart = strstr(parenPart, "next to biome:");
-        if (nextToBiomePart) {
-            char *end = strstr(nextToBiomePart, ",");
-            if (end) *end = '\0';
-            
-            // Skip "next to biome: "
-            char *p = nextToBiomePart + 14;
-            while (*p) {
-                if (isdigit(*p) || *p == '-') {
-                    nextToBiomes[nextToBiomesCount++] = atoi(p);
-                    while (isdigit(*p) || *p == '-') p++;
-                }
-                else if (*p == 'o' && p[1] == 'r') {
-                    p += 2;
-                }
-                p++;
-            }
-            
-            if (end) {
-                *end = ',';
-                // Look for biome proximity
-                char *proxPart = strstr(end, "biome proximity:");
-                if (proxPart && sscanf(proxPart, "biome proximity: %d", &biomeProximity) != 1) {
-                    biomeProximity = -1;
-                }
-            }
-        }
-
         int minCount = 0, minH = 0, maxH = 0, biome = 0, minSz = 0, maxSz = 0;
         int nextToBiomes[64];  // Support up to 64 biomes
         int nextToBiomesCount = 0;
@@ -1163,16 +1130,17 @@ void parseParameterLine(char *line)
                 
                 char *token = strtok(temp, " or");
                 while (token) {
+                    trim(token);
                     nextToBiomes[nextToBiomesCount++] = atoi(token);
                     token = strtok(NULL, " or");
                 }
-            }
-        }
 
-        // Parse biome proximity
-        char *proxPart = strstr(parenPart, "biome proximity:");
-        if (proxPart) {
-            sscanf(proxPart, "biome proximity: %d", &biomeProximity);
+                // Look for biome proximity after the comma
+                char *proxPart = strstr(nextToBiomeEnd, "biome proximity:");
+                if (proxPart && sscanf(proxPart, "biome proximity: %d", &biomeProximity) != 1) {
+                    biomeProximity = -1;
+                }
+            }
         }
 
         // Parse height ranges
