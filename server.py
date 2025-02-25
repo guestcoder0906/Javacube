@@ -14,7 +14,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_url_path='')
-app.secret_key = os.urandom(24)  # For session handling
+
+# Use environment variable for session secret or generate a random one
+app.secret_key = os.environ.get('SESSION_SECRET', os.urandom(24))
 
 # Dictionary to store scan statistics and processes per session
 scan_stats = {}
@@ -85,10 +87,13 @@ def scan():
 
         # Get absolute path to verify_build
         app_root = os.path.dirname(os.path.abspath(__file__))
-        verify_build_path = os.path.join(app_root, 'cubiomes', 'verify_build')
+        verify_build_path = os.path.join(app_root, 'verify_build')
 
-        # Log the path for debugging
-        logger.info(f"Using verify_build path: {verify_build_path}")
+        # Log paths for debugging
+        logger.info(f"App root path: {app_root}")
+        logger.info(f"Current working directory: {os.getcwd()}")
+        logger.info(f"Looking for verify_build at: {verify_build_path}")
+        logger.info(f"Directory contents: {os.listdir(app_root)}")
 
         # Check if verify_build exists
         if not os.path.exists(verify_build_path):
@@ -109,7 +114,7 @@ def scan():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            cwd=os.path.join(app_root, 'cubiomes'),  # Use absolute path for working directory
+            cwd=app_root,  # Use app root as working directory
             bufsize=1,  # Line buffered
             universal_newlines=True
         )
@@ -250,7 +255,6 @@ if __name__ == '__main__':
     logger.info("Starting Flask server...")
 
     while retries > 0:
-        kill_port_processes(port)
         if not is_port_in_use(port):
             logger.info(f"Starting Flask server on port {port}...")
             try:
