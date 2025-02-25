@@ -225,14 +225,10 @@ def cleanup_inactive_sessions():
             current_time = datetime.now().timestamp()
             inactive_threshold = 30  # 30 seconds of inactivity
 
-            # Create a copy of active processes to avoid modification during iteration
-            active_process_ids = list(active_processes.keys())
-            
-            # Clean up processes that have been running too long
-            for user_id in active_process_ids:
-                process = active_processes.get(user_id)
-                if process and process.poll() is None:
-                    logger.info(f"Cleaning up process for session {user_id}")
+            for user_id in list(active_processes.keys()):
+                last_active = session.get('last_active', 0)
+                if current_time - last_active > inactive_threshold:
+                    logger.info(f"Cleaning up inactive session {user_id}")
                     cleanup_session(user_id)
 
             time.sleep(10)  # Check every 10 seconds
@@ -271,14 +267,19 @@ if __name__ == '__main__':
     retries = 3
     retry_delay = 2
 
-    logger.info("Starting production server...")
+    logger.info("Starting Flask server...")
 
     while retries > 0:
         if not is_port_in_use(port):
-            logger.info(f"Starting server on port {port}...")
+            logger.info(f"Starting Flask server on port {port}...")
             try:
-                from waitress import serve
-                serve(app, host='0.0.0.0', port=port, threads=8)
+                app.run(
+                    host='0.0.0.0',
+                    port=port,
+                    debug=True,
+                    use_reloader=False,
+                    threaded=True
+                )
                 break
             except Exception as e:
                 logger.error(f"Failed to start server: {str(e)}")
