@@ -932,6 +932,11 @@ bool scanSeed(uint64_t seed)
                 int nearestBiome = -1;
                 int nearestSize = -1;
                 
+                // Set the appropriate generator based on structure type
+                Generator *curr_gen = &g;
+                if (req.structureType == 13) curr_gen = &ng; // For nether structures
+                else if (req.structureType == 8) curr_gen = &eg; // For end structures
+                
                 // Look for the nearest valid biome
                 for (int dx = -req.biomeProximity; dx <= req.biomeProximity; dx++) {
                     for (int dz = -req.biomeProximity; dz <= req.biomeProximity; dz++) {
