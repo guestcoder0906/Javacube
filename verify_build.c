@@ -185,10 +185,13 @@ typedef struct {
     int structureType;   // e.g. 5 -> Village, etc. (Cubiomes structure ID)
     int minCount;
     int minHeight;
-    int maxHeight;
+    int maxHeight; 
     int requiredBiome;   // -1 => skip biome check
     int minBiomeSize;    // -1 => no minimum
     int maxBiomeSize;    // -1 => no maximum
+    int *next_to_biomes; // Array of biome IDs that structure should be near
+    int next_to_biomes_count; // Number of biomes in next_to_biomes array
+    int biome_proximity; // Max distance (in blocks) to search for required biomes
 } StructureRequirement;
 
 // Per-biome size config for required patches
@@ -315,6 +318,30 @@ bool isInvalidClusterDynamic(int *groupTypes, int groupSize)
 
         if (exactMatch)
             return true;
+    }
+    return false;
+}
+
+// -----------------------------------------------------------------------------
+// Add function to check if a biome exists within radius blocks of a position
+static bool hasBiomeNearby(Generator *g, int centerX, int centerZ, int radius, int *biomeIds, int biomeCount) {
+    if (biomeCount <= 0 || radius < 0) return true; // No biome requirements
+
+    // Check in a square around the point
+    int step = 4; // Biome resolution
+    for (int dx = -radius; dx <= radius; dx += step) {
+        for (int dz = -radius; dz <= radius; dz += step) {
+            int x = centerX + dx;
+            int z = centerZ + dz;
+            int biome = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
+
+            // Check if this biome matches any in our list
+            for (int i = 0; i < biomeCount; i++) {
+                if (biome == biomeIds[i]) {
+                    return true;
+                }
+            }
+        }
     }
     return false;
 }
@@ -837,6 +864,14 @@ bool scanSeed(uint64_t seed)
                         }
                     }
 
+                    // Check for nearby required biomes if configured
+                    if (req.next_to_biomes_count > 0 && req.biome_proximity > 0) {
+                        if (!hasBiomeNearby(curr_gen, pos.x, pos.z, req.biome_proximity, 
+                                          req.next_to_biomes, req.next_to_biomes_count)) {
+                            continue; // Skip if required biomes aren't nearby
+                        }
+                    }
+
                     // Get height based on structure type
                     int height = 0;
                     if (req.structureType == 19 || req.structureType == 17 || 
@@ -1083,6 +1118,9 @@ void parseParameterLine(char *line)
         structureRequirements[NUM_STRUCTURE_REQUIREMENTS].requiredBiome = biome;
         structureRequirements[NUM_STRUCTURE_REQUIREMENTS].minBiomeSize = minSz;
         structureRequirements[NUM_STRUCTURE_REQUIREMENTS].maxBiomeSize = maxSz;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].next_to_biomes = NULL;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].next_to_biomes_count = 0;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].biome_proximity = 0;
         NUM_STRUCTURE_REQUIREMENTS++;
     }
     else if (strcmp(currentSection, "===== Structure Clusters =====") == 0) 
