@@ -6,8 +6,6 @@ import socket
 import time
 import psutil
 from datetime import datetime
-import threading
-import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -15,9 +13,6 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_url_path='')
 app.secret_key = os.urandom(24)  # For session handling
-
-# Dictionary to store scan statistics per session
-scan_stats = {}
 
 @app.route('/')
 def home():
@@ -28,13 +23,6 @@ def home():
 @app.route('/CubioSeedFinderIcon.png')
 def icon():
     return send_from_directory('.', 'CubioSeedFinderIcon.png')
-
-def update_seeds_scanned(user_id, stdout_line):
-    if user_id in scan_stats:
-        # Look for seed count in the output
-        seed_match = re.search(r'Seeds scanned: (\d+)', stdout_line)
-        if seed_match:
-            scan_stats[user_id]['seeds_scanned'] = int(seed_match.group(1))
 
 @app.route('/scan', methods=['POST'])
 def scan():
@@ -48,12 +36,6 @@ def scan():
     logger.info(f"Received scan request with params: {params}")
 
     try:
-        # Initialize scan statistics for this session
-        scan_stats[user_id] = {
-            'seeds_scanned': 0,
-            'start_time': datetime.now().timestamp()
-        }
-
         # Create a process pipe to send parameters to verify_build
         process = subprocess.Popen(
             ['./verify_build'],  # Run the compiled executable
@@ -61,75 +43,28 @@ def scan():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            cwd='cubiomes',
-            bufsize=1,  # Line buffered
-            universal_newlines=True
+            cwd='cubiomes'
         )
 
-        # Send parameters to stdin
-        process.stdin.write(params)
-        process.stdin.close()
-
-        # Read output line by line to update stats in real-time
-        output_lines = []
-        while True:
-            line = process.stdout.readline()
-            if not line and process.poll() is not None:
-                break
-            output_lines.append(line)
-            update_seeds_scanned(user_id, line)
-            logger.debug(f"Read line: {line.strip()}")
-
-        stdout = ''.join(output_lines)
-        stderr = process.stderr.read()
-
-        # Clean up scan stats
-        stats = scan_stats.pop(user_id, {
-            'seeds_scanned': 0,
-            'elapsed_time': 0
-        })
+        # Send parameters to stdin and get output
+        stdout, stderr = process.communicate(input=params)
 
         if process.returncode != 0:
             logger.error(f"verify_build failed with return code {process.returncode}")
             return jsonify({
-                'error': stderr,
-                'stats': stats
+                'error': stderr
             }), 500
 
         logger.info("Scan completed successfully")
         return jsonify({
-            'output': stdout + stderr,
-            'stats': stats
+            'output': stdout + stderr
         })
 
     except Exception as e:
         logger.error(f"Error during scan: {str(e)}")
-        # Clean up scan stats on error
-        if user_id in scan_stats:
-            del scan_stats[user_id]
         return jsonify({
-            'error': str(e),
-            'stats': {
-                'seeds_scanned': 0,
-                'elapsed_time': 0
-            }
+            'error': str(e)
         }), 500
-
-@app.route('/scan_stats')
-def get_scan_stats():
-    user_id = session.get('user_id')
-    if not user_id or user_id not in scan_stats:
-        return jsonify({
-            'seeds_scanned': 0,
-            'elapsed_time': 0
-        })
-
-    stats = scan_stats[user_id]
-    elapsed_time = datetime.now().timestamp() - stats['start_time']
-    return jsonify({
-        'seeds_scanned': stats['seeds_scanned'],
-        'elapsed_time': elapsed_time
-    })
 
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
