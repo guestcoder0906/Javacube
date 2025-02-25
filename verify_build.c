@@ -599,9 +599,23 @@ uint64_t validSeed              = 0;
 volatile uint64_t currentSeed   = 0; // threads will increment this
 
 // -----------------------------------------------------------------------------
+// Add proper structure logging
+void logStructuresFound(StructurePos *positions, int count, uint64_t seed) {
+    printf("Valid seed found: %llu\n", (unsigned long long)seed);
+    printf("Structures found: %d\n", count);
+    for (int i = 0; i < count; i++) {
+        printf("  Type %d at (%d, %d)\n", 
+            positions[i].structureType,
+            positions[i].x,
+            positions[i].z);
+    }
+    printf("\n");
+}
+
+
+// -----------------------------------------------------------------------------
 // Main seed scanning logic (structures + biome checks)
 bool scanSeed(uint64_t seed)
-
 {
     bool hasAnyRequirements = false;
     bool allRequirementsMet = true;
@@ -631,6 +645,12 @@ bool scanSeed(uint64_t seed)
     SurfaceNoise sn, esn;
     initSurfaceNoise(&sn, DIM_OVERWORLD, seed);
     initSurfaceNoise(&esn, DIM_END, seed);
+
+    // For storing all found structures
+    int totalStructuresCapacity = 128;
+    int totalStructuresCount = 0;
+    StructurePos *allStructures = malloc(totalStructuresCapacity * sizeof(StructurePos));
+    if (!allStructures) { perror("malloc"); exit(1); }
 
     // 1) Structure cluster scanning
     if (clusterReq.enabled) {
@@ -787,18 +807,9 @@ bool scanSeed(uint64_t seed)
         }
     }
 
-    // 3) Additional structure requirements array
+    // 2) Additional structure requirements array
     if (NUM_STRUCTURE_REQUIREMENTS > 0) {
         hasAnyRequirements = true;
-        // Store found structures for organized output later
-        typedef struct {
-            int x, y, z;
-            int biome_id;
-            int biome_size;
-        } FoundPos;
-
-        FoundPos foundPositions[256];
-        int foundPosCount = 0;
 
         for (int rIndex = 0; rIndex < NUM_STRUCTURE_REQUIREMENTS; rIndex++) {
             StructureRequirement req = structureRequirements[rIndex];
@@ -834,120 +845,36 @@ bool scanSeed(uint64_t seed)
                     if (!isViableStructurePos(req.structureType, curr_gen, pos.x, pos.z, 0))
                         continue;
 
-                    int biome_id = -1;
-                    if (req.requiredBiome != -1) {
-                        // Only check biome if it's required
-                        int checkUnderground = (req.structureType == 17 || req.structureType == 15 || 
-                                              req.structureType == 14 || req.structureType == 11);
-
-                        if (checkUnderground) {
-                            biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, 0, pos.z >> 2);
-                        } else {
-                            float heightArr[256];
-                            int w = 16, h = 16;
-                            Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 1, 1};
-                            mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
-                            int lx = pos.x & 15;
-                            int lz = pos.z & 15;
-                            int surface_y = (int)heightArr[lz*w + lx];
-                            biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
-                        }
-
-                        if (biome_id != req.requiredBiome)
-                            continue;
-
-                        if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
-                            int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
-                            if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
-                                (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
-                                continue;
-                        }
+                    // Store the found structure
+                    if (totalStructuresCount == totalStructuresCapacity) {
+                        totalStructuresCapacity *= 2;
+                        allStructures = realloc(allStructures, totalStructuresCapacity * sizeof(StructurePos));
+                        if (!allStructures) { perror("realloc"); exit(1); }
                     }
-
-                    // Check for nearby required biomes if configured
-                    if (req.next_to_biomes_count > 0 && req.biome_proximity > 0) {
-                        if (!hasBiomeNearby(curr_gen, pos.x, pos.z, req.biome_proximity, 
-                                          req.next_to_biomes, req.next_to_biomes_count)) {
-                            continue; // Skip if required biomes aren't nearby
-                        }
-                    }
-
-                    // Get height based on structure type
-                    int height = 0;
-                    if (req.structureType == 19 || req.structureType == 17 || 
-                        req.structureType == 15 || req.structureType == 14 || 
-                        req.structureType == 11) {
-                        // For special structures, get height directly from structure data
-                        StructureVariant sv;
-                        if (getVariant(&sv, req.structureType, MC_1_21, seed, pos.x, pos.z, biome_id)) {
-                            height = sv.y;
-                        }
-                    } else {
-                        // For other structures, get surface height
-                        float heightArr[256];
-                        int w = 16, h = 16;
-                        Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 1, 1};
-                        mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
-                        int lx = pos.x & 15;
-                        int lz = pos.z & 15;
-                        height = (int)heightArr[lz*w + lx];
-                    }
-
-                    // Check height constraints if they exist
-                    if ((req.minHeight != -9999 && height < req.minHeight) ||
-                        (req.maxHeight != 9999 && height > req.maxHeight)) {
-                        continue;
-                    }
-
-                    // Store the found position with height
-                    foundPositions[foundPosCount].x = pos.x;
-                    foundPositions[foundPosCount].z = pos.z;
-                    foundPositions[foundPosCount].y = height;
-                    foundPositions[foundPosCount].biome_id = biome_id;
-                    foundPositions[foundPosCount].biome_size = 
-                        (biome_id != -1) ? getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id) : -1;
-                    foundPosCount++;
+                    allStructures[totalStructuresCount].structureType = req.structureType;
+                    allStructures[totalStructuresCount].x = pos.x;
+                    allStructures[totalStructuresCount].z = pos.z;
+                    totalStructuresCount++;
                     foundCount++;
                 }
             }
 
-            // If no structures found that match this requirement => fail
             if (foundCount < req.minCount) {
                 allRequirementsMet = false;
+                break;
             }
         }
-
-        // Organize and print the found structures
-        if (allRequirementsMet) {
-            for (int i = 0; i < NUM_STRUCTURE_REQUIREMENTS; i++) {
-                StructureRequirement req = structureRequirements[i];
-                printf("Valid seed found: %llu\n", (unsigned long long)seed);
-                printf("Structures %d:\n", req.structureType);
-                for (int j = 0; j < foundPosCount; j++) {
-                    if (foundPositions[j].biome_id == req.requiredBiome || req.requiredBiome == -1) {
-                        printf("Structure %d at (%d, %d) with height at %d in %s Biome with %d size\n",
-                            req.structureType, foundPositions[j].x, foundPositions[j].z,
-                            foundPositions[j].y, getBiomeName(foundPositions[j].biome_id),
-                            foundPositions[j].biome_size);
-                    }
-                }
-            }
-            return true;
-        }
     }
 
-    if (!hasAnyRequirements) {
-        // If absolutely no requirements are set, you can decide to skip or treat it as valid.
-        printf("Warning: No requirements set, skipping validation for seed %llu.\n",
-               (unsigned long long) seed);
-        return false;
+    bool result = hasAnyRequirements && allRequirementsMet;
+
+    // Only log structures if this is a valid seed
+    if (result) {
+        logStructuresFound(allStructures, totalStructuresCount, seed);
     }
 
-    if (allRequirementsMet) {
-        printf("Valid seed found: %llu\n", (unsigned long long) seed);
-        return true;
-    }
-    return false;
+    free(allStructures);
+    return result;
 }
 
 // -----------------------------------------------------------------------------
@@ -1213,7 +1140,6 @@ void parseParameterLine(char *line)
         // ...
         // We’ll dynamically build g_requiredBiomes as an array of BiomeRequirement,
         // each with a single biome or potentially more, depending on your structure.
-
         // But from your example, each line is 1 biome + min/max size.
         // We might store them separately and then finalize them after parsing
         static BiomeSizeConfig *tmpConfigs = NULL;
