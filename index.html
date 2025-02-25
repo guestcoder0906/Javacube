@@ -311,33 +311,29 @@
                 </ul>
 
                 <h2>Usage</h2>
-                <p>Set up your parameters in the text box then press scan to start scanning for seeds. When specifying structures or biomes, use their corresponding IDs from the ID References tab.</p>
+                <p><b>Set up your parameters in the text box then press scan to start scanning for seeds.</b> When specifying structures or biomes, use their corresponding IDs from the ID References tab. Use -1 for N/A and use 0 for next to biome to find structures in that biome.</p>
 
                 <h2>Example Parameters</h2>
                 <h3>Example 1:</h3>
                 <pre>===== Scanning options =====
 Starting seed: 0
-Search radius: 1000
+Search radius: 500
 Use spawn: true
 Custom z: 0
 Custom x: 0
 
 ===== Required structures =====
+1. 5 (min amount: 1, next to biome: 2, biome proximity: 0, min size: -1, max size: -1, min height: -9999, max height: 9999)
 
 ===== Structure Clusters =====
-Enabled: false
-Valid biomes: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16, 18
-Min cluster distance = 32,
-Min cluster size  = 2
 
 ===== Invalid Structure Clusters =====
-1. 16, 11
-2. 16, 6
 
 ===== Required Biomes =====
-1. 185 (min size: -1, max size: -1)
 
-===== Clustered Biomes =====</pre>
+===== Clustered Biomes =====
+
+</pre>
                 <h3>Example 2:</h3>
                 <pre>===== Scanning options =====
 Starting seed: 0
@@ -347,18 +343,18 @@ Custom z: 0
 Custom x: 0
 
 ===== Required structures =====
-1. 9 (min amount: 1, next to biome: -1, biome proximity: -1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
-2. 5 (min amount: 1, next to biome: -1, biome proximity: -1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
+1. 5 (min amount: 1, next to biome: 2, biome proximity: 0, min size: -1, max size: -1, min height: -9999, max height: 9999)
+2. 7 (min amount: 1, next to biome: 4, biome proximity: 16, min size: -1, max size: -1, min height: -9999, max height: 9999)
+3. 7 (min amount: 1, next to biome: -1, biome proximity: -1, min size: -1, max size: -1, min height: 150, max height: 9999)
 
 ===== Structure Clusters =====
 Enabled: true
-Valid biomes: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16, 18
+Valid biomes: 1, 2, 3, 4, 5, 7, 8, 9, 10
 Min cluster distance = 32,
 Min cluster size  = 2
 
 ===== Invalid Structure Clusters =====
-1. 16, 11
-2. 16, 6
+1. 7, 8
 
 ===== Required Biomes =====
 1. 1 (min size: 50, max size: -1)

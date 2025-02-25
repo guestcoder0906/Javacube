@@ -1362,12 +1362,7 @@ void parseParameterLine(char *line)
 
         char *nextToBiome = strstr(parenPart, "next to biome:");
         char *biomeProxPtr = strstr(parenPart, "biome proximity:");
-        char *minSizePtr = strstr(parenPart, "min size:");
-        char *maxSizePtr = strstr(parenPart, "max size:");
-        char *minHeightPtr = strstr(parenPart, "min height:");
-        char *maxHeightPtr = strstr(parenPart, "max height:");
 
-        // Parse in order: next to biome -> biome proximity -> min/max size -> min/max height
         if (nextToBiome && biomeProxPtr) {
             // Extract the proximity biome string
             char *start = nextToBiome + strlen("next to biome:");
@@ -1383,24 +1378,34 @@ void parseParameterLine(char *line)
             sscanf(biomeProxPtr, "biome proximity: %d", &biomeProx);
         }
 
-        if (minSizePtr && maxSizePtr) {
-            sscanf(minSizePtr, "min size: %d", &minSz);
-            sscanf(maxSizePtr, "max size: %d", &maxSz);
-        } else {
-            minSz = -1;
-            maxSz = -1;
-        }
+        // Parse min and max height
+        char *minHeightPtr = strstr(parenPart, "min height:");
+        char *maxHeightPtr = strstr(parenPart, "max height:");
 
         if (minHeightPtr && maxHeightPtr) {
             sscanf(minHeightPtr, "min height: %d", &minH);
             sscanf(maxHeightPtr, "max height: %d", &maxH);
         } else {
+            // Defaults
             minH = -9999;
             maxH = 9999;
         }
 
-        // Set default biome to -1
-        biome = -1;
+        // Parse biome and size constraints
+        char *biomePtr = strstr(parenPart, "biome:");
+        char *minSizePtr = strstr(parenPart, "min size:");
+        char *maxSizePtr = strstr(parenPart, "max size:");
+
+        if (biomePtr && minSizePtr && maxSizePtr) {
+            sscanf(biomePtr, "biome: %d", &biome);
+            sscanf(minSizePtr, "min size: %d", &minSz);
+            sscanf(maxSizePtr, "max size: %d", &maxSz);
+        } else {
+            // Defaults
+            biome = -1;
+            minSz = -1;
+            maxSz = -1;
+        }
 
         // Special case for height handling for certain structure types
         int skipSurfaceHeight = (structureType == 19 || structureType == 17 || 
