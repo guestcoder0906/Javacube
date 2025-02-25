@@ -102,7 +102,7 @@ def scan():
 
         # Get absolute path to verify_build
         app_root = os.path.dirname(os.path.abspath(__file__))
-        verify_build_path = os.path.join(app_root, 'verify_build')  # Using verify_build executable in root
+        verify_build_path = os.path.join(app_root, 'verify_build.c')  # Using verify_build.c source file
 
         # Log paths for debugging
         logger.info(f"App root path: {app_root}")
@@ -122,9 +122,29 @@ def scan():
                 }
             }), 500
 
-        # Create a process pipe to send parameters to verify_build
+        # First compile verify_build.c
+        compile_process = subprocess.run(
+            ['gcc', '-pthread', '-O2', '-o', 'verify_build_tmp', verify_build_path,
+             '-I', 'cubiomes', '-L', 'cubiomes', '-lcubiomes', '-lm'],
+            cwd=app_root,
+            capture_output=True,
+            text=True
+        )
+        
+        if compile_process.returncode != 0:
+            error_msg = f"Failed to compile verify_build.c: {compile_process.stderr}"
+            logger.error(error_msg)
+            return jsonify({
+                'error': error_msg,
+                'stats': {
+                    'seeds_scanned': 0,
+                    'elapsed_time': 0
+                }
+            }), 500
+
+        # Create a process pipe to send parameters to compiled verify_build
         process = subprocess.Popen(
-            [verify_build_path],  # Use absolute path
+            [os.path.join(app_root, 'verify_build_tmp')],  # Use compiled executable
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -161,8 +181,12 @@ def scan():
         if 'start_time' in stats:
             del stats['start_time']
 
-        # Clean up process
+        # Clean up process and temporary compiled file
         del active_processes[user_id]
+        try:
+            os.remove(os.path.join(app_root, 'verify_build_tmp'))
+        except Exception as e:
+            logger.warning(f"Failed to remove temporary compiled file: {str(e)}")
 
         if process.returncode != 0:
             logger.error(f"verify_build failed with return code {process.returncode}")
