@@ -24,6 +24,9 @@ active_processes = {}
 
 def cleanup_session(user_id):
     """Clean up resources for a session"""
+    logger.info(f"Starting cleanup for session {user_id}")
+
+    # Clean up active process if it exists
     if user_id in active_processes:
         try:
             process = active_processes[user_id]
@@ -36,22 +39,34 @@ def cleanup_session(user_id):
         except Exception as e:
             logger.error(f"Error cleaning up process for session {user_id}: {str(e)}")
         finally:
-            del active_processes[user_id]
+            try:
+                active_processes.pop(user_id, None)  # Safely remove from dictionary
+            except Exception as e:
+                logger.error(f"Error removing process from active_processes: {str(e)}")
 
-    if user_id in scan_stats:
-        del scan_stats[user_id]
+    # Clean up scan stats if they exist
+    try:
+        scan_stats.pop(user_id, None)  # Safely remove from dictionary
+        logger.info(f"Cleaned up scan stats for session {user_id}")
+    except Exception as e:
+        logger.error(f"Error cleaning up scan stats for session {user_id}: {str(e)}")
 
 @app.route('/')
 def home():
-    # Clean up old session if it exists
-    old_user_id = session.get('user_id')
-    if old_user_id:
-        cleanup_session(old_user_id)
+    try:
+        # Clean up old session if it exists
+        old_user_id = session.get('user_id')
+        if old_user_id:
+            cleanup_session(old_user_id)
+            logger.info(f"Cleaned up old session: {old_user_id}")
 
-    # Create new session
-    session['user_id'] = os.urandom(16).hex()
-    session['last_active'] = datetime.now().timestamp()
-    return send_from_directory('.', 'index.html')
+        # Create new session
+        session['user_id'] = os.urandom(16).hex()
+        session['last_active'] = datetime.now().timestamp()
+        return send_from_directory('.', 'index.html')
+    except Exception as e:
+        logger.error(f"Error in home route: {str(e)}")
+        return send_from_directory('.', 'index.html')  # Still return the page even if cleanup fails
 
 @app.route('/CubioSeedFinderIcon.png')
 def icon():
