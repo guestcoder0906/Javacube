@@ -521,6 +521,8 @@ Min cluster size  = 2
             const params = document.getElementById('params').value;
             const resultsDiv = document.getElementById('results');
 
+            // Reset elapsed time display
+            document.getElementById('timeElapsed').textContent = '00:00:00';
             showScanOverlay();
 
             try {
@@ -536,10 +538,10 @@ Min cluster size  = 2
                 if (data.error) {
                     resultsDiv.textContent += `Error: ${data.error}\n\n`;
                 } else {
-                    const elapsedTime = data.stats.elapsed_time;
-                    const hours = Math.floor(elapsedTime / 3600);
-                    const minutes = Math.floor((elapsedTime % 3600) / 60);
-                    const seconds = Math.floor(elapsedTime % 60);
+                    const elapsedTime = data.stats.elapsed_time || 0;
+                    const hours = Math.floor(elapsedTime / 3600) || 0;
+                    const minutes = Math.floor((elapsedTime % 3600) / 60) || 0;
+                    const seconds = Math.floor(elapsedTime % 60) || 0;
                     
                     let timeStr = '';
                     if (hours > 0) timeStr += `${hours}hr `;
