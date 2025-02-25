@@ -905,46 +905,52 @@ int scanSeed(uint64_t seed)
             StructureRequirement req = structureRequirements[rIndex];
             int foundCount = 0;
 
-            // Special handling for spawn point
+            // Handle spawn point like other structures
             if (req.structureType == STRUCTURE_TYPE_SPAWN) {
-                // Get spawn coordinates
                 Pos spawnPos = getSpawn(&g);
+                
+                // Get the surface height for spawn
+                float heightArr[256];
+                int w = 16, h = 16;
+                Range r_range = {4, spawnPos.x >> 2, spawnPos.z >> 2, w, h, 1, 1};
+                mapApproxHeight(heightArr, NULL, &g, &sn, r_range.x, r_range.z, w, h);
+                int lx = spawnPos.x & 15;
+                int lz = spawnPos.z & 15;
+                int height = (int)heightArr[lz*w + lx];
 
-                // Check biome requirements
-                int biome_id = -1;
-                if (req.requiredBiome != -1) {
-                    int biome_id = getBiomeAt(&g, 4, spawnPos.x >> 2, 319 >> 2, spawnPos.z >> 2);
-                    // Check required biome if specified
-                    if (req.requiredBiome != -1 && biome_id != req.requiredBiome) {
-                        continue; // Skip if biome doesn't match
-                    }
+                // Get biome at surface height
+                int biome_id = getBiomeAt(&g, 4, spawnPos.x >> 2, height >> 2, spawnPos.z >> 2);
+                
+                // Check height constraints
+                if ((req.minHeight != -9999 && height < req.minHeight) ||
+                    (req.maxHeight != 9999 && height > req.maxHeight)) {
+                    continue;
                 }
 
-                // Check biome size if required
-                int biome_size = -1;
-                if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
-                    biome_size = getBiomePatchSize(&g, spawnPos.x, spawnPos.z, biome_id);
-                    if ((req.minBiomeSize != -1 && biome_size < req.minBiomeSize) ||
-                        (req.maxBiomeSize != -1 && biome_size > req.maxBiomeSize)) {
-                        continue; // Skip if size constraints not met
-                    }
-                }
-
-                // Check biome proximity if required
-                // Always reset these values for each structure
+                // Check proximity if required
                 int proximity_distance = -1;
                 int closest_biome_id = -1;
                 if (req.proximityBiomeCount > 0 && req.biomeProximity > 0) {
                     if (!checkBiomeProximity(&g, spawnPos.x, spawnPos.z, 
                                            req.proximityBiomes, req.proximityBiomeCount, 
                                            req.biomeProximity, &proximity_distance, &closest_biome_id)) {
-                        continue; // Skip if no matching biome found within range
+                        continue;
+                    }
+                }
+
+                // Get biome patch size if needed
+                int biome_size = -1;
+                if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
+                    biome_size = getBiomePatchSize(&g, spawnPos.x, spawnPos.z, closest_biome_id != -1 ? closest_biome_id : biome_id);
+                    if ((req.minBiomeSize != -1 && biome_size < req.minBiomeSize) ||
+                        (req.maxBiomeSize != -1 && biome_size > req.maxBiomeSize)) {
+                        continue;
                     }
                 }
 
                 // Add to found positions
                 foundPositions[foundPosCount].x = spawnPos.x;
-                foundPositions[foundPosCount].y = 0; // Not relevant for spawn
+                foundPositions[foundPosCount].y = height;
                 foundPositions[foundPosCount].z = spawnPos.z;
                 foundPositions[foundPosCount].biome_id = biome_id;
                 foundPositions[foundPosCount].biome_size = biome_size;
