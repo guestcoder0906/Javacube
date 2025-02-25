@@ -13,8 +13,8 @@ fi
 
 # Check if gcc is installed
 if ! command -v gcc &> /dev/null; then
-    echo "Installing gcc..."
-    nix-env -i gcc
+    echo "Error: gcc is not installed"
+    exit 1
 fi
 
 # Check if make is installed
