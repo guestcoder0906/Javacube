@@ -231,7 +231,7 @@
 
         /* Add new overlay styles */
         .scan-overlay {
-            display: none;
+            display: none; /* Hidden initially */
             position: fixed;
             top: 0;
             left: 0;
@@ -241,7 +241,6 @@
             z-index: 1000;
             justify-content: center;
             align-items: center;
-            display: flex;
         }
 
         .scan-stats {
@@ -310,7 +309,7 @@
                 </ul>
 
                 <h2>Usage</h2>
-                <p>Set up your parameters in the text box then press scan to start scanning for seeds.</p>
+                <p>Set up your parameters in the text box then press scan to start scanning for seeds. When specifying structures or biomes, use their corresponding IDs from the ID References tab.</p>
 
                 <h2>Example Parameters</h2>
                 <h3>Example 1:</h3>
@@ -337,7 +336,6 @@ Min cluster size  = 2
 1. 185 (min size: -1, max size: -1)
 
 ===== Clustered Biomes =====</pre>
-
                 <h3>Example 2:</h3>
                 <pre>===== Scanning options =====
 Starting seed: 0
@@ -369,6 +367,7 @@ Min cluster size  = 2
 1. 185, 1 (min size: -1, max size: -1)
 2. 4, 1 (min size: 100, max size: -1)
 2. 185, 4 (min size: -1, max size: -1)</pre>
+
             </div>
         </div>
 
