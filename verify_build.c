@@ -1140,11 +1140,24 @@ void parseParameterLine(char *line)
         }
 
         int minCount, minH, maxH, biome, minSz, maxSz;
-        char *basicPart = strstr(parenPart, "min amount:");
-        if (!basicPart || sscanf(basicPart, 
-            "min amount: %d, min height: %d, max height: %d, biome: %d, min size: %d, max size: %d",
-            &minCount, &minH, &maxH, &biome, &minSz, &maxSz) != 6) {
-            fprintf(stderr, "Warning: Failed to parse structure parameters correctly\n");
+        // Parse min amount
+        char *minAmountPart = strstr(parenPart, "min amount:");
+        if (!minAmountPart || sscanf(minAmountPart, "min amount: %d", &minCount) != 1) {
+            fprintf(stderr, "Warning: Failed to parse min amount\n");
+            return;
+        }
+
+        // Parse height ranges
+        char *heightPart = strstr(parenPart, "min height:");
+        if (!heightPart || sscanf(heightPart, "min height: %d, max height: %d", &minH, &maxH) != 2) {
+            fprintf(stderr, "Warning: Failed to parse height ranges\n");
+            return;
+        }
+
+        // Parse biome and size constraints
+        char *biomePart = strstr(parenPart, "biome:");
+        if (!biomePart || sscanf(biomePart, "biome: %d, min size: %d, max size: %d", &biome, &minSz, &maxSz) != 3) {
+            fprintf(stderr, "Warning: Failed to parse biome and size parameters\n");
             return;
         }
 
