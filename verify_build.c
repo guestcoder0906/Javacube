@@ -54,6 +54,7 @@ void unionSets(int parent[], int x, int y)
 const char* getBiomeName(int id)
 {
     switch(id) {
+        case -1:  return "Invalid";
         case 0:   return "Ocean";
         case 1:   return "Plains";
         case 2:   return "Desert";
@@ -62,6 +63,8 @@ const char* getBiomeName(int id)
         case 5:   return "Taiga";
         case 6:   return "Swamp";
         case 7:   return "River";
+        case 8:   return "Nether Wastes";
+        case 9:   return "The End";
         case 10:  return "Frozen Ocean";
         case 11:  return "Frozen River";
         case 12:  return "Snowy Plains";
@@ -92,6 +95,10 @@ const char* getBiomeName(int id)
         case 37:  return "Badlands";
         case 38:  return "Wooded Badlands";
         case 39:  return "Badlands Plateau";
+        case 40:  return "Small End Islands";
+        case 41:  return "End Midlands";
+        case 42:  return "End Highlands";
+        case 43:  return "End Barrens";
         case 44:  return "Warm Ocean";
         case 45:  return "Lukewarm Ocean";
         case 46:  return "Cold Ocean";
