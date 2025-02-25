@@ -97,8 +97,7 @@ def scan():
         # Initialize scan statistics for this session
         scan_stats[user_id] = {
             'seeds_scanned': 0,
-            'start_time': datetime.now().timestamp(),
-            'last_active': datetime.now().timestamp()
+            'start_time': datetime.now().timestamp()
         }
 
         # Get absolute path to verify_build
