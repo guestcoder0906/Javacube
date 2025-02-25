@@ -1090,8 +1090,8 @@ void parseParameterLine(char *line)
     else if (strcmp(currentSection, "===== Required structures =====") == 0) 
     {
         // Lines look like:
-        // 1. 5 (min amount: 1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
-        int idx, structureType, minCount, minH, maxH, biome, minSz, maxSz;
+        // 1. 5 (min amount: 1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1, next to biome: 1 or 2, biome proximity: 32)
+        int idx, structureType, nextToBiome, biomeProximity, minCount, minH, maxH, biome, minSz, maxSz;
 
         // Parse the line format: "1. 5 (min amount: ...)"
         char *openParen = strchr(line, '(');
@@ -1111,36 +1111,50 @@ void parseParameterLine(char *line)
         int nextToBiomesCount = 0;
         int biomeProximity = -1;
         
+        nextToBiomesCount = 0;
+        biomeProximity = -1;
+
+        // Parse next to biome part
         char *nextToBiomePart = strstr(parenPart, "next to biome:");
         if (nextToBiomePart) {
-            char *end = strstr(nextToBiomePart, ",");
-            if (end) *end = '\0';
+            char *biomeStart = nextToBiomePart + 14; // Skip "next to biome: "
+            char *nextComma = strchr(biomeStart, ',');
             
-            // Skip "next to biome: "
-            char *p = nextToBiomePart + 14;
-            while (*p) {
-                if (isdigit(*p) || *p == '-') {
-                    nextToBiomes[nextToBiomesCount++] = atoi(p);
-                    while (isdigit(*p) || *p == '-') p++;
+            if (nextComma) {
+                // Temporarily null-terminate to parse biomes
+                char savedChar = *nextComma;
+                *nextComma = '\0';
+                
+                // Parse biome IDs separated by "or"
+                char *token = strtok(biomeStart, " or");
+                while (token) {
+                    trim(token);
+                    if (isdigit(*token) || *token == '-') {
+                        nextToBiomes[nextToBiomesCount++] = atoi(token);
+                    }
+                    token = strtok(NULL, " or");
                 }
-                else if (*p == 'o' && p[1] == 'r') {
-                    p += 2;
-                }
-                p++;
-            }
-            
-            if (end) {
-                *end = ',';
-                // Look for biome proximity
-                char *proxPart = strstr(end, "biome proximity:");
-                if (proxPart && sscanf(proxPart, "biome proximity: %d", &biomeProximity) != 1) {
-                    biomeProximity = -1;
+                
+                // Restore comma
+                *nextComma = savedChar;
+                
+                // Look for biome proximity after the comma
+                char *proxPart = strstr(nextComma, "biome proximity:");
+                if (proxPart) {
+                    if (sscanf(proxPart, "biome proximity: %d", &biomeProximity) != 1) {
+                        biomeProximity = -1;
+                    }
                 }
             }
         }
 
-        int minCount = 0, minH = 0, maxH = 0, biome = 0, minSz = 0, maxSz = 0;
-        int biomeProximity = -1;
+        // Parse the remaining parameters
+        minCount = 0;
+        minH = -9999;
+        maxH = 9999;
+        biome = -1;
+        minSz = -1;
+        maxSz = -1;
 
         // Parse min amount
         char *minAmountPart = strstr(parenPart, "min amount:");
