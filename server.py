@@ -20,18 +20,27 @@ def scan():
 
     logger.info(f"Received scan request with params: {params}")
 
-    # Write parameters to the file
     try:
-        os.makedirs('cubiomes', exist_ok=True)
-        with open('cubiomes/params.txt', 'w') as f:
-            f.write(params)
+        # Create a process pipe to send parameters to verify_build
+        process = subprocess.Popen(
+            ['./verify_build'],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd='cubiomes'
+        )
 
-        # Run the verify_build program
-        result = subprocess.run(['./cubiomes/verify_build'], 
-                              capture_output=True, 
-                              text=True)
+        # Send parameters to stdin and get output
+        stdout, stderr = process.communicate(input=params)
+
+        if process.returncode != 0:
+            logger.error(f"verify_build failed with return code {process.returncode}")
+            return f"Error: {stderr}", 500
+
         logger.info("Scan completed successfully")
-        return result.stdout + result.stderr
+        return stdout + stderr
+
     except Exception as e:
         logger.error(f"Error during scan: {str(e)}")
         return str(e), 500

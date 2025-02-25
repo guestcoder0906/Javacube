@@ -15,3 +15,4 @@ Custom x: 0
 
 ===== Clustered Biomes =====
 1. 1, 185 (min size: -1, max size: -1)
+
