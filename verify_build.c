@@ -1391,21 +1391,21 @@ void parseParameterLine(char *line)
             maxH = 9999;
         }
 
-        // Parse size constraints
+        // Parse biome and size constraints
+        char *biomePtr = strstr(parenPart, "biome:");
         char *minSizePtr = strstr(parenPart, "min size:");
         char *maxSizePtr = strstr(parenPart, "max size:");
 
-        if (minSizePtr && maxSizePtr) {
+        if (biomePtr && minSizePtr && maxSizePtr) {
+            sscanf(biomePtr, "biome: %d", &biome);
             sscanf(minSizePtr, "min size: %d", &minSz);
             sscanf(maxSizePtr, "max size: %d", &maxSz);
         } else {
             // Defaults
+            biome = -1;
             minSz = -1;
             maxSz = -1;
         }
-
-        // Default biome to -1 since we removed the field
-        biome = -1;
 
         // Special case for height handling for certain structure types
         int skipSurfaceHeight = (structureType == 19 || structureType == 17 || 
