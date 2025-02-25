@@ -837,7 +837,7 @@ int scanSeed(uint64_t seed)
                     continue;
                 }
 
-                // sortthe structure types in ascending order
+                // sort the structure types in ascending order
                 int*groupTypes = malloc(groupSize*sizeof(int));
                 for (int n = 0; n < groupSize; n++) {
                     groupTypes[n] = clusterPositions[indices[n]].structureType;
@@ -1378,7 +1378,7 @@ void parseParameterLine(char *line)
             sscanf(biomeProxPtr, "biome proximity: %d", &biomeProx);
         }
 
-        // Extract min and max height
+        // Parse min and max height
         char *minHeightPtr = strstr(parenPart, "min height:");
         char *maxHeightPtr = strstr(parenPart, "max height:");
 
@@ -1391,21 +1391,21 @@ void parseParameterLine(char *line)
             maxH = 9999;
         }
 
-        // Parse size constraints
+        // Parse biome and size constraints
+        char *biomePtr = strstr(parenPart, "biome:");
         char *minSizePtr = strstr(parenPart, "min size:");
         char *maxSizePtr = strstr(parenPart, "max size:");
 
-        if (minSizePtr && maxSizePtr) {
+        if (biomePtr && minSizePtr && maxSizePtr) {
+            sscanf(biomePtr, "biome: %d", &biome);
             sscanf(minSizePtr, "min size: %d", &minSz);
             sscanf(maxSizePtr, "max size: %d", &maxSz);
         } else {
             // Defaults
+            biome = -1;
             minSz = -1;
             maxSz = -1;
         }
-
-        // Set default biome
-        biome = -1;
 
         // Special case for height handling for certain structure types
         int skipSurfaceHeight = (structureType == 19 || structureType == 17 || 
@@ -1602,7 +1602,7 @@ void parseParameterLine(char *line)
 
         int idx, minSz, maxSz;
         int b1, b2;
-        // naive parse: "1. 185, 1 (min size: -1 max size: -1)"
+        // naive parse: "1. 185, 1 (min size: -1, max size: -1)"
         // or "2. 41 (min size: 100, max size: -1)"
         char *paren = strchr(line, '(');
         if (!paren) return;
