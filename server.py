@@ -227,7 +227,7 @@ def cleanup_inactive_sessions():
 
             # Create a copy of active processes to avoid modification during iteration
             active_process_ids = list(active_processes.keys())
-            
+
             # Clean up processes that have been running too long
             for user_id in active_process_ids:
                 process = active_processes.get(user_id)
@@ -280,7 +280,7 @@ if __name__ == '__main__':
                 app.run(
                     host='0.0.0.0',
                     port=port,
-                    debug=True,
+                    debug=False,  # Changed from True to False for production
                     use_reloader=False,
                     threaded=True
                 )
