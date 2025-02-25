@@ -21,9 +21,24 @@ def scan():
     logger.info(f"Received scan request with params: {params}")
 
     try:
+        # First compile verify_build.c
+        compile_cmd = ["gcc", "../verify_build.c", "-o", "verify_build", "-I.", "libcubiomes.a", "-lm"] #Corrected output filename
+        logger.info("Compiling verify_build.c...")
+
+        compile_result = subprocess.run(
+            compile_cmd,
+            cwd='cubiomes',
+            capture_output=True,
+            text=True
+        )
+
+        if compile_result.returncode != 0:
+            logger.error(f"Compilation failed: {compile_result.stderr}")
+            return f"Compilation Error: {compile_result.stderr}", 500
+
         # Create a process pipe to send parameters to verify_build
         process = subprocess.Popen(
-            ['./verify_build'],
+            ['./verify_build'], #Corrected executable name
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
