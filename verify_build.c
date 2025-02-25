@@ -888,8 +888,8 @@ bool scanSeed(uint64_t seed)
                 foundCount = 1;
             }
 
-            // Check biome proximity if required
-            if (req.nextToBiomesCount > 0 && req.biomeProximity > 0) {
+            // Check biome proximity if required (when both parameters are set)
+            if (req.nextToBiomesCount > 0 && req.nextToBiomes[0] != -1 && req.biomeProximity > 0) {
                 int validProximityCount = 0;
                 for (int j = 0; j < foundPosCount; j++) {
                     int foundNearbyBiome = 0;
