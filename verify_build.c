@@ -994,9 +994,13 @@ bool scanSeed(uint64_t seed)
                 foundPositions[j].y, getBiomeName(foundPositions[j].biome_id));
             
             // Print biome proximity info if relevant
-            if (req.nextToBiomeCount > 0 && req.biomeProximity >= 0 && foundPositions[j].nearestBiomeId != -1) {
-                printf(" (nearest required biome: %s at distance %d blocks)", 
-                    getBiomeName(foundPositions[j].nearestBiomeId), foundPositions[j].nearestBiomeDist);
+            if (req.nextToBiomeCount > 0 && req.biomeProximity >= 0) {
+                if (foundPositions[j].nearestBiomeId != -1) {
+                    printf(" (nearest required biome: %s at distance %d blocks)", 
+                        getBiomeName(foundPositions[j].nearestBiomeId), foundPositions[j].nearestBiomeDist);
+                } else {
+                    printf(" (no required biomes found within %d blocks)", req.biomeProximity);
+                }
             }
 
             // If we have proximity requirements, check and print nearby biomes
