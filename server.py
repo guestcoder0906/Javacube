@@ -83,11 +83,12 @@ def scan():
         stdout = ''.join(output_lines)
         stderr = process.stderr.read()
 
-        # Clean up scan stats
-        stats = scan_stats.pop(user_id, {
-            'seeds_scanned': 0,
-            'elapsed_time': 0
-        })
+        # Calculate elapsed time before cleaning up stats
+        end_time = datetime.now().timestamp()
+        stats = scan_stats.pop(user_id, {})
+        stats['elapsed_time'] = end_time - stats.get('start_time', end_time)
+        if 'start_time' in stats:
+            del stats['start_time']
 
         if process.returncode != 0:
             logger.error(f"verify_build failed with return code {process.returncode}")
