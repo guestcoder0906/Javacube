@@ -271,19 +271,14 @@ if __name__ == '__main__':
     retries = 3
     retry_delay = 2
 
-    logger.info("Starting Flask server...")
+    logger.info("Starting production server...")
 
     while retries > 0:
         if not is_port_in_use(port):
-            logger.info(f"Starting Flask server on port {port}...")
+            logger.info(f"Starting server on port {port}...")
             try:
-                app.run(
-                    host='0.0.0.0',
-                    port=port,
-                    debug=True,
-                    use_reloader=False,
-                    threaded=True
-                )
+                from waitress import serve
+                serve(app, host='0.0.0.0', port=port, threads=8)
                 break
             except Exception as e:
                 logger.error(f"Failed to start server: {str(e)}")
