@@ -182,17 +182,13 @@ int getBiomePatchSize(Generator *g, int x, int z, int biome_id)
 // -----------------------------------------------------------------------------
 // Required structure conditions
 typedef struct {
-    int structureType;    // e.g. 5 -> Village, etc. (Cubiomes structure ID)
+    int structureType;   // e.g. 5 -> Village, etc. (Cubiomes structure ID)
     int minCount;
     int minHeight;
     int maxHeight;
     int requiredBiome;   // -1 => skip biome check
     int minBiomeSize;    // -1 => no minimum
     int maxBiomeSize;    // -1 => no maximum
-    // Add missing fields for biome proximity checks
-    int biomeProximity;   // Distance in blocks to check for required biomes
-    int *nextToBiomes;    // Array of biome IDs to check for
-    int nextToBiomeCount; // Number of biomes in nextToBiomes array
 } StructureRequirement;
 
 // Per-biome size config for required patches
@@ -245,20 +241,27 @@ BiomeSearch biomeSearch = {
 // -----------------------------------------------------------------------------
 // Structure cluster requirement
 typedef struct {
-    bool enabled;
-    int clusterDistance;
-    int *structureTypes;
-    int count;
-    int minClusterSize;
-} ClusterRequirement;
+    int structureType;    // e.g. 8 -> the structure ID (for example)
+    int minCount;
+    int minHeight;
+    int maxHeight;
+    int requiredBiome;    // -1 => skip direct biome check
+    int minBiomeSize;     // -1 => no minimum
+    int maxBiomeSize;     // -1 => no maximum
+
+    // New fields for "next to" biome detection:
+    int biomeProximity;   // e.g. 8 means the structure must be within 8 blocks of one of the listed biomes
+    int *nextToBiomes;    // dynamically allocated array of biome IDs
+    int nextToBiomeCount; // how many biome IDs are listed
+} StructureRequirement;
 
 // We will fill this from the parameter file
 ClusterRequirement clusterReq = {
-    .enabled = false,
+    .enabled         = false,
     .clusterDistance = 32,
-    .structureTypes = NULL,
-    .count = 0,
-    .minClusterSize = 2
+    .structureTypes  = NULL,
+    .count           = 0,
+    .minClusterSize  = 2
 };
 
 // -----------------------------------------------------------------------------
@@ -815,7 +818,7 @@ bool scanSeed(uint64_t seed)
                     if (req.requiredBiome != -1) {
                         // Only check biome if it's required
                         int checkUnderground = (req.structureType == 17 || req.structureType == 15 || 
-                                               req.structureType == 14 || req.structureType == 11);
+                                              req.structureType == 14 || req.structureType == 11);
 
                         if (checkUnderground) {
                             biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, 0, pos.z >> 2);
@@ -841,38 +844,60 @@ bool scanSeed(uint64_t seed)
                         }
                     }
 
-                    // Check for nearby required biomes
-                    bool nearRequiredBiome = false;
-                    if (req.nextToBiomeCount > 0 && req.biomeProximity >= 0) {
-                        for (int dx = -req.biomeProximity; dx <= req.biomeProximity && !nearRequiredBiome; dx++) {
-                            for (int dz = -req.biomeProximity; dz <= req.biomeProximity; dz++) {
-                                int checkBiome;
+                    // Get height based on structure type
+                    int height = 0;
+                    if (req.structureType == 19 || req.structureType == 17 || 
+                        req.structureType == 15 || req.structureType == 14 || 
+                        req.structureType == 11) {
+                        // For special structures, get height directly from structure data
+                        StructureVariant sv;
+                        if (getVariant(&sv, req.structureType, MC_1_21, seed, pos.x, pos.z, biome_id)) {
+                            height = sv.y;
+                        }
+                    } else {
+                        // For other structures, get surface height
+                        float heightArr[256];
+                        int w = 16, h = 16;
+                        Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 1, 1};
+                        mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
+                        int lx = pos.x & 15;
+                        int lz = pos.z & 15;
+                        height = (int)heightArr[lz*w + lx];
+                    }
 
-                                // Determine whether to use underground or surface biome check
-                                if (req.structureType == 19 || req.structureType == 17 ||
-                                    req.structureType == 15 || req.structureType == 14 ||
-                                    req.structureType == 11) {
+                    // Check height constraints if they exist
+                    if ((req.minHeight != -9999 && height < req.minHeight) ||
+                        (req.maxHeight != 9999 && height > req.maxHeight)) {
+                        continue;
+                    }
+
+                    // Check if the structure is within the required proximity of at least one of the specified biomes.
+                    if (req->nextToBiomeCount > 0 && req->biomeProximity >= 0) {
+                        bool nearRequiredBiome = false;
+                        // Look in a square centered at the structure position
+                        for (int dx = -req->biomeProximity; dx <= req->biomeProximity && !nearRequiredBiome; dx++) {
+                            for (int dz = -req->biomeProximity; dz <= req->biomeProximity; dz++) {
+                                int checkBiome;
+                                // Use appropriate logic based on whether the structure is underground.
+                                if (req->structureType == 19 || req->structureType == 17 ||
+                                    req->structureType == 15 || req->structureType == 14 ||
+                                    req->structureType == 11) {
                                     checkBiome = getBiomeAt(curr_gen, 4, (pos.x + dx) >> 2, 0, (pos.z + dz) >> 2);
                                 } else {
-                                    // Normal surface biome check
-                                    Range r_range = {4, (pos.x + dx) >> 2, (pos.z + dz) >> 2, 1, 1, 1, 1};
-                                    float heightArr[1];
-                                    mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, 1, 1);
-                                    int surface_y = (int)heightArr[0];
-                                    checkBiome = getBiomeAt(curr_gen, 4, (pos.x + dx) >> 2, surface_y >> 2, (pos.z + dz) >> 2);
+                                    checkBiome = getBiomeAt(curr_gen, 4, (pos.x + dx) >> 2, (height) >> 2, (pos.z + dz) >> 2);
                                 }
-
-                                // Check if the biome matches any in our required list
-                                for (int i = 0; i < req.nextToBiomeCount; i++) {
-                                    if (checkBiome == req.nextToBiomes[i]) {
+                                // Check if this biome is one of the required ones.
+                                for (int i = 0; i < req->nextToBiomeCount; i++) {
+                                    if (checkBiome == req->nextToBiomes[i]) {
                                         nearRequiredBiome = true;
                                         break;
                                     }
                                 }
-                                if (nearRequiredBiome) break;
                             }
                         }
-                        if (!nearRequiredBiome) continue;
+                        // If no block in the vicinity is from any of the required biomes, skip this candidate.
+                        if (!nearRequiredBiome)
+                            continue;
                     }
 
                     // Store the found position with height
@@ -1187,7 +1212,6 @@ void parseParameterLine(char *line)
         // ...
         // We’ll dynamically build g_requiredBiomes as an array of BiomeRequirement,
         // each with a single biome or potentially more, depending on your structure.
-        
 
         // But from your example, each line is 1 biome + min/max size.
         // We might store them separately and then finalize them after parsing
@@ -1221,10 +1245,8 @@ void parseParameterLine(char *line)
         // For demonstration, let's keep them all in a single "required group".
         // Or you might want each line to be a separate requirement. 
         // For simplicity, let's do *one* BiomeRequirement that includes multiple biome IDs.
-        
 
         // If your logic requires each line to be its own BiomeRequirement, you'd do so here.
-        
 
         // We'll create or expand a single BiomeRequirement with all these. 
         if (g_requiredBiomesCount == 0) {
@@ -1257,7 +1279,6 @@ void parseParameterLine(char *line)
         // ...
         // We'll parse similarly. Suppose each line is one cluster definition.
         // Then we store it into g_biomeClusters.
-        
 
         int idx, minSz, maxSz;
         int b1, b2;

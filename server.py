@@ -100,9 +100,9 @@ def scan():
             'start_time': datetime.now().timestamp()
         }
 
-        # Get absolute path to verify_build binary
+        # Get absolute path to verify_build
         app_root = os.path.dirname(os.path.abspath(__file__))
-        verify_build_path = os.path.join(app_root, 'verify_build')  # Remove .c extension
+        verify_build_path = os.path.join(app_root, 'verify_build')  # Using verify_build executable in root
 
         # Log paths for debugging
         logger.info(f"App root path: {app_root}")
@@ -112,7 +112,7 @@ def scan():
 
         # Check if verify_build exists
         if not os.path.exists(verify_build_path):
-            error_msg = f"verify_build binary not found at {verify_build_path}"
+            error_msg = f"verify_build not found at {verify_build_path}"
             logger.error(error_msg)
             return jsonify({
                 'error': error_msg,
@@ -122,12 +122,9 @@ def scan():
                 }
             }), 500
 
-        # Set execute permissions on the binary
-        os.chmod(verify_build_path, 0o755)
-
         # Create a process pipe to send parameters to verify_build
         process = subprocess.Popen(
-            [verify_build_path],  # Use the binary path
+            [verify_build_path],  # Use absolute path
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -230,7 +227,7 @@ def cleanup_inactive_sessions():
 
             # Create a copy of active processes to avoid modification during iteration
             active_process_ids = list(active_processes.keys())
-
+            
             # Clean up processes that have been running too long
             for user_id in active_process_ids:
                 process = active_processes.get(user_id)
@@ -283,7 +280,7 @@ if __name__ == '__main__':
                 app.run(
                     host='0.0.0.0',
                     port=port,
-                    debug=False,  # Changed from True to False for production
+                    debug=True,
                     use_reloader=False,
                     threaded=True
                 )
