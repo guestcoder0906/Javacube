@@ -98,7 +98,7 @@
             margin-bottom: 5px;
         }
 
-        input[type="text"], 
+        input[type="text"],
         input[type="number"],
         textarea {
             width: 100%;
@@ -197,6 +197,36 @@
         .tutorial a:hover {
             text-decoration: underline;
         }
+
+        /* Add styles for reference tables */
+        .reference-tables {
+            padding: 20px 0;
+        }
+
+        .reference-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background-color: var(--input-bg);
+            border-radius: 4px;
+        }
+
+        .reference-table th,
+        .reference-table td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid var(--border-color);
+        }
+
+        .reference-table th {
+            background-color: var(--button-bg);
+            color: var(--text-color);
+            font-weight: bold;
+        }
+
+        .reference-table tr:hover {
+            background-color: var(--button-hover);
+        }
     </style>
 </head>
 <body>
@@ -212,6 +242,7 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab('seedFinder')">Seed Finder</button>
             <button class="tab" onclick="switchTab('tutorial')">Tutorial</button>
+            <button class="tab" onclick="switchTab('idReferences')">ID References</button>
         </div>
 
         <div id="seedFinder" class="tab-content active">
@@ -242,7 +273,7 @@
                 </ul>
 
                 <h2>Usage</h2>
-                <p>Enter your parameters in the text box and press Control+D to submit them to start the scan.</p>
+                <p>Set up your parameters in the text box then press scan to start scanning for seeds.</p>
 
                 <h2>Example Parameters</h2>
                 <h3>Example 1:</h3>
@@ -303,6 +334,124 @@ Min cluster size  = 2
 2. 185, 4 (min size: -1, max size: -1)</pre>
             </div>
         </div>
+
+        <div id="idReferences" class="tab-content">
+            <div class="reference-tables">
+                <h2>Structure ID Reference</h2>
+                <table class="reference-table">
+                    <tr><th>ID</th><th>Structure</th></tr>
+                    <tr><td>0</td><td>Feature</td></tr>
+                    <tr><td>1</td><td>Desert Pyramid</td></tr>
+                    <tr><td>2</td><td>Jungle Temple</td></tr>
+                    <tr><td>3</td><td>Swamp Hut</td></tr>
+                    <tr><td>4</td><td>Igloo</td></tr>
+                    <tr><td>5</td><td>Village</td></tr>
+                    <tr><td>6</td><td>Ocean Ruin</td></tr>
+                    <tr><td>7</td><td>Shipwreck</td></tr>
+                    <tr><td>8</td><td>Monument</td></tr>
+                    <tr><td>9</td><td>Mansion</td></tr>
+                    <tr><td>10</td><td>Outpost</td></tr>
+                    <tr><td>11</td><td>Ruined Portal</td></tr>
+                    <tr><td>12</td><td>Ruined Portal N</td></tr>
+                    <tr><td>13</td><td>Ancient City</td></tr>
+                    <tr><td>14</td><td>Treasure</td></tr>
+                    <tr><td>15</td><td>Mineshaft</td></tr>
+                    <tr><td>16</td><td>Desert Well</td></tr>
+                    <tr><td>17</td><td>Geode</td></tr>
+                    <tr><td>18</td><td>Trail Ruins</td></tr>
+                    <tr><td>19</td><td>Trial Chambers</td></tr>
+                </table>
+
+                <h2>Biome ID Reference</h2>
+                <table class="reference-table">
+                    <tr><th>ID</th><th>Biome</th></tr>
+                    <tr><td>0</td><td>Ocean</td></tr>
+                    <tr><td>1</td><td>Plains</td></tr>
+                    <tr><td>2</td><td>Desert</td></tr>
+                    <tr><td>3</td><td>Windswept Hills</td></tr>
+                    <tr><td>4</td><td>Forest</td></tr>
+                    <tr><td>5</td><td>Taiga</td></tr>
+                    <tr><td>6</td><td>Swamp</td></tr>
+                    <tr><td>7</td><td>River</td></tr>
+                    <tr><td>10</td><td>Frozen Ocean</td></tr>
+                    <tr><td>11</td><td>Frozen River</td></tr>
+                    <tr><td>12</td><td>Snowy Plains</td></tr>
+                    <tr><td>13</td><td>Snowy Mountains</td></tr>
+                    <tr><td>14</td><td>Mushroom Fields</td></tr>
+                    <tr><td>15</td><td>Mushroom Fields Shore</td></tr>
+                    <tr><td>16</td><td>Beach</td></tr>
+                    <tr><td>17</td><td>Desert Hills</td></tr>
+                    <tr><td>18</td><td>Windswept Forest</td></tr>
+                    <tr><td>19</td><td>Taiga Hills</td></tr>
+                    <tr><td>20</td><td>Mountain Edge</td></tr>
+                    <tr><td>21</td><td>Jungle</td></tr>
+                    <tr><td>22</td><td>Jungle Hills</td></tr>
+                    <tr><td>23</td><td>Sparse Jungle</td></tr>
+                    <tr><td>24</td><td>Deep Ocean</td></tr>
+                    <tr><td>25</td><td>Stony Shore</td></tr>
+                    <tr><td>26</td><td>Snowy Beach</td></tr>
+                    <tr><td>27</td><td>Birch Forest</td></tr>
+                    <tr><td>28</td><td>Birch Forest Hills</td></tr>
+                    <tr><td>29</td><td>Dark Forest</td></tr>
+                    <tr><td>30</td><td>Snowy Taiga</td></tr>
+                    <tr><td>31</td><td>Snowy Taiga Hills</td></tr>
+                    <tr><td>32</td><td>Old Growth Pine Taiga</td></tr>
+                    <tr><td>33</td><td>Giant Tree Taiga Hills</td></tr>
+                    <tr><td>34</td><td>Wooded Mountains</td></tr>
+                    <tr><td>35</td><td>Savanna</td></tr>
+                    <tr><td>36</td><td>Savanna Plateau</td></tr>
+                    <tr><td>37</td><td>Badlands</td></tr>
+                    <tr><td>38</td><td>Wooded Badlands</td></tr>
+                    <tr><td>39</td><td>Badlands Plateau</td></tr>
+                    <tr><td>44</td><td>Warm Ocean</td></tr>
+                    <tr><td>45</td><td>Lukewarm Ocean</td></tr>
+                    <tr><td>46</td><td>Cold Ocean</td></tr>
+                    <tr><td>47</td><td>Deep Warm Ocean</td></tr>
+                    <tr><td>48</td><td>Deep Lukewarm Ocean</td></tr>
+                    <tr><td>49</td><td>Deep Cold Ocean</td></tr>
+                    <tr><td>50</td><td>Deep Frozen Ocean</td></tr>
+                    <tr><td>129</td><td>Sunflower Plains</td></tr>
+                    <tr><td>130</td><td>Desert Lakes</td></tr>
+                    <tr><td>131</td><td>Windswept Gravelly Hills</td></tr>
+                    <tr><td>132</td><td>Flower Forest</td></tr>
+                    <tr><td>133</td><td>Taiga Mountains</td></tr>
+                    <tr><td>134</td><td>Swamp Hills</td></tr>
+                    <tr><td>140</td><td>Ice Spikes</td></tr>
+                    <tr><td>149</td><td>Modified Jungle</td></tr>
+                    <tr><td>151</td><td>Modified Jungle Edge</td></tr>
+                    <tr><td>155</td><td>Old Growth Birch Forest</td></tr>
+                    <tr><td>156</td><td>Tall Birch Hills</td></tr>
+                    <tr><td>157</td><td>Dark Forest Hills</td></tr>
+                    <tr><td>158</td><td>Snowy Taiga Mountains</td></tr>
+                    <tr><td>160</td><td>Old Growth Spruce Taiga</td></tr>
+                    <tr><td>161</td><td>Giant Spruce Taiga Hills</td></tr>
+                    <tr><td>162</td><td>Gravelly Mountains+</td></tr>
+                    <tr><td>163</td><td>Windswept Savanna</td></tr>
+                    <tr><td>164</td><td>Shattered Savanna Plateau</td></tr>
+                    <tr><td>165</td><td>Eroded Badlands</td></tr>
+                    <tr><td>166</td><td>Modified Wooded Badlands Plateau</td></tr>
+                    <tr><td>167</td><td>Modified Badlands Plateau</td></tr>
+                    <tr><td>168</td><td>Bamboo Jungle</td></tr>
+                    <tr><td>169</td><td>Bamboo Jungle Hills</td></tr>
+                    <tr><td>170</td><td>Underground</td></tr>
+                    <tr><td>171</td><td>Underground</td></tr>
+                    <tr><td>172</td><td>Underground</td></tr>
+                    <tr><td>174</td><td>Dripstone Caves</td></tr>
+                    <tr><td>175</td><td>Lush Caves</td></tr>
+                    <tr><td>177</td><td>Meadow</td></tr>
+                    <tr><td>178</td><td>Grove</td></tr>
+                    <tr><td>179</td><td>Snowy Slopes</td></tr>
+                    <tr><td>180</td><td>Frozen Peaks</td></tr>
+                    <tr><td>181</td><td>Jagged Peaks</td></tr>
+                    <tr><td>182</td><td>Stony Peaks</td></tr>
+                    <tr><td>183</td><td>Deep Dark</td></tr>
+                    <tr><td>184</td><td>Mangrove Swamp</td></tr>
+                    <tr><td>185</td><td>Cherry Grove</td></tr>
+                    <tr><td>186</td><td>Pale Garden</td></tr>
+                </table>
+            </div>
+        </div>
+
     </div>
 
     <script>
