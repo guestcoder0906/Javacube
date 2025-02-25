@@ -1123,31 +1123,22 @@ int scanSeed(uint64_t seed)
                             continue;
                         }
                         
-                        // Only log if structure matches required biome (when specified)
-                        if (req.requiredBiome == -1 || foundPositions[j].biome_id == req.requiredBiome) {
-                            // Print basic structure info
-                            printf("%s at (%d, %d) with height at %d", 
-                                getStructureName(req.structureType),
-                                foundPositions[j].x,
-                                foundPositions[j].z,
-                                foundPositions[j].y);
-                            
-                            // Print biome info if a specific biome was required
-                            if (req.requiredBiome != -1) {
-                                printf(" in %s Biome", getBiomeName(foundPositions[j].biome_id));
-                                if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
-                                    printf(" with size %d", foundPositions[j].biome_size);
-                                }
-                            }
-                            
-                            // Print proximity information if applicable
-                            if (foundPositions[j].proximity_distance > 0) {
-                                printf(", %d blocks from nearest %s biome",
-                                      foundPositions[j].proximity_distance,
-                                      getBiomeName(foundPositions[j].proximity_biome_id));
-                            }
-                            printf("\n");
+                        // Print the structure information
+                        printf("%s at (%d, %d) with height at %d in %s Biome with %d size",
+                            getStructureName(req.structureType), 
+                            foundPositions[j].x, 
+                            foundPositions[j].z,
+                            foundPositions[j].y, 
+                            getBiomeName(foundPositions[j].biome_id),
+                            foundPositions[j].biome_size);
+                        
+                        // Print proximity information if applicable
+                        if (foundPositions[j].proximity_distance > 0) {
+                            printf(", %d blocks from nearest %s biome", 
+                                  foundPositions[j].proximity_distance,
+                                  getBiomeName(foundPositions[j].proximity_biome_id));
                         }
+                        printf("\n");
                     }
                 }
             }
