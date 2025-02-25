@@ -215,8 +215,11 @@ def heartbeat():
     if not user_id:
         return jsonify({'status': 'expired'}), 401
 
-    session['last_active'] = datetime.now().timestamp()
+    session_activity[user_id] = datetime.now().timestamp()
     return jsonify({'status': 'active'})
+
+# Track session activity separately from Flask session
+session_activity = {}
 
 # Session cleanup thread
 def cleanup_inactive_sessions():
@@ -226,10 +229,11 @@ def cleanup_inactive_sessions():
             inactive_threshold = 30  # 30 seconds of inactivity
 
             for user_id in list(active_processes.keys()):
-                last_active = session.get('last_active', 0)
+                last_active = session_activity.get(user_id, 0)
                 if current_time - last_active > inactive_threshold:
                     logger.info(f"Cleaning up inactive session {user_id}")
                     cleanup_session(user_id)
+                    session_activity.pop(user_id, None)
 
             time.sleep(10)  # Check every 10 seconds
         except Exception as e:
