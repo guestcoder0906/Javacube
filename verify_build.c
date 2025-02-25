@@ -1077,6 +1077,7 @@ int scanSeed(uint64_t seed)
 
         // Organize and print the found structures
         if (allRequirementsMet) {
+            printf("=== Seed: %llu ===\n", (unsigned long long)seed);
             bool printedHeader = false;
             for (int i = 0; i < NUM_STRUCTURE_REQUIREMENTS; i++) {
                 StructureRequirement req = structureRequirements[i];
@@ -1123,8 +1124,8 @@ int scanSeed(uint64_t seed)
                             continue;
                         }
 
-                        // Only print if structure is in required biome or if no specific biome was required
-                        if (req.requiredBiome == -1 || foundPositions[j].biome_id == req.requiredBiome) {
+                        // Only print structures that match their required biome
+                        if (req.requiredBiome == -1 || (req.requiredBiome != -1 && foundPositions[j].biome_id == req.requiredBiome)) {
                             printf("%s at (%d, %d) with height at %d in %s Biome with %d size",
                                 getStructureName(req.structureType), 
                                 foundPositions[j].x, 
