@@ -138,6 +138,7 @@ const char* getBiomeName(int id)
         case 184: return "Mangrove Swamp";
         case 185: return "Cherry Grove";
         case 186: return "Pale Garden";
+        case 187: return "Island";
         default:  return "Unknown";
     }
 }
