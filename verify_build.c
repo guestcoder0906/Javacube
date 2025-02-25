@@ -957,7 +957,6 @@ bool scanSeed(uint64_t seed)
                         // If no block in the vicinity is from any of the required biomes, skip this candidate.
                         if (!nearRequiredBiome)
                             continue;
-
                         foundPositions[foundPosCount].nearestBiomeDist = nearestDist;
                         foundPositions[foundPosCount].nearestBiomeId = nearestBiome;
                     }
