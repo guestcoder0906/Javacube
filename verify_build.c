@@ -1078,53 +1078,64 @@ int scanSeed(uint64_t seed)
         // Organize and print the found structures
         if (allRequirementsMet) {
             bool printedHeader = false;
+            bool foundAnyValidStructure = false;
+            
+            // First pass to check if we have any valid structures
             for (int i = 0; i < NUM_STRUCTURE_REQUIREMENTS; i++) {
                 StructureRequirement req = structureRequirements[i];
-                bool hasProximityReq = (req.proximityBiomeCount > 0 && req.biomeProximity > 0);
-                bool foundValidStructure = false;
-
-                // Loop through all found positions first to check if we have any valid ones
                 for (int j = 0; j < foundPosCount; j++) {
-
-                    if (req.requiredBiome != -1 && foundPositions[j].biome_id != req.requiredBiome) {
-                        continue;
-                    }
-
-                    // For structures with proximity requirements, we only want to show these
-                    if (hasProximityReq) {
-                        if (foundPositions[j].proximity_distance > 0) {
-                            foundValidStructure = true;
+                    if (req.requiredBiome != -1) {
+                        if (foundPositions[j].biome_id == req.requiredBiome) {
+                            foundAnyValidStructure = true;
                             break;
                         }
-                        continue; // Skip if no valid proximity
-                    } else {
-                        foundValidStructure = true;
-                        break;
                     }
                 }
+                if (foundAnyValidStructure) break;
+            }
 
-                // Only print structures if we found valid ones
-                if (foundValidStructure) {
-                    if (!printedHeader) {
-                        //printf("Valid seed found: %llu\n", (unsigned long long)seed);
-                        printedHeader = true;
-                    }
-                    printf("Structures %s:\n", getStructureName(req.structureType));
+            // Only proceed if we found at least one valid structure
+            if (foundAnyValidStructure) {
+                printf("=== Seed: %llu ===\n", (unsigned long long)seed);
+                
+                for (int i = 0; i < NUM_STRUCTURE_REQUIREMENTS; i++) {
+                    StructureRequirement req = structureRequirements[i];
+                    bool hasProximityReq = (req.proximityBiomeCount > 0 && req.biomeProximity > 0);
+                    bool foundValidStructure = false;
 
-                    // Now print the actual structures
+                    // Loop through all found positions to check if any match our criteria
                     for (int j = 0; j < foundPosCount; j++) {
-
                         if (req.requiredBiome != -1 && foundPositions[j].biome_id != req.requiredBiome) {
                             continue;
                         }
 
-                        // Skip if has proximity requirements but no valid distance
-                        if (hasProximityReq && foundPositions[j].proximity_distance <= 0) {
-                            continue;
+                        if (hasProximityReq) {
+                            if (foundPositions[j].proximity_distance > 0) {
+                                foundValidStructure = true;
+                                break;
+                            }
+                        } else {
+                            foundValidStructure = true;
+                            break;
                         }
+                    }
 
-                        // Only print if structure is in required biome or if no specific biome was required
-                        if (req.requiredBiome == -1 || foundPositions[j].biome_id == req.requiredBiome) {
+                    // Only print structures if we found valid ones
+                    if (foundValidStructure) {
+                        printf("Structures %s:\n", getStructureName(req.structureType));
+
+                        // Now print the actual structures that match our criteria
+                        for (int j = 0; j < foundPosCount; j++) {
+                            // Skip if doesn't match required biome
+                            if (req.requiredBiome != -1 && foundPositions[j].biome_id != req.requiredBiome) {
+                                continue;
+                            }
+
+                            // Skip if has proximity requirements but no valid distance
+                            if (hasProximityReq && foundPositions[j].proximity_distance <= 0) {
+                                continue;
+                            }
+
                             printf("%s at (%d, %d) with height at %d in %s Biome with %d size",
                                 getStructureName(req.structureType), 
                                 foundPositions[j].x, 
