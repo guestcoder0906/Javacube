@@ -182,13 +182,16 @@ int getBiomePatchSize(Generator *g, int x, int z, int biome_id)
 // -----------------------------------------------------------------------------
 // Required structure conditions
 typedef struct {
-    int structureType;   // e.g. 5 -> Village, etc. (Cubiomes structure ID)
+    int structureType;   // e.g. 5 -> Village, etc. (Cubiomes structure ID), -1 for spawn
     int minCount;
     int minHeight;
     int maxHeight;
     int requiredBiome;   // -1 => skip biome check
     int minBiomeSize;    // -1 => no minimum
     int maxBiomeSize;    // -1 => no maximum
+    int *nextToBiomes;   // Array of biome IDs that structure should be next to
+    int nextToBiomesCount; // Number of biomes in nextToBiomes array
+    int biomeProximity;  // Max distance to check for nearby biomes, -1 to skip check
 } StructureRequirement;
 
 // Per-biome size config for required patches
@@ -646,8 +649,47 @@ bool scanSeed(uint64_t seed)
                         continue;
                     if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
                         continue;
-                    if (!isViableStructurePos(stype, curr_gen, pos.x, pos.z, 0))
+                    if (stype != -1 && !isViableStructurePos(stype, curr_gen, pos.x, pos.z, 0))
                         continue;
+                        
+                    // For spawn point, get coordinates directly
+                    if (stype == -1) {
+                        pos = getSpawn(curr_gen);
+                    }
+
+                    // Check biome proximity if required
+                    if (req.biomeProximity > 0 && req.nextToBiomes != NULL) {
+                        bool foundNearbyBiome = false;
+                        int closest_distance = INT_MAX;
+                        
+                        // Check surrounding area for required biomes
+                        int radius = req.biomeProximity;
+                        for (int bz = -radius; bz <= radius; bz++) {
+                            for (int bx = -radius; bx <= radius; bx++) {
+                                int checkX = pos.x + bx;
+                                int checkZ = pos.z + bz;
+                                int biome = getBiomeAt(curr_gen, 4, checkX >> 2, 0, checkZ >> 2);
+                                
+                                // Check if this biome is in our required list
+                                for (int b = 0; b < req.nextToBiomesCount; b++) {
+                                    if (biome == req.nextToBiomes[b]) {
+                                        int dist = (int)sqrt(bx*bx + bz*bz);
+                                        if (dist < closest_distance) {
+                                            closest_distance = dist;
+                                        }
+                                        foundNearbyBiome = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (!foundNearbyBiome) continue;
+                        
+                        printf("Found %s at (%d, %d) with closest required biome at distance: %d blocks\n",
+                               stype == -1 ? "spawn" : "structure", 
+                               pos.x, pos.z, closest_distance);
+                    }
 
                     // Save it
                     if (clusterCount == capacity) {
@@ -1034,28 +1076,94 @@ void parseParameterLine(char *line)
     }
     else if (strcmp(currentSection, "===== Required structures =====") == 0) 
     {
-        // Lines look like:
-        // 1. 5 (min amount: 1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
-        int idx, structureType, minCount, minH, maxH, biome, minSz, maxSz;
+        // Handle spawn point as special case
+        if (strncmp(line, "spawn", 5) == 0) {
+            char parenPart[256];
+            sscanf(line, "spawn %[^\n]", parenPart);
+            
+            structureRequirements = realloc(structureRequirements, 
+                                          (NUM_STRUCTURE_REQUIREMENTS + 1) * sizeof(StructureRequirement));
+            if (!structureRequirements) {
+                fprintf(stderr, "Failed to allocate memory for spawn requirement\n");
+                return;
+            }
+            
+            StructureRequirement *req = &structureRequirements[NUM_STRUCTURE_REQUIREMENTS];
+            req->structureType = -1; // Special marker for spawn
+            req->minCount = 1;
+            req->nextToBiomes = NULL;
+            req->nextToBiomesCount = 0;
+            req->biomeProximity = -1;
+            
+            // Parse other parameters as needed
+            sscanf(parenPart, "(next to biome: %d, biome proximity: %d)",
+                   &req->requiredBiome, &req->biomeProximity);
+            
+            NUM_STRUCTURE_REQUIREMENTS++;
+            return;
+        }
 
-        // Parse the line format: "1. 5 (min amount: ...)"
+        int structureType;
         char *openParen = strchr(line, '(');
         if (!openParen) return;
 
-        // Get the structure ID directly
-        sscanf(line, "%d. %d", &idx, &structureType);
+        // Get structure ID
+        sscanf(line, "%d", &structureType);
 
-        // Parse parameters inside parentheses
-        char parenPart[256];
+        // Parse parameters
+        char parenPart[512];
         strcpy(parenPart, openParen + 1);
         char *endParen = strrchr(parenPart, ')');
         if (endParen) *endParen = '\0';
 
-        if (sscanf(parenPart, "min amount: %d, min height: %d, max height: %d, biome: %d, min size: %d, max size: %d",
-                   &minCount, &minH, &maxH, &biome, &minSz, &maxSz) != 6) {
-            fprintf(stderr, "Warning: Failed to parse structure parameters correctly\n");
+        // Allocate new requirement
+        structureRequirements = realloc(structureRequirements, 
+                                      (NUM_STRUCTURE_REQUIREMENTS + 1) * sizeof(StructureRequirement));
+        if (!structureRequirements) {
+            fprintf(stderr, "Failed to allocate memory for structure requirement\n");
             return;
         }
+
+        StructureRequirement *req = &structureRequirements[NUM_STRUCTURE_REQUIREMENTS];
+        req->structureType = structureType;
+        req->nextToBiomes = NULL;
+        req->nextToBiomesCount = 0;
+        
+        // Parse next to biomes if present
+        char *nextToBiomeStr = strstr(parenPart, "next to biome:");
+        if (nextToBiomeStr) {
+            char biomeList[256];
+            sscanf(nextToBiomeStr, "next to biome: %[^,]", biomeList);
+            
+            // Count biomes (separated by "or")
+            char *token = strtok(biomeList, " or ");
+            int count = 0;
+            while (token) {
+                count++;
+                token = strtok(NULL, " or ");
+            }
+            
+            // Allocate and store biomes
+            req->nextToBiomes = malloc(count * sizeof(int));
+            req->nextToBiomesCount = 0;
+            
+            // Parse again to store values
+            strcpy(biomeList, nextToBiomeStr + 14); // Skip "next to biome: "
+            token = strtok(biomeList, " or ");
+            while (token) {
+                req->nextToBiomes[req->nextToBiomesCount++] = atoi(token);
+                token = strtok(NULL, " or ");
+            }
+        }
+
+        // Parse other parameters
+        sscanf(parenPart, "min amount: %d, next to biome: %*[^,], biome proximity: %d, "
+               "min height: %d, max height: %d, biome: %d, min size: %d, max size: %d",
+               &req->minCount, &req->biomeProximity, 
+               &req->minHeight, &req->maxHeight, &req->requiredBiome,
+               &req->minBiomeSize, &req->maxBiomeSize);
+
+        NUM_STRUCTURE_REQUIREMENTS++;
 
         // Special case for height handling for certain structure types
         int skipSurfaceHeight = (structureType == 19 || structureType == 17 || 
