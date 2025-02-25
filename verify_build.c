@@ -923,8 +923,11 @@ bool scanSeed(uint64_t seed)
                     // Check if the structure is within the required proximity of at least one of the specified biomes.
                     if (req.nextToBiomeCount > 0 && req.biomeProximity >= 0) {
                         bool nearRequiredBiome = false;
+                        int nearestDist = INT_MAX;
+                        int nearestBiomeId = -1;
+                        
                         // Look in a square centered at the structure position
-                        for (int dx = -req.biomeProximity; dx <= req.biomeProximity && !nearRequiredBiome; dx++) {
+                        for (int dx = -req.biomeProximity; dx <= req.biomeProximity; dx++) {
                             for (int dz = -req.biomeProximity; dz <= req.biomeProximity; dz++) {
                                 int checkBiome;
                                 // Use appropriate logic based on whether the structure is underground.
@@ -938,7 +941,12 @@ bool scanSeed(uint64_t seed)
                                 // Check if this biome is one of the required ones.
                                 for (int i = 0; i < req.nextToBiomeCount; i++) {
                                     if (checkBiome == req.nextToBiomes[i]) {
-                                        nearRequiredBiome = true;
+                                        int dist = (int)sqrt(dx*dx + dz*dz);
+                                        if (dist < nearestDist) {
+                                            nearestDist = dist;
+                                            nearestBiomeId = checkBiome;
+                                            nearRequiredBiome = true;
+                                        }
                                         break;
                                     }
                                 }
@@ -947,6 +955,9 @@ bool scanSeed(uint64_t seed)
                         // If no block in the vicinity is from any of the required biomes, skip this candidate.
                         if (!nearRequiredBiome)
                             continue;
+                            
+                        foundPositions[foundPosCount].nearestBiomeDist = nearestDist;
+                        foundPositions[foundPosCount].nearestBiomeId = nearestBiomeId;
                     }
 
                     // Store the found position with all relevant info
