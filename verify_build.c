@@ -921,50 +921,60 @@ bool scanSeed(uint64_t seed)
                     }
 
                     // Check if the structure is within the required proximity of at least one of the specified biomes.
-                    if (req.nextToBiomeCount > 0 && req.biomeProximity >= 0) {
-                        bool nearRequiredBiome = false;
-                        int nearestDist = INT_MAX;
-                        int nearestBiomeId = -1;
+                    bool requiresProximity = req.nextToBiomeCount > 0 && req.biomeProximity >= 0;
+                    bool proximityValid = !requiresProximity; // true if no proximity requirements
+                    int nearestDist = INT_MAX;
+                    int nearestBiomeId = -1;
 
-                        // Search in expanding squares for efficiency
-                        for (int dist = 0; dist <= req.biomeProximity && !nearRequiredBiome; dist++) {
-                            for (int dx = -dist; dx <= dist; dx++) {
-                                for (int dz = -dist; dz <= dist; dz++) {
-                                    // Only check the edge of the square
-                                    if (abs(dx) != dist && abs(dz) != dist) continue;
+                    if (requiresProximity) {
+                        // Search in expanding squares until max proximity
+                        for (int dx = -req.biomeProximity; dx <= req.biomeProximity && !proximityValid; dx++) {
+                            for (int dz = -req.biomeProximity; dz <= req.biomeProximity; dz++) {
+                                int euclidDist = (int)sqrt(dx*dx + dz*dz);
+                                if (euclidDist > req.biomeProximity) continue;
 
-                                    int checkX = pos.x + dx;
-                                    int checkZ = pos.z + dz;
-                                    int checkBiome = getBiomeAt(curr_gen, 4, checkX >> 2, 0, checkZ >> 2);
+                                int checkX = pos.x + dx;
+                                int checkZ = pos.z + dz;
+                                int checkBiome = getBiomeAt(curr_gen, 4, checkX >> 2, 0, checkZ >> 2);
 
-                                    // Check if this biome is one of the required ones
-                                    for (int i = 0; i < req.nextToBiomeCount; i++) {
-                                        if (checkBiome == req.nextToBiomes[i]) {
-                                            int euclidDist = (int)sqrt(dx*dx + dz*dz);
-                                            if (euclidDist <= req.biomeProximity && euclidDist < nearestDist) {
-                                                nearestDist = euclidDist;
-                                                nearestBiomeId = checkBiome;
-                                                nearRequiredBiome = true;
-                                                break;
-                                            }
+                                // Check against each required biome
+                                for (int i = 0; i < req.nextToBiomeCount; i++) {
+                                    if (checkBiome == req.nextToBiomes[i]) {
+                                        if (euclidDist < nearestDist) {
+                                            nearestDist = euclidDist;
+                                            nearestBiomeId = checkBiome;
+                                            proximityValid = true;
                                         }
                                     }
                                 }
                             }
                         }
-
-                        // If no required biome found within proximity, skip this candidate
-                        if (!nearRequiredBiome)
+                        
+                        // If proximity check failed, skip this candidate
+                        if (!proximityValid) {
                             continue;
+                        }
 
-                        // Store the proximity information
+                        // Store proximity information
                         foundPositions[foundPosCount].nearestBiomeDist = nearestDist;
                         foundPositions[foundPosCount].nearestBiomeId = nearestBiomeId;
 
-                        // Log the biome proximity information
-                        printf("Found %s at (%d, %d) next to %s (distance: %d blocks)\n",
-                               getBiomeName(nearestBiomeId), pos.x, pos.z,
-                               getBiomeName(nearestBiomeId), nearestDist);
+                        // Generate the "next to biomes" string for logging
+                        char nextToBiomesStr[256] = "";
+                        for (int i = 0; i < req.nextToBiomeCount; i++) {
+                            char temp[64];
+                            snprintf(temp, sizeof(temp), "%s%s", 
+                                   i > 0 ? " or " : "",
+                                   getBiomeName(req.nextToBiomes[i]));
+                            strcat(nextToBiomesStr, temp);
+                        }
+
+                        // Log the structure and its proximity to required biomes
+                        printf("Structure %d at (%d, %d) - Required to be next to: %s, Found: %s at distance: %d blocks\n",
+                               req.structureType, pos.x, pos.z,
+                               nextToBiomesStr,
+                               getBiomeName(nearestBiomeId),
+                               nearestDist);
                     }
 
                     // Store the found position with all relevant info
