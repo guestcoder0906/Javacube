@@ -962,6 +962,7 @@ bool scanSeed(uint64_t seed)
                     }
 
                     // Store the found position with all relevant info
+                    int nearestDist = INT_MAX;  // Initialize at the top of the block
                     foundPositions[foundPosCount].x = pos.x;
                     foundPositions[foundPosCount].z = pos.z;
                     foundPositions[foundPosCount].y = height;
