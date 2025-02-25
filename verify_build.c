@@ -867,23 +867,23 @@ bool scanSeed(uint64_t seed)
                     }
 
                     // Check if the structure is within the required proximity of at least one of the specified biomes.
-                    if (req->nextToBiomeCount > 0 && req->biomeProximity >= 0) {
+                    if (req.nextToBiomeCount > 0 && req.biomeProximity >= 0) {
                         bool nearRequiredBiome = false;
                         // Look in a square centered at the structure position
-                        for (int dx = -req->biomeProximity; dx <= req->biomeProximity && !nearRequiredBiome; dx++) {
-                            for (int dz = -req->biomeProximity; dz <= req->biomeProximity; dz++) {
+                        for (int dx = -req.biomeProximity; dx <= req.biomeProximity && !nearRequiredBiome; dx++) {
+                            for (int dz = -req.biomeProximity; dz <= req.biomeProximity; dz++) {
                                 int checkBiome;
                                 // Use appropriate logic based on whether the structure is underground.
-                                if (req->structureType == 19 || req->structureType == 17 ||
-                                    req->structureType == 15 || req->structureType == 14 ||
-                                    req->structureType == 11) {
+                                if (req.structureType == 19 || req.structureType == 17 ||
+                                    req.structureType == 15 || req.structureType == 14 ||
+                                    req.structureType == 11) {
                                     checkBiome = getBiomeAt(curr_gen, 4, (pos.x + dx) >> 2, 0, (pos.z + dz) >> 2);
                                 } else {
                                     checkBiome = getBiomeAt(curr_gen, 4, (pos.x + dx) >> 2, (height) >> 2, (pos.z + dz) >> 2);
                                 }
                                 // Check if this biome is one of the required ones.
-                                for (int i = 0; i < req->nextToBiomeCount; i++) {
-                                    if (checkBiome == req->nextToBiomes[i]) {
+                                for (int i = 0; i < req.nextToBiomeCount; i++) {
+                                    if (checkBiome == req.nextToBiomes[i]) {
                                         nearRequiredBiome = true;
                                         break;
                                     }
