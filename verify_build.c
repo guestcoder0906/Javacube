@@ -182,14 +182,26 @@ int getBiomePatchSize(Generator *g, int x, int z, int biome_id)
 // -----------------------------------------------------------------------------
 // Required structure conditions
 typedef struct {
-    int structureType;   // e.g. 5 -> Village, etc. (Cubiomes structure ID)
+    int structureType;    // e.g. 8 -> the structure ID (for example)
     int minCount;
     int minHeight;
     int maxHeight;
-    int requiredBiome;   // -1 => skip biome check
-    int minBiomeSize;    // -1 => no minimum
-    int maxBiomeSize;    // -1 => no maximum
+    int requiredBiome;    // -1 => skip direct biome check
+    int minBiomeSize;     // -1 => no minimum
+    int maxBiomeSize;     // -1 => no maximum
+    int biomeProximity;   // e.g. 8 means the structure must be within 8 blocks of one of the listed biomes
+    int *nextToBiomes;    // dynamically allocated array of biome IDs
+    int nextToBiomeCount; // how many biome IDs are listed
 } StructureRequirement;
+
+// Structure cluster configuration
+typedef struct {
+    bool enabled;
+    int clusterDistance;
+    int *structureTypes;
+    int count;
+    int minClusterSize;
+} ClusterRequirement;
 
 // Per-biome size config for required patches
 typedef struct {
@@ -237,23 +249,6 @@ BiomeSearch biomeSearch = {
     .clusters      = NULL,
     .clusterCount  = 0
 };
-
-// -----------------------------------------------------------------------------
-// Structure cluster requirement
-typedef struct {
-    int structureType;    // e.g. 8 -> the structure ID (for example)
-    int minCount;
-    int minHeight;
-    int maxHeight;
-    int requiredBiome;    // -1 => skip direct biome check
-    int minBiomeSize;     // -1 => no minimum
-    int maxBiomeSize;     // -1 => no maximum
-
-    // New fields for "next to" biome detection:
-    int biomeProximity;   // e.g. 8 means the structure must be within 8 blocks of one of the listed biomes
-    int *nextToBiomes;    // dynamically allocated array of biome IDs
-    int nextToBiomeCount; // how many biome IDs are listed
-} StructureRequirement;
 
 // We will fill this from the parameter file
 ClusterRequirement clusterReq = {
@@ -683,7 +678,7 @@ bool scanSeed(uint64_t seed)
                     int dx = clusterPositions[i].x - clusterPositions[j].x;
                     int dz = clusterPositions[i].z - clusterPositions[j].z;
                     // use squared distance compare
-                    if (dx*dx + dz*dz <= clusterReq.clusterDistance * clusterReq.clusterDistance) {
+                    if (dx*dx + dz*dz <= (int64_t)clusterReq.clusterDistance * clusterReq.clusterDistance) {
                         unionSets(parent, i, j);
                     }
                 }
