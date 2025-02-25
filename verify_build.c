@@ -824,7 +824,7 @@ bool scanSeed(uint64_t seed)
                             Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 1, 1};
                             mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
                             int lx = pos.x & 15;
-                            int lz = pos.z & 15;
+                            intlz = pos.z & 15;
                             int surface_y = (int)heightArr[lz*w + lx];
                             biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
                         }
@@ -912,7 +912,7 @@ bool scanSeed(uint64_t seed)
     }
 
     if (allRequirementsMet) {
-        printf("Valid seed found: %llu\n", (unsigned long long) seed);
+        printf("Valid seed found: %llu\n", (unsigned long long)seed);
         return true;
     }
     return false;
@@ -1038,7 +1038,7 @@ void parseParameterLine(char *line)
     else if (strcmp(currentSection, "===== Required structures =====") == 0) 
     {
         // Lines look like:
-        // 1. 5 (min amount: 1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
+        // 1. 5 (min amount: 1, next to biome: -1, biome proximity: -1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
         int idx, structureType, minCount, minH, maxH, biome, minSz, maxSz, proximity;
         int numNearby, nearbyBiomes[10]; // Added to handle nearby biomes
 
