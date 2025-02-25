@@ -656,7 +656,7 @@ bool scanSeed(uint64_t seed)
                     if (clusterCount == capacity) {
                         capacity *= 2;
                         clusterPositions = realloc(clusterPositions, capacity*sizeof(StructurePos));
-                        if (!clusterPositions) { perror("realloc"); exit(1); }
+                        if (!clusterPositions) { perror("malloc"); exit(1); }
                     }
                     clusterPositions[clusterCount].structureType = stype;
                     clusterPositions[clusterCount].x = pos.x;
@@ -895,14 +895,14 @@ bool scanSeed(uint64_t seed)
                     int foundNearbyBiome = 0;
                     int closestDist = INT_MAX;
                     int matchedBiome = -1;
-                    
+
                     // Check in a square around the structure
                     for (int dx = -req.biomeProximity; dx <= req.biomeProximity; dx++) {
                         for (int dz = -req.biomeProximity; dz <= req.biomeProximity; dz++) {
                             int checkX = foundPositions[j].x + dx;
                             int checkZ = foundPositions[j].z + dz;
                             int biomeId = getBiomeAt(g, 4, checkX >> 2, 0, checkZ >> 2);
-                            
+
                             // Check if this biome is in our required list
                             for (int b = 0; b < req.nextToBiomesCount; b++) {
                                 if (biomeId == req.nextToBiomes[b]) {
@@ -916,7 +916,7 @@ bool scanSeed(uint64_t seed)
                             }
                         }
                     }
-                    
+
                     if (foundNearbyBiome) {
                         validProximityCount++;
                         printf("Structure %d at (%d, %d) is %d blocks from %s biome\n",
@@ -926,7 +926,7 @@ bool scanSeed(uint64_t seed)
                                getBiomeName(matchedBiome));
                     }
                 }
-                
+
                 // Update foundCount to only count structures with valid proximity
                 foundCount = validProximityCount;
             }
@@ -964,7 +964,7 @@ bool scanSeed(uint64_t seed)
     }
 
     if (allRequirementsMet) {
-        printf("Valid seed found: %llu\n", (unsigned long long) seed);
+        printf("Valid seed found: %llu\n", (unsigned long long)seed);
         return true;
     }
     return false;
@@ -1110,7 +1110,7 @@ void parseParameterLine(char *line)
         int nextToBiomes[64];  // Support up to 64 biomes
         int nextToBiomesCount = 0;
         int biomeProximity = -1;
-        
+
         nextToBiomesCount = 0;
         biomeProximity = -1;
 
@@ -1119,12 +1119,12 @@ void parseParameterLine(char *line)
         if (nextToBiomePart) {
             char *biomeStart = nextToBiomePart + 14; // Skip "next to biome: "
             char *nextComma = strchr(biomeStart, ',');
-            
+
             if (nextComma) {
                 // Temporarily null-terminate to parse biomes
                 char savedChar = *nextComma;
                 *nextComma = '\0';
-                
+
                 // Parse biome IDs separated by "or"
                 char *token = strtok(biomeStart, " or");
                 while (token) {
@@ -1134,10 +1134,10 @@ void parseParameterLine(char *line)
                     }
                     token = strtok(NULL, " or");
                 }
-                
+
                 // Restore comma
                 *nextComma = savedChar;
-                
+
                 // Look for biome proximity after the comma
                 char *proxPart = strstr(nextComma, "biome proximity:");
                 if (proxPart) {
@@ -1148,13 +1148,7 @@ void parseParameterLine(char *line)
             }
         }
 
-        // Parse the remaining parameters
-        minCount = 0;
-        minH = -9999;
-        maxH = 9999;
-        biome = -1;
-        minSz = -1;
-        maxSz = -1;
+        // Parse each parameter in the new order
 
         // Parse min amount
         char *minAmountPart = strstr(parenPart, "min amount:");
@@ -1163,30 +1157,8 @@ void parseParameterLine(char *line)
             return;
         }
 
-        // Parse next to biome and biome proximity
-        char *nextToBiomePart = strstr(parenPart, "next to biome:");
-        if (nextToBiomePart) {
-            char *nextToBiomeEnd = strstr(nextToBiomePart, ",");
-            if (nextToBiomeEnd) {
-                char temp[256];
-                int len = nextToBiomeEnd - (nextToBiomePart + 14);
-                strncpy(temp, nextToBiomePart + 14, len);
-                temp[len] = '\0';
-                
-                char *token = strtok(temp, " or");
-                while (token) {
-                    trim(token);
-                    nextToBiomes[nextToBiomesCount++] = atoi(token);
-                    token = strtok(NULL, " or");
-                }
-
-                // Look for biome proximity after the comma
-                char *proxPart = strstr(nextToBiomeEnd, "biome proximity:");
-                if (proxPart && sscanf(proxPart, "biome proximity: %d", &biomeProximity) != 1) {
-                    biomeProximity = -1;
-                }
-            }
-        }
+        // Parse next to biome (already handled above in nextToBiomePart)
+        // Parse biome proximity (already handled above in biomeProximity)
 
         // Parse height ranges
         char *heightPart = strstr(parenPart, "min height:");
@@ -1229,7 +1201,7 @@ void parseParameterLine(char *line)
         req->requiredBiome = biome;
         req->minBiomeSize = minSz;
         req->maxBiomeSize = maxSz;
-        
+
         // Allocate and copy nextToBiomes array
         req->nextToBiomesCount = nextToBiomesCount;
         if (nextToBiomesCount > 0) {
