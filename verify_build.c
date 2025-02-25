@@ -1147,6 +1147,33 @@ void parseParameterLine(char *line)
             return;
         }
 
+        // Parse next to biome and biome proximity
+        int nextToBiomes[64];  // Support up to 64 biomes
+        int nextToBiomesCount = 0;
+        int biomeProximity = -1;
+        char *nextToBiomePart = strstr(parenPart, "next to biome:");
+        if (nextToBiomePart) {
+            char *nextToBiomeEnd = strstr(nextToBiomePart, ",");
+            if (nextToBiomeEnd) {
+                char temp[256];
+                int len = nextToBiomeEnd - (nextToBiomePart + 14);
+                strncpy(temp, nextToBiomePart + 14, len);
+                temp[len] = '\0';
+                
+                char *token = strtok(temp, " or");
+                while (token) {
+                    nextToBiomes[nextToBiomesCount++] = atoi(token);
+                    token = strtok(NULL, " or");
+                }
+            }
+            
+            // Parse biome proximity
+            char *proxPart = strstr(parenPart, "biome proximity:");
+            if (proxPart && sscanf(proxPart, "biome proximity: %d", &biomeProximity) != 1) {
+                biomeProximity = -1;
+            }
+        }
+
         // Parse height ranges
         char *heightPart = strstr(parenPart, "min height:");
         if (!heightPart || sscanf(heightPart, "min height: %d, max height: %d", &minH, &maxH) != 2) {
