@@ -189,9 +189,6 @@ typedef struct {
     int requiredBiome;   // -1 => skip biome check
     int minBiomeSize;    // -1 => no minimum
     int maxBiomeSize;    // -1 => no maximum
-    int *nearbyBiomes; // Array of biome IDs the structure must be near
-    int numNearbyBiomes; // Number of biomes in nearbyBiomes array
-    int biomeProximity; // Maximum distance to nearby biome
 } StructureRequirement;
 
 // Per-biome size config for required patches
@@ -244,12 +241,19 @@ BiomeSearch biomeSearch = {
 // -----------------------------------------------------------------------------
 // Structure cluster requirement
 typedef struct {
-    bool enabled;
-    int clusterDistance;
-    int *structureTypes;
-    int count;
-    int minClusterSize;  
-} ClusterRequirement;
+    int structureType;    // e.g. 8 -> the structure ID (for example)
+    int minCount;
+    int minHeight;
+    int maxHeight;
+    int requiredBiome;    // -1 => skip direct biome check
+    int minBiomeSize;     // -1 => no minimum
+    int maxBiomeSize;     // -1 => no maximum
+
+    // New fields for "next to" biome detection:
+    int biomeProximity;   // e.g. 8 means the structure must be within 8 blocks of one of the listed biomes
+    int *nextToBiomes;    // dynamically allocated array of biome IDs
+    int nextToBiomeCount; // how many biome IDs are listed
+} StructureRequirement;
 
 // We will fill this from the parameter file
 ClusterRequirement clusterReq = {
@@ -824,7 +828,7 @@ bool scanSeed(uint64_t seed)
                             Range r_range = {4, pos.x >> 2, pos.z >> 2, w, h, 1, 1};
                             mapApproxHeight(heightArr, NULL, curr_gen, curr_sn, r_range.x, r_range.z, w, h);
                             int lx = pos.x & 15;
-                            intlz = pos.z & 15;
+                            int lz = pos.z & 15;
                             int surface_y = (int)heightArr[lz*w + lx];
                             biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
                         }
@@ -865,6 +869,35 @@ bool scanSeed(uint64_t seed)
                     if ((req.minHeight != -9999 && height < req.minHeight) ||
                         (req.maxHeight != 9999 && height > req.maxHeight)) {
                         continue;
+                    }
+
+                    // Check if the structure is within the required proximity of at least one of the specified biomes.
+                    if (req->nextToBiomeCount > 0 && req->biomeProximity >= 0) {
+                        bool nearRequiredBiome = false;
+                        // Look in a square centered at the structure position
+                        for (int dx = -req->biomeProximity; dx <= req->biomeProximity && !nearRequiredBiome; dx++) {
+                            for (int dz = -req->biomeProximity; dz <= req->biomeProximity; dz++) {
+                                int checkBiome;
+                                // Use appropriate logic based on whether the structure is underground.
+                                if (req->structureType == 19 || req->structureType == 17 ||
+                                    req->structureType == 15 || req->structureType == 14 ||
+                                    req->structureType == 11) {
+                                    checkBiome = getBiomeAt(curr_gen, 4, (pos.x + dx) >> 2, 0, (pos.z + dz) >> 2);
+                                } else {
+                                    checkBiome = getBiomeAt(curr_gen, 4, (pos.x + dx) >> 2, (height) >> 2, (pos.z + dz) >> 2);
+                                }
+                                // Check if this biome is one of the required ones.
+                                for (int i = 0; i < req->nextToBiomeCount; i++) {
+                                    if (checkBiome == req->nextToBiomes[i]) {
+                                        nearRequiredBiome = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        // If no block in the vicinity is from any of the required biomes, skip this candidate.
+                        if (!nearRequiredBiome)
+                            continue;
                     }
 
                     // Store the found position with height
@@ -912,7 +945,7 @@ bool scanSeed(uint64_t seed)
     }
 
     if (allRequirementsMet) {
-        printf("Valid seed found: %llu\n", (unsigned long long)seed);
+        printf("Valid seed found: %llu\n", (unsigned long long) seed);
         return true;
     }
     return false;
@@ -1037,84 +1070,56 @@ void parseParameterLine(char *line)
     }
     else if (strcmp(currentSection, "===== Required structures =====") == 0) 
     {
-        // Lines look like:
-        // 1. 5 (min amount: 1, next to biome: -1, biome proximity: -1, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
-        int idx, structureType, minCount, minH, maxH, biome, minSz, maxSz, proximity;
-        int numNearby, nearbyBiomes[10]; // Added to handle nearby biomes
-
-        // Parse the line format: "1. 5 (min amount: ...)"
+        // Expected format:
+        // 1. 8 (min amount: 1, next to biome: 1 or 4 or 185, biome proximity: 8, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
+        int idx, structureType;
         char *openParen = strchr(line, '(');
         if (!openParen) return;
 
-        // Get the structure ID directly
         sscanf(line, "%d. %d", &idx, &structureType);
 
-        // Parse parameters inside parentheses
         char parenPart[256];
         strcpy(parenPart, openParen + 1);
         char *endParen = strrchr(parenPart, ')');
         if (endParen) *endParen = '\0';
 
-        // Modified sscanf to include nearby biomes and proximity
-        if (sscanf(parenPart, "min amount: %d, min height: %d, max height: %d, biome: %d, min size: %d, max size: %d, next to biome: %d, biome proximity: %d",
-                   &minCount, &minH, &maxH, &biome, &minSz, &maxSz, &numNearby, &proximity) != 8) {
-            fprintf(stderr, "Warning: Failed to parse structure parameters correctly\n");
+        int minCount, biomeProximity, minH, maxH, biome, minSz, maxSz;
+        char nextToBiomeStr[128] = "";
+        int scanned = sscanf(parenPart, "min amount: %d, next to biome: %127[^,], biome proximity: %d, min height: %d, max height: %d, biome: %d, min size: %d, max size: %d",
+                             &minCount, nextToBiomeStr, &biomeProximity, &minH, &maxH, &biome, &minSz, &maxSz);
+        if (scanned != 8) {
+            fprintf(stderr, "Warning: Failed to parse structure parameters correctly (scanned %d)\n", scanned);
             return;
         }
 
-        // Parse nearbyBiomes array
-        char *nearbyBiomesStr = strstr(parenPart, "next to biome:");
-        if (nearbyBiomesStr) {
-            nearbyBiomesStr += strlen("next to biome:");
-            char *biomeTok = strtok(nearbyBiomesStr, ",");
-            int i = 0;
-            while (biomeTok && i < 10) { // Limit to 10 biomes for safety
-                char *orTok = strstr(biomeTok, "or");
-                if (orTok) {
-                    *orTok = '\0'; //remove "or"
-                }
-                nearbyBiomes[i++] = atoi(biomeTok);
-                biomeTok = strtok(NULL, ",");
-            }
-            numNearby = i;
-        } else {
-            numNearby = 0; // No nearby biomes specified
+        // Parse the next-to-biome field, which may contain several IDs separated by "or"
+        int *nextToBiomes = NULL;
+        int nextToBiomeCount = 0;
+        char *token = strtok(nextToBiomeStr, "or");
+        while (token != NULL) {
+            // Trim leading spaces
+            while (*token == ' ') token++;
+            int b = atoi(token);
+            nextToBiomes = realloc(nextToBiomes, (nextToBiomeCount + 1) * sizeof(int));
+            nextToBiomes[nextToBiomeCount] = b;
+            nextToBiomeCount++;
+            token = strtok(NULL, "or");
         }
 
-        // Special case for height handling for certain structure types
-        int skipSurfaceHeight = (structureType == 19 || structureType == 17 || 
-                                structureType == 15 || structureType == 14 || 
-                                structureType == 11);
-
-        // Validate structure type
-        if (structureType < 0) {
-            fprintf(stderr, "Warning: Invalid structure type %d\n", structureType);
-            return;
-        }
-
-        // Add to requirements array
+        // Store the new requirement
         structureRequirements = realloc(structureRequirements, 
-                                      (NUM_STRUCTURE_REQUIREMENTS + 1) * sizeof(StructureRequirement));
-        if (!structureRequirements) {
-            fprintf(stderr, "Failed to allocate memory for structure requirement\n");
-            return;
-        }
-
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].structureType = structureType;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].minCount = minCount;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].minHeight = minH;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].maxHeight = maxH;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].requiredBiome = biome;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].minBiomeSize = minSz;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].maxBiomeSize = maxSz;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].nearbyBiomes = malloc(numNearby * sizeof(int));
-        if (structureRequirements[NUM_STRUCTURE_REQUIREMENTS].nearbyBiomes == NULL) {
-            fprintf(stderr, "Failed to allocate memory for nearbyBiomes\n");
-            return;
-        }
-        memcpy(structureRequirements[NUM_STRUCTURE_REQUIREMENTS].nearbyBiomes, nearbyBiomes, numNearby * sizeof(int));
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].numNearbyBiomes = numNearby;
-        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].biomeProximity = proximity;
+                                          (NUM_STRUCTURE_REQUIREMENTS + 1) * sizeof(StructureRequirement));
+        StructureRequirement *req = &structureRequirements[NUM_STRUCTURE_REQUIREMENTS];
+        req->structureType    = structureType;
+        req->minCount         = minCount;
+        req->minHeight        = minH;
+        req->maxHeight        = maxH;
+        req->requiredBiome    = biome;
+        req->minBiomeSize     = minSz;
+        req->maxBiomeSize     = maxSz;
+        req->biomeProximity   = biomeProximity;
+        req->nextToBiomes     = nextToBiomes;
+        req->nextToBiomeCount = nextToBiomeCount;
         NUM_STRUCTURE_REQUIREMENTS++;
     }
     else if (strcmp(currentSection, "===== Structure Clusters =====") == 0) 
@@ -1385,30 +1390,8 @@ int main(int argc, char *argv[])
                (unsigned long long)starting_seed, (unsigned long long)end_seed);
     }
 
-    // Clean up memory
-    if (g_requiredBiomes) {
-        free(g_requiredBiomes->biomeIds);
-        free(g_requiredBiomes->sizeConfigs);
-        free(g_requiredBiomes);
-    }
-    if (g_biomeClusters) {
-        for (int i = 0; i < g_biomeClustersCount; i++) {
-            free(g_biomeClusters[i].biomeIds);
-        }
-        free(g_biomeClusters);
-    }
-    if (clusterReq.structureTypes) free(clusterReq.structureTypes);
-    if (invalidCombinations) {
-        for (int i = 0; i < numInvalidCombinations; i++) {
-            free(invalidCombinations[i].types);
-        }
-        free(invalidCombinations);
-    }
-    // Clean up structure requirements
-    for (int i = 0; i < NUM_STRUCTURE_REQUIREMENTS; i++) {
-        free(structureRequirements[i].nearbyBiomes);
-    }
-    free(structureRequirements);
+    // Clean up your dynamic allocations if you like
+    // e.g. free(g_requiredBiomes), free(invalidCombinations[x].types), etc.
 
     return 0;
 }

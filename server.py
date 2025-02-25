@@ -215,8 +215,7 @@ def heartbeat():
     if not user_id:
         return jsonify({'status': 'expired'}), 401
 
-    if user_id in scan_stats:
-        scan_stats[user_id]['last_active'] = datetime.now().timestamp()
+    session['last_active'] = datetime.now().timestamp()
     return jsonify({'status': 'active'})
 
 # Session cleanup thread
@@ -226,12 +225,11 @@ def cleanup_inactive_sessions():
             current_time = datetime.now().timestamp()
             inactive_threshold = 30  # 30 seconds of inactivity
 
-            with app.app_context():
-                for user_id in list(active_processes.keys()):
-                    # Store last active times in a dict instead of session
-                    if current_time - scan_stats.get(user_id, {}).get('last_active', 0) > inactive_threshold:
-                        logger.info(f"Cleaning up inactive session {user_id}")
-                        cleanup_session(user_id)
+            for user_id in list(active_processes.keys()):
+                last_active = session.get('last_active', 0)
+                if current_time - last_active > inactive_threshold:
+                    logger.info(f"Cleaning up inactive session {user_id}")
+                    cleanup_session(user_id)
 
             time.sleep(10)  # Check every 10 seconds
         except Exception as e:
