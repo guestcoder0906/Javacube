@@ -16,13 +16,39 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, static_url_path='')
 app.secret_key = os.urandom(24)  # For session handling
 
-# Dictionary to store scan statistics per session
+# Dictionary to store scan statistics and processes per session
 scan_stats = {}
+active_processes = {}
+
+def cleanup_session(user_id):
+    """Clean up resources for a session"""
+    if user_id in active_processes:
+        try:
+            process = active_processes[user_id]
+            if process and process.poll() is None:
+                process.terminate()
+                process.wait(timeout=5)  # Wait up to 5 seconds
+                if process.poll() is None:
+                    process.kill()  # Force kill if still running
+            logger.info(f"Cleaned up process for session {user_id}")
+        except Exception as e:
+            logger.error(f"Error cleaning up process for session {user_id}: {str(e)}")
+        finally:
+            del active_processes[user_id]
+
+    if user_id in scan_stats:
+        del scan_stats[user_id]
 
 @app.route('/')
 def home():
-    if 'user_id' not in session:
-        session['user_id'] = os.urandom(16).hex()
+    # Clean up old session if it exists
+    old_user_id = session.get('user_id')
+    if old_user_id:
+        cleanup_session(old_user_id)
+
+    # Create new session
+    session['user_id'] = os.urandom(16).hex()
+    session['last_active'] = datetime.now().timestamp()
     return send_from_directory('.', 'index.html')
 
 @app.route('/CubioSeedFinderIcon.png')
@@ -41,6 +67,9 @@ def scan():
     user_id = session.get('user_id')
     if not user_id:
         return "Session expired", 401
+
+    # Clean up any existing scan for this session
+    cleanup_session(user_id)
 
     data = request.get_json()
     params = data.get('params', '')
@@ -66,6 +95,9 @@ def scan():
             universal_newlines=True
         )
 
+        # Store process for cleanup
+        active_processes[user_id] = process
+
         # Send parameters to stdin
         process.stdin.write(params)
         process.stdin.close()
@@ -90,6 +122,9 @@ def scan():
         if 'start_time' in stats:
             del stats['start_time']
 
+        # Clean up process
+        del active_processes[user_id]
+
         if process.returncode != 0:
             logger.error(f"verify_build failed with return code {process.returncode}")
             return jsonify({
@@ -105,9 +140,8 @@ def scan():
 
     except Exception as e:
         logger.error(f"Error during scan: {str(e)}")
-        # Clean up scan stats on error
-        if user_id in scan_stats:
-            del scan_stats[user_id]
+        # Clean up scan stats and process on error
+        cleanup_session(user_id)
         return jsonify({
             'error': str(e),
             'stats': {
@@ -125,12 +159,46 @@ def get_scan_stats():
             'elapsed_time': 0
         })
 
+    # Update last active timestamp
+    session['last_active'] = datetime.now().timestamp()
+
     stats = scan_stats[user_id]
     elapsed_time = datetime.now().timestamp() - stats['start_time']
     return jsonify({
         'seeds_scanned': stats['seeds_scanned'],
         'elapsed_time': elapsed_time
     })
+
+@app.route('/heartbeat')
+def heartbeat():
+    """Endpoint to keep session alive and check if scan should continue"""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'status': 'expired'}), 401
+
+    session['last_active'] = datetime.now().timestamp()
+    return jsonify({'status': 'active'})
+
+# Session cleanup thread
+def cleanup_inactive_sessions():
+    while True:
+        try:
+            current_time = datetime.now().timestamp()
+            inactive_threshold = 30  # 30 seconds of inactivity
+
+            for user_id in list(active_processes.keys()):
+                last_active = session.get('last_active', 0)
+                if current_time - last_active > inactive_threshold:
+                    logger.info(f"Cleaning up inactive session {user_id}")
+                    cleanup_session(user_id)
+
+            time.sleep(10)  # Check every 10 seconds
+        except Exception as e:
+            logger.error(f"Error in cleanup thread: {str(e)}")
+
+# Start cleanup thread
+cleanup_thread = threading.Thread(target=cleanup_inactive_sessions, daemon=True)
+cleanup_thread.start()
 
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
