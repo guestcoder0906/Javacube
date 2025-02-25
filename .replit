@@ -4,6 +4,7 @@ modules = ["c", "python-3.11"]
 channel = "stable-24_05"
 
 [workflows]
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Project"
