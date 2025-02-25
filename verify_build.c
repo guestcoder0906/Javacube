@@ -144,7 +144,9 @@ const char* getBiomeName(int id)
         case 184: return "Mangrove Swamp";
         case 185: return "Cherry Grove";
         case 186: return "Pale Garden";
-        default:  return "Unknown Biome";
+        default: 
+        printf("Warning: Unrecognized biome ID %d\n", id);
+        return "Undefined";
     }
 }
 
@@ -943,14 +945,23 @@ bool scanSeed(uint64_t seed)
                 Generator *curr_gen = &g;
                 if (req.structureType == 13) curr_gen = &ng; // For nether structures
                 else if (req.structureType == 8) curr_gen = &eg; // For end structures
-                
                 // Look for the nearest valid biome
                 for (int dx = -req.biomeProximity; dx <= req.biomeProximity; dx++) {
                     for (int dz = -req.biomeProximity; dz <= req.biomeProximity; dz++) {
                         int checkX = foundPositions[j].x + dx;
                         int checkZ = foundPositions[j].z + dz;
-                        int checkBiome = getBiomeAt(curr_gen, 4, checkX >> 2, foundPositions[j].y >> 2, checkZ >> 2);
-                        
+                        int biomeCoordX = checkX >> 2;
+                        int biomeCoordZ = checkZ >> 2;
+                        int checkBiome = getBiomeAt(curr_gen, 4, biomeCoordX, 0, biomeCoordZ);
+                        // Debug output: log the coordinates and the returned biome ID.
+                        printf("[DEBUG] Checking biome at world coords (%d,%d) -> biome coords (%d,%d): ID = %d\n",
+                               checkX, checkZ, biomeCoordX, biomeCoordZ, checkBiome);
+
+                        if (checkBiome < 0 || checkBiome > 186) {
+                            printf("Warning: getBiomeAt() returned unexpected biome ID %d at (%d, %d)\n",
+                                   checkBiome, checkX, checkZ);
+                            checkBiome = -1;
+                        }
                         for (int i = 0; i < req.nextToBiomeCount; i++) {
                             if (checkBiome == req.nextToBiomes[i]) {
                                 int dist = (int)sqrt(dx*dx + dz*dz);
