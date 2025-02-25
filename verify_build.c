@@ -823,6 +823,8 @@ bool scanSeed(uint64_t seed)
                         continue;
 
                     int biome_id = -1;
+                    int nearestBiomeDist = INT_MAX;
+                    int nearestBiomeId = -1;
                     if (req.requiredBiome != -1) {
                         // Only check biome if it's required
                         int checkUnderground = (req.structureType == 17 || req.structureType == 15 || 
