@@ -83,14 +83,33 @@ def scan():
             'start_time': datetime.now().timestamp()
         }
 
+        # Get absolute path to verify_build
+        app_root = os.path.dirname(os.path.abspath(__file__))
+        verify_build_path = os.path.join(app_root, 'cubiomes', 'verify_build')
+
+        # Log the path for debugging
+        logger.info(f"Using verify_build path: {verify_build_path}")
+
+        # Check if verify_build exists
+        if not os.path.exists(verify_build_path):
+            error_msg = f"verify_build not found at {verify_build_path}"
+            logger.error(error_msg)
+            return jsonify({
+                'error': error_msg,
+                'stats': {
+                    'seeds_scanned': 0,
+                    'elapsed_time': 0
+                }
+            }), 500
+
         # Create a process pipe to send parameters to verify_build
         process = subprocess.Popen(
-            ['./verify_build'],  # Run the compiled executable
+            [verify_build_path],  # Use absolute path
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            cwd='cubiomes',
+            cwd=os.path.join(app_root, 'cubiomes'),  # Use absolute path for working directory
             bufsize=1,  # Line buffered
             universal_newlines=True
         )
