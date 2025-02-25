@@ -1082,10 +1082,6 @@ void parseParameterLine(char *line)
         char nextToBiomeStr[128] = "";
         int scanned = sscanf(parenPart, "min amount: %d, next to biome: %127[^,], biome proximity: %d, min height: %d, max height: %d, biome: %d, min size: %d, max size: %d",
                              &minCount, nextToBiomeStr, &biomeProximity, &minH, &maxH, &biome, &minSz, &maxSz);
-        if (scanned != 8) {
-            fprintf(stderr, "Warning: Failed to parse structure parameters correctly (scanned %d)\n", scanned);
-            return;
-        }
 
         // Parse the next-to-biome field, which may contain several IDs separated by "or"
         int *nextToBiomes = NULL;
