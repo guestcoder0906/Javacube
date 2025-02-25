@@ -945,22 +945,25 @@ bool scanSeed(uint64_t seed)
                 Generator *curr_gen = &g;
                 if (req.structureType == 13) curr_gen = &ng; // For nether structures
                 else if (req.structureType == 8) curr_gen = &eg; // For end structures
+
                 // Look for the nearest valid biome
                 for (int dx = -req.biomeProximity; dx <= req.biomeProximity; dx++) {
                     for (int dz = -req.biomeProximity; dz <= req.biomeProximity; dz++) {
                         int checkX = foundPositions[j].x + dx;
                         int checkZ = foundPositions[j].z + dz;
-                        int biomeCoordX = checkX >> 2;
-                        int biomeCoordZ = checkZ >> 2;
-                        int checkBiome = getBiomeAt(curr_gen, 4, biomeCoordX, 0, biomeCoordZ);
-                        // Debug output: log the coordinates and the returned biome ID.
-                        printf("[DEBUG] Checking biome at world coords (%d,%d) -> biome coords (%d,%d): ID = %d\n",
-                               checkX, checkZ, biomeCoordX, biomeCoordZ, checkBiome);
+                        int checkBiome = getBiomeAt(curr_gen, 4, checkX >> 2, 0, checkZ >> 2);
 
-                        if (checkBiome < 0 || checkBiome > 186) {
-                            printf("Warning: getBiomeAt() returned unexpected biome ID %d at (%d, %d)\n",
-                                   checkBiome, checkX, checkZ);
-                            checkBiome = -1;
+                        // Check if this is one of our required nearby biomes
+                        for (int i = 0; i < req.nextToBiomeCount; i++) {
+                            if (checkBiome == req.nextToBiomes[i]) {
+                                int dist = (int)sqrt(dx*dx + dz*dz);
+                                if (dist < nearestDist) {
+                                    nearestDist = dist;
+                                    nearestBiome = checkBiome;
+                                    nearestSize = getBiomePatchSize(curr_gen, checkX, checkZ, checkBiome);
+                                }
+                                break;
+                            }
                         }
                         for (int i = 0; i < req.nextToBiomeCount; i++) {
                             if (checkBiome == req.nextToBiomes[i]) {
