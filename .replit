@@ -13,33 +13,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Build Cubiomes"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Web Server"
-
-[[workflows.workflow]]
-name = "Build Cubiomes"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "chmod +x build.sh && ./build.sh && cd cubiomes && gcc ../verify_build.c -o verify_build -I. libcubiomes.a -lm && ./verify_build"
-
-[[workflows.workflow]]
-name = "Run"
-author = 4148307
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "./verify_build"
 
 [[workflows.workflow]]
 name = "Web Server"
@@ -57,7 +31,7 @@ args = "python server.py"
 waitForPort = 5000
 
 [deployment]
-run = ["sh", "-c", "chmod +x build.sh && ./build.sh && cd cubiomes && gcc ../verify_build.c -o verify_build -I. libcubiomes.a -lm && ./verify_build"]
+run = ["sh", "-c", "python server.py"]
 
 [[ports]]
 localPort = 5000

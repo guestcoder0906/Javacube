@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cubiomes Scanner</title>
+    <title>Cubio Seed Finder - Fast Minecraft Seed Finder for Java</title>
+    <link rel="icon" href="CubioSeedFinderIcon.png" type="image/png">
     <style>
         :root {
             --bg-color: #1a1a1a;
@@ -28,10 +29,32 @@
             margin: 0 auto;
         }
 
-        h1 {
-            text-align: center;
-            color: #007bff;
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
             margin-bottom: 30px;
+        }
+
+        .header img {
+            width: 50px;
+            height: 50px;
+            margin-right: 15px;
+        }
+
+        .title-container {
+            text-align: center;
+        }
+
+        h1 {
+            color: #007bff;
+            margin: 0;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-top: 5px;
+            font-size: 1.1em;
         }
 
         .form-group {
@@ -106,7 +129,13 @@
 </head>
 <body>
     <div class="container">
-        <h1>Cubiomes Scanner</h1>
+        <div class="header">
+            <img src="CubioSeedFinderIcon.png" alt="Cubio Seed Finder Icon">
+            <div class="title-container">
+                <h1>Cubio Seed Finder</h1>
+                <div class="subtitle">Fast Minecraft Seed Finder for Java</div>
+            </div>
+        </div>
         <form id="scanForm">
             <div class="form-group">
                 <label for="params">Parameters:</label>
@@ -125,7 +154,7 @@
             e.preventDefault();
             const params = document.getElementById('params').value;
             const resultsDiv = document.getElementById('results');
-            
+
             try {
                 const response = await fetch('/scan', {
                     method: 'POST',
@@ -134,7 +163,7 @@
                     },
                     body: JSON.stringify({ params }),
                 });
-                
+
                 const result = await response.text();
                 resultsDiv.textContent += result + '\n\n';
                 resultsDiv.scrollTop = resultsDiv.scrollHeight;
