@@ -1,0 +1,44 @@
+verify_build.c: In function ‘scanSeed’:
+verify_build.c:870:28: error: invalid type argument of ‘->’ (have ‘StructureRequirement’)
+  870 |                     if (req->nextToBiomeCount > 0 && req->biomeProximity >= 0) {
+      |                            ^~
+verify_build.c:870:57: error: invalid type argument of ‘->’ (have ‘StructureRequirement’)
+  870 |                     if (req->nextToBiomeCount > 0 && req->biomeProximity >= 0) {
+      |                                                         ^~
+verify_build.c:873:43: error: invalid type argument of ‘->’ (have ‘StructureRequirement’)
+  873 |                         for (int dx = -req->biomeProximity; dx <= req->biomeProximity && !nearRequiredBiome; dx++) {
+      |                                           ^~
+verify_build.c:873:70: error: invalid type argument of ‘->’ (have ‘StructureRequirement’)
+  873 |                for (int dx = -req->biomeProximity; dx <= req->biomeProximity && !nearRequiredBiome; dx++) {
+      |                                                             ^~
+
+verify_build.c:874:47: error: invalid type argument of ‘->’ (have ‘StructureRequirement’)
+  874 |                             for (int dz = -req->biomeProximity; dz <= req->biomeProximity; dz++) {
+      |                                               ^~
+verify_build.c:874:74: error: invalid type argument of ‘->’ (have ‘StructureRequirement’)
+  874 |                for (int dz = -req->biomeProximity; dz <= req->biomeProximity; dz++) {
+      |                                                             ^~
+
+verify_build.c:877:40: error: invalid type argument of ‘->’ (have ‘StructureRequirement’)
+  877 |                                 if (req->structureType == 19 || req->structureType == 17 ||
+      |                                        ^~
+verify_build.c:877:68: error: invalid type argument of ‘->’ (have ‘StructureRequirement’)
+  877 |                          if (req->structureType == 19 || req->structureType == 17 ||
+      |                                                             ^~
+
+verify_build.c:878:40: error: invalid type argument of ‘->’ (have ‘StructureRequirement’)
+  878 |                                     req->structureType == 15 || req->structureType == 14 ||
+      |                                        ^~
+verify_build.c:878:68: error: invalid type argument of ‘->’ (have ‘StructureRequirement’)
+  878 |                              req->structureType == 15 || req->structureType == 14 ||
+      |                                                             ^~
+
+verify_build.c:879:40: error: invalid type argument of ‘->’ (have ‘StructureRequirement’)
+  879 |                                     req->structureType == 11) {
+      |                                        ^~
+verify_build.c:885:56: error: invalid type argument of ‘->’ (have ‘StructureRequirement’)
+  885 |                                 for (int i = 0; i < req->nextToBiomeCount; i++) {
+      |                                                        ^~
+verify_build.c:886:58: error: invalid type argument of ‘->’ (have ‘StructureRequirement’)
+  886 |                                     if (checkBiome == req->nextToBiomes[i]) {
+      |                                                          ^~
