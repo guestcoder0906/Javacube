@@ -1164,8 +1164,7 @@ int scanSeed(uint64_t seed)
 
                         int biome_id = -1;
                         // Always check biome
-                        int checkUnderground = (req.structureType == 17 || req.structureType == 15 ||
-                                               req.structureType == 14 || req.structureType == 11);
+                        int checkUnderground = (req.structureType == 6 || req.structureType == 8 || req.structureType == 13 || req.structureType == 14 || req.structureType == 15 || req.structureType == 17 || req.structureType == 18 || req.structureType == 19);
 
                         if (checkUnderground) {
                             biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, 0, pos.z >> 2);
@@ -1206,9 +1205,7 @@ int scanSeed(uint64_t seed)
 
                         // Get height based on structure type
                         int height = 0;
-                        if (req.structureType == 19 || req.structureType == 17 ||
-                            req.structureType == 15 || req.structureType == 14 ||
-                            req.structureType == 11) {
+                        if (req.structureType == 6 || req.structureType == 8 || req.structureType == 13 || req.structureType == 14 || req.structureType == 15 || req.structureType == 17 || req.structureType == 18 || req.structureType == 19) {
                             // For special structures, get height directly from structure data
                             StructureVariant sv;
                             if (getVariant(&sv, req.structureType, MC_1_21, seed, pos.x, pos.z, biome_id)) {
@@ -1601,11 +1598,8 @@ void parseParameterLine(char *line)
             minSz = -1;
             maxSz = -1;
         }
-
         // Special case for height handling for certain structure types
-        int skipSurfaceHeight = (structureType == 19 || structureType == 17 ||
-                                 structureType == 15 || structureType == 14 ||
-                                 structureType == 11);
+        int skipSurfaceHeight = (structureType == 6 || structureType == 8 || structureType == 13 || structureType == 14 || structureType == 15 || structureType == 17 || structureType == 18 || structureType == 19);
 
         // Validate structure type
         if (structureType < 0 && structureType != STRUCTURE_TYPE_SPAWN) {
