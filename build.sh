@@ -23,6 +23,12 @@ if ! command -v make &> /dev/null; then
     exit 1
 fi
 
+# Check for verify_build.c first
+if [ ! -f "verify_build.c" ]; then
+    echo "Error: verify_build.c not found"
+    exit 1
+fi
+
 # Clone the repository if it doesn't exist
 if [ ! -d "cubiomes" ]; then
     echo "Cloning cubiomes repository..."
@@ -53,7 +59,7 @@ fi
 
 cd ..
 
-echo "Compiling verify_build..."
+echo "Compiling verify_build.c..."
 # -I cubiomes   : so it can find cubiomes/finders.h
 # -L cubiomes   : so it can find libcubiomes.a
 # -lcubiomes    : link to cubiomes library
@@ -62,6 +68,12 @@ gcc -pthread -O2 -o verify_build verify_build.c \
     -I cubiomes -L cubiomes -lcubiomes -lm
 
 echo "Compilation done."
+
+# Verify the binary was created
+if [ ! -f "verify_build" ]; then
+    echo "Error: verify_build compilation failed"
+    exit 1
+fi
 
 echo "Running verify_build..."
 ./verify_build
