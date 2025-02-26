@@ -143,6 +143,76 @@ const char* getBiomeName(int id)
     }
 }
 
+// --- Added custom biome detection helpers for Island (ID 187) ---
+bool isOcean(int biomeId) {
+    return (biomeId == 0 || biomeId == 10 || biomeId == 24 ||
+            biomeId == 44 || biomeId == 45 || biomeId == 46 ||
+            biomeId == 47 || biomeId == 48 || biomeId == 49 ||
+            biomeId == 50);
+}
+
+// --- New helper for full-area island detection ---
+bool isIslandInArea(Generator *g, int startBX, int startBZ,
+                      int areaBX0, int areaBZ0, int areaBX1, int areaBZ1,
+                      int *patchSize) {
+    // Start: if starting cell is ocean, it’s not island.
+    int initial = getBiomeAt(g, 4, startBX, 0, startBZ);
+    if (isOcean(initial)) return false;
+
+    typedef struct { int bx; int bz; } Cell;
+    Cell toVisit[2048];
+    Cell visited[2048];
+    int visitCount = 0, visitedCount = 0;
+    // Start with the given cell.
+    toVisit[visitCount++] = (Cell){startBX, startBZ};
+
+    while (visitCount > 0) {
+        Cell cur = toVisit[--visitCount];
+        // Add cur to visited if not already there.
+        bool already = false;
+        for (int i = 0; i < visitedCount; i++) {
+            if (visited[i].bx == cur.bx && visited[i].bz == cur.bz) { already = true; break; }
+        }
+        if (already) continue;
+        visited[visitedCount++] = cur;
+
+        // If cell touches the border of the search area, consider the island incomplete.
+        if (cur.bx == areaBX0 || cur.bx == areaBX1 ||
+            cur.bz == areaBZ0 || cur.bz == areaBZ1) {
+            return false;
+        }
+
+        // Check the four neighbors.
+        int dirs[4][2] = { {1,0}, {-1,0}, {0,1}, {0,-1} };
+        for (int d = 0; d < 4; d++) {
+            int nbx = cur.bx + dirs[d][0];
+            int nbz = cur.bz + dirs[d][1];
+            // If neighbor is not part of the patch then it must be ocean.
+            bool inPatch = false;
+            for (int j = 0; j < visitedCount; j++) {
+                if (visited[j].bx == nbx && visited[j].bz == nbz) { inPatch = true; break; }
+            }
+            if (!inPatch) {
+                int nbBiome = getBiomeAt(g, 4, nbx, 0, nbz);
+                if (!isOcean(nbBiome)) {
+                    // Add neighbor to patch if it’s land.
+                    if (nbBiome != 0 && nbBiome != 10 && nbBiome != 24 &&
+                        nbBiome != 44 && nbBiome != 45 && nbBiome != 46 &&
+                        nbBiome != 47 && nbBiome != 48 && nbBiome != 49 &&
+                        nbBiome != 50) {
+                        toVisit[visitCount++] = (Cell){nbx, nbz};
+                    } else {
+                        // If neighbor is not already in patch and not ocean, then it’s a violation.
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+    if (patchSize) *patchSize = visitedCount;
+    return true;
+}
+
 // Structure type -> Name helper
 const char* getStructureName(int id)
 {
@@ -190,7 +260,19 @@ int getBiomePatchSize(Generator *g, int x, int z, int biome_id)
             int bx = sx + i;
             int bz = sz + j;
             int id = getBiomeAt(g, 4, bx, 0, bz);
-            if (id == biome_id) {
+            if (biome_id == 187) {
+                int dummy;
+                /* Use the current patch’s biome-boundaries: 
+                   sx and sz are the starting biome coordinates,
+                   and (sx + w) and (sz + h) represent the area bounds. */
+                if (isIslandInArea(g, bx, bz, sx, sz, sx + w, sz + h, &dummy)) {
+                    found = 1;
+                    if (bx < minX) minX = bx;
+                    if (bx > maxX) maxX = bx;
+                    if (bz < minZ) minZ = bz;
+                    if (bz > maxZ) maxZ = bz;
+                }
+            } else if (id == biome_id) {
                 found = 1;
                 if (bx < minX) minX = bx;
                 if (bx > maxX) maxX = bx;
@@ -386,7 +468,21 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
                     int biome = getBiomeAt(g, 4, xx >> 2, 0, zz >> 2);
                     // check if biome is in req->biomeIds
                     for (int b = 0; b < req->biomeCount; b++) {
-                        if (biome == req->biomeIds[b]) {
+                        if (req->biomeIds[b] == 187) {
+                            // Use the full search area boundaries converted to biome coordinates.
+                            if (isIslandInArea(g, xx >> 2, zz >> 2, x0 >> 2, z0 >> 2, x1 >> 2, z1 >> 2, NULL)) {
+                                if (count == capacity) {
+                                    capacity *= 2;
+                                    positions = realloc(positions, capacity * sizeof(StructurePos));
+                                    if (!positions) { perror("realloc"); exit(1); }
+                                }
+                                positions[count].structureType = 187;
+                                positions[count].x = xx;
+                                positions[count].z = zz;
+                                count++;
+                                break;
+                            }
+                        } else if (biome == req->biomeIds[b]) {
                             if (count == capacity) {
                                 capacity *= 2;
                                 positions = realloc(positions, capacity * sizeof(StructurePos));
@@ -396,7 +492,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
                             positions[count].x = xx;
                             positions[count].z = zz;
                             count++;
-                            break; 
+                            break;
                         }
                     }
                 }
@@ -921,6 +1017,18 @@ int scanSeed(uint64_t seed)
 
                 // Get biome at surface height
                 int biome_id = getBiomeAt(&g, 4, spawnPos.x >> 2, height >> 2, spawnPos.z >> 2);
+
+                if (req.requiredBiome != -1) {
+                    if (req.requiredBiome == 187) {
+                        // For island, require that spawn qualifies as an island in the full search area.
+                        if (!isIslandInArea(&g, spawnPos.x >> 2, spawnPos.z >> 2,
+                                             x0 >> 2, z0 >> 2, x1 >> 2, z1 >> 2, NULL))
+                            continue;  // skip this spawn
+                    } else {
+                        if (biome_id != req.requiredBiome)
+                            continue;  // skip if spawn’s biome isn’t the required one
+                    }
+                }
                 
                 // Check height constraints
                 if ((req.minHeight != -9999 && height < req.minHeight) ||
@@ -1012,8 +1120,16 @@ int scanSeed(uint64_t seed)
 
                         // Check required biome if specified
                         if (req.requiredBiome != -1) {
-                            if (biome_id != req.requiredBiome)
-                                continue;
+                            if (req.requiredBiome == 187) {
+                                // For island detection, check using the full search area boundaries.
+                                if (!isIslandInArea(curr_gen, pos.x >> 2, pos.z >> 2, x0 >> 2, z0 >> 2, x1 >> 2, z1 >> 2, NULL))
+                                    continue;
+                                else
+                                    biome_id = 187;  // Override the biome_id so that later filters match the island.
+                            } else {
+                                if (biome_id != req.requiredBiome)
+                                    continue;
+                            }
 
                             if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
                                 int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
@@ -1093,7 +1209,7 @@ int scanSeed(uint64_t seed)
                 // Loop through all found positions first to check if we have any valid ones
                 for (int j = 0; j < foundPosCount; j++) {
 
-                    if (req.requiredBiome != -1 && foundPositions[j].biome_id != req.requiredBiome) {
+                    if (req.requiredBiome != -1 && req.requiredBiome != 187 && foundPositions[j].biome_id != req.requiredBiome) {
                         continue;
                     }
 
@@ -1122,7 +1238,7 @@ int scanSeed(uint64_t seed)
                     // Now print the actual structures
                     for (int j = 0; j < foundPosCount; j++) {
 
-                        if (req.requiredBiome != -1 && foundPositions[j].biome_id != req.requiredBiome) {
+                        if (req.requiredBiome != -1 && req.requiredBiome != 187 && foundPositions[j].biome_id != req.requiredBiome) {
                             continue;
                         }
 
