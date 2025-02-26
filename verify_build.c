@@ -1164,10 +1164,10 @@ int scanSeed(uint64_t seed)
 
                         int biome_id = -1;
                         // Always check biome
-                        int checkUnderground = (req.structureType == 17 || req.structureType == 15 || 
-                                              req.structureType == 14 || req.structureType == 11);
-
-                        if (checkUnderground) {
+                        if (req.structureType == 6 || req.structureType == 8 || 
+                            req.structureType == 13 || req.structureType == 14 || 
+                            req.structureType == 15 || req.structureType == 17 || 
+                            req.structureType == 18 || req.structureType == 19) {
                             biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, 0, pos.z >> 2);
                         } else {
                             float heightArr[256];
