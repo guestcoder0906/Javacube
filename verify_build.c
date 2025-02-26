@@ -1593,7 +1593,7 @@ void parseParameterLine(char *line)
         }
 
         // Special case for height handling for certain structure types
-        int skipSurfaceHeight = (req.structureType == 6 || req.structureType == 8 || req.structureType == 13 || req.structureType == 14 || req.structureType == 15 || req.structureType == 17 || req.structureType == 18 || req.structureType == 19);
+        int skipSurfaceHeight = (structureType == 6 || structureType == 8 || structureType == 13 || structureType == 14 || structureType == 15 || structureType == 17 || structureType == 18 || structureType == 19);
 
         // Validate structure type
         if (structureType < 0 && structureType != STRUCTURE_TYPE_SPAWN) {
