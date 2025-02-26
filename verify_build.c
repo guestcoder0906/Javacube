@@ -1268,13 +1268,12 @@ int scanSeed(uint64_t seed)
         }
 
         // Organize and print the found structures
-        bool foundValidStructure = false;
         if (allRequirementsMet) {
             bool printedHeader = false;
             for (int i = 0; i < NUM_STRUCTURE_REQUIREMENTS; i++) {
                 StructureRequirement req = structureRequirements[i];
                 bool hasProximityReq = (req.proximityBiomeCount > 0 && req.biomeProximity > 0);
-                bool foundValidStructureForReq = false;
+                bool foundValidStructure = false;
 
                 // Loop through all found positions first to check if we have any valid ones
                 for (int j = 0; j < foundPosCount; j++) {
@@ -1286,19 +1285,18 @@ int scanSeed(uint64_t seed)
                     // For structures with proximity requirements, we only want to show these
                     if (hasProximityReq) {
                         if (foundPositions[j].proximity_distance > 0) {
-                            foundValidStructureForReq = true;
+                            foundValidStructure = true;
                             break;
                         }
                         continue; // Skip if no valid proximity
                     } else {
-                        foundValidStructureForReq = true;
+                        foundValidStructure = true;
                         break;
                     }
                 }
 
                 // Only print structures if we found valid ones
-                if (foundValidStructureForReq) {
-                    foundValidStructure = true;
+                if (foundValidStructure) {
                     if (!printedHeader) {
                         //printf("Valid seed found: %llu\n", (unsigned long long)seed);
                         printedHeader = true;
@@ -1339,6 +1337,7 @@ int scanSeed(uint64_t seed)
                     }
                 }
             }
+            return true;
         }
     }
 
@@ -1349,7 +1348,11 @@ int scanSeed(uint64_t seed)
         return false;
     }
 
-    return allRequirementsMet && foundValidStructure;
+    if (allRequirementsMet) {
+        printf("Valid seed found: %llu\n", (unsigned long long) seed);
+        return true;
+    }
+    return false;
 }
 
 // -----------------------------------------------------------------------------
@@ -1895,9 +1898,6 @@ int main(int argc, char *argv[])
         printf("Finished searching, no valid seeds found in [%llu..%llu].\n",
                (unsigned long long)starting_seed, (unsigned long long)end_seed);
     }
-
-    // Print seeds scanned
-    printf("Seeds scanned: %llu\n", (unsigned long long)(currentSeed - starting_seed));
 
     // Clean up your dynamic allocations
     for (int i = 0; i < NUM_STRUCTURE_REQUIREMENTS; i++) {
