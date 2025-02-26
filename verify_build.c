@@ -1223,6 +1223,13 @@ int scanSeed(uint64_t seed)
                             int lx = pos.x & 15;
                             int lz = pos.z & 15;
                             height = (int)heightArr[lz*w + lx];
+
+                            // For custom biomes like Island (187), verify it's actually an island
+                            if (biome_id == 187) {
+                                if (!isIsland(curr_gen, pos.x, pos.z, searchRadius / 4)) {
+                                    continue; // Skip if not actually an island
+                                }
+                            }
                         }
 
                         // Check height constraints if they exist
