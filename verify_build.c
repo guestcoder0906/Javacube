@@ -875,17 +875,26 @@ int scanSeed(uint64_t seed)
     applySeed(&g, DIM_OVERWORLD, seed);
 
     // Determine bounding box around spawn or custom coords
-    Pos spawn = {0,0};
+    Pos spawn = {0, 0};
     if (useSpawn) {
         spawn = getSpawn(&g);
-        // If the spawn coordinates exceed the search radius, use custom coordinates instead.
-        if (abs(spawn.x) > searchRadius || abs(spawn.z) > searchRadius) {
-            spawn.x = customX;
-            spawn.z = customZ;
-        }
     }
-    int x0 = (useSpawn ? (spawn.x - searchRadius) : (customX - searchRadius));
-    int z0 = (useSpawn ? (spawn.z - searchRadius) : (customZ - searchRadius));
+
+    // Ensure that the spawn point is inside the search range (measured in block distance from 0,0)
+    printf("Condition %s: spawn.x (%f) is %s than searchRadius (%f)\n", 
+           (fabs(spawn.x) > (double)searchRadius) ? "not met" : "met", 
+           (double)spawn.x, 
+           (fabs(spawn.x) > (double)searchRadius) ? "outside" : "inside", 
+           (double)searchRadius);
+
+    if (fabs(spawn.x) > (double)searchRadius || fabs(spawn.z) > (double)searchRadius) {
+        printf("Spawn is out of bounds. Resetting to custom coordinates: (%d, %d)\n", customX, customZ);
+        spawn.x = (double)customX;
+        spawn.z = (double)customZ;
+    }
+    // Compute search bounds
+    int x0 = spawn.x - searchRadius;
+    int z0 = spawn.z - searchRadius;
     int x1 = x0 + (searchRadius * 2);
     int z1 = z0 + (searchRadius * 2);
 
@@ -1088,7 +1097,7 @@ int scanSeed(uint64_t seed)
                     height = (int)heightArr[lz * w + lx];
                 }
 
-                // Get biome at surface height using the effective spawn coordinates.
+                // Get biome at surface height using the seed’s spawn.
                 int biome_id = getExtendedBiomeAt(&g, 4, spawn.x, height, spawn.z, searchRadius);
 
                 // Check height constraints
@@ -1124,7 +1133,7 @@ int scanSeed(uint64_t seed)
                     }
                 }
 
-                // Add to found positions using the effective spawn coordinates.
+                // Add to found positions using the seed's spawn coordinates.
                 foundPositions[foundPosCount].x = spawn.x;
                 foundPositions[foundPosCount].y = height;
                 foundPositions[foundPosCount].z = spawn.z;
