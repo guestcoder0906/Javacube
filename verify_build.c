@@ -178,8 +178,12 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     int oceanBiomes[] = {0, 10, 24, 44, 45, 46, 47, 48, 49, 50}; // All ocean types
     int oceanBiomesCount = sizeof(oceanBiomes) / sizeof(oceanBiomes[0]);
 
+    // Scale the coordinates properly
+    int scaledX = x >> 2;
+    int scaledZ = z >> 2;
+
     // Get the biome at the center position
-    int centerBiome = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
+    int centerBiome = getBiomeAt(g, 4, scaledX, 0, scaledZ);
 
     // Check if center is ocean - if so, not an island
     for (int i = 0; i < oceanBiomesCount; i++) {
@@ -188,11 +192,11 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
         }
     }
 
-    // Define the search area
-    int x0 = x - searchRadius;
-    int z0 = z - searchRadius;
-    int width = searchRadius * 2 / 4 + 1;
-    int height = searchRadius * 2 / 4 + 1;
+    // Define the search area (make it consistent regardless of seed value)
+    int x0 = scaledX - (searchRadius >> 2);
+    int z0 = scaledZ - (searchRadius >> 2);
+    int width = (searchRadius >> 1) + 1;
+    int height = (searchRadius >> 1) + 1;
 
     // Create a grid to represent the area
     // 0 = unexplored, 1 = land, 2 = water
@@ -203,13 +207,12 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     }
 
     // Fill the grid with biome information
-    int step = 4;
     for (int i = 0; i < width; i++) {
         for (int j = 0; j < height; j++) {
-            int worldX = x0 + i * step;
-            int worldZ = z0 + j * step;
+            int worldX = x0 + i;
+            int worldZ = z0 + j;
 
-            int biome = getBiomeAt(g, 4, worldX >> 2, 0, worldZ >> 2);
+            int biome = getBiomeAt(g, 4, worldX, 0, worldZ);
 
             // Check if this is an ocean biome
             bool isOcean = false;
@@ -224,17 +227,6 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
         }
     }
 
-    // Mark the boundary if it contains land
-    for (int i = 0; i < width; i++) {
-        if (grid[i] == 1) grid[i] = 3; // Top boundary
-        if (grid[(height-1) * width + i] == 1) grid[(height-1) * width + i] = 3; // Bottom boundary
-    }
-
-    for (int j = 0; j < height; j++) {
-        if (grid[j * width] == 1) grid[j * width] = 3; // Left boundary
-        if (grid[j * width + width - 1] == 1) grid[j * width + width - 1] = 3; // Right boundary
-    }
-
     // Find the center of the grid
     int centerI = width / 2;
     int centerJ = height / 2;
@@ -245,7 +237,6 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
         return false;
     }
 
-    // Flood fill from center to find connected land
     // Stack for flood fill
     typedef struct { int x; int y; } Point;
     Point *stack = malloc(width * height * sizeof(Point));
@@ -283,12 +274,6 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
                     stack[stackSize].y = ny;
                     stackSize++;
                 }
-                // If we touch the boundary, it's not an island
-                else if (grid[ny * width + nx] == 3) {
-                    free(stack);
-                    free(grid);
-                    return false;
-                }
             }
         }
     }
@@ -312,8 +297,12 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
 
 // Function to check if a position has a custom biome
 int getCustomBiomeAt(Generator *g, int x, int z, int searchRadius) {
+    // Add debug logging
+    printf("Checking custom biome at coordinates (%d, %d) with radius %d\n", x, z, searchRadius);
+
     // Check for Island biome (187)
     if (isIsland(g, x, z, searchRadius)) {
+        printf("Island biome detected at (%d, %d)\n", x, z);
         return 187; // Island biome ID
     }
 
@@ -868,6 +857,11 @@ volatile uint64_t currentSeed   = 0; // threads will increment this
 // Main seed scanning logic (structures + biome checks)
 int scanSeed(uint64_t seed)
 {
+    // Add debug logging for the seed being checked
+    printf("=== Parameter-Based Scanning ===\n");
+    printf("Seeds scanned: %" PRIu64 "\n", seed);
+    printf("Seed: %" PRIu64 "\n", seed);
+
     bool hasAnyRequirements = false;
     bool allRequirementsMet = true;
 
@@ -880,6 +874,20 @@ int scanSeed(uint64_t seed)
     Pos spawn = {0,0};
     if (useSpawn) {
         spawn = getSpawn(&g);
+
+        // Add debug logging for spawn location and biome
+        int spawnBiome = getExtendedBiomeAt(&g, 4, spawn.x >> 2, 0, spawn.z >> 2, searchRadius);
+        int customBiome = getCustomBiomeAt(&g, spawn.x, spawn.z, searchRadius);
+
+        printf("Structures Spawn Point:\n");
+        if (customBiome == 187) {
+            printf("Spawn Point at (%d, %d) with height at %d in Island Biome with -1 size\n", 
+                   spawn.x, spawn.z, getHeight(&g, spawn.x, spawn.z));
+        } else {
+            printf("Spawn Point at (%d, %d) with height at %d in %s\n", 
+                   spawn.x, spawn.z, getHeight(&g, spawn.x, spawn.z), 
+                   getBiomeName(spawnBiome));
+        }
     }
     int x0 = (useSpawn ? (spawn.x - searchRadius) : (customX - searchRadius));
     int z0 = (useSpawn ? (spawn.z - searchRadius) : (customZ - searchRadius));
@@ -1928,4 +1936,8 @@ int main(int argc, char *argv[])
     free(clusterReq.structureTypes);
 
     return 0;
+}
+int getHeight(Generator *g, int x, int z) {
+    //Implementation for getHeight, replace with your actual implementation
+    return 64;
 }
