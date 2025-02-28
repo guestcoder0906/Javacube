@@ -838,7 +838,7 @@ int checkBiomeProximity(Generator *g, int structX, int structZ, int *biomesToChe
         int distance = (int)sqrt(dx*dx + dz*dz);
 
         if (distance < minDistance) {
-            minDistance = distance;
+ minDistance = distance;
             closestBiomeId = biomeBlocks[i].biomeId;
         }
     }
@@ -1097,8 +1097,24 @@ int scanSeed(uint64_t seed)
                     height = (int)heightArr[lz * w + lx];
                 }
 
-                // Get biome at surface height using the seed’s spawn.
-                int biome_id = getExtendedBiomeAt(&g, 4, spawn.x, height, spawn.z, searchRadius);
+                // Special case for custom biomes like Island
+                int biome_id;
+                if (req.requiredBiome == 187) {
+                    // For Island biome, check directly
+                    int customBiome = getCustomBiomeAt(&g, spawn.x, spawn.z, searchRadius);
+                    if (customBiome == 187) {
+                        biome_id = 187;
+                        printf("Found island at spawn location (%d, %d) for seed %llu\n", 
+                               (int)spawn.x, (int)spawn.z, (unsigned long long)seed);
+                    } else {
+                        // Not an island, skip this spawn point
+                        biome_id = -1;
+                        continue;
+                    }
+                } else {
+                    // Get biome at surface height using the seed's spawn.
+                    biome_id = getExtendedBiomeAt(&g, 4, spawn.x, height, spawn.z, searchRadius);
+                }
 
                 // Check height constraints
                 if ((req.minHeight != -9999 && height < req.minHeight) ||
@@ -1106,8 +1122,8 @@ int scanSeed(uint64_t seed)
                     continue;
                 }
 
-                // Check required biome if specified
-                if (req.requiredBiome != -1 && biome_id != req.requiredBiome) {
+                // Check required biome if specified (already checked for island)
+                if (req.requiredBiome != -1 && req.requiredBiome != 187 && biome_id != req.requiredBiome) {
                     continue;
                 }
 
@@ -1191,6 +1207,13 @@ int scanSeed(uint64_t seed)
                             int lz = pos.z & 15;
                             int surface_y = (int)heightArr[lz*w + lx];
                             biome_id = getExtendedBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2, searchRadius / 4);
+
+                            // For custom biomes like Island (187), verify it's actually an island
+                            if (biome_id == 187) {
+                                if (!isIsland(curr_gen, pos.x, pos.z, searchRadius / 4)) {
+                                    continue; // Skip if not actually an island
+                                }
+                            }
                         }
 
                         // Check required biome if specified
@@ -1599,8 +1622,7 @@ void parseParameterLine(char *line)
 
         // Parse biome and size constraints
         char *biomePtr = strstr(parenPart, "biome:");
-        char *minSizePtr = strstr(parenPart, "min size:");
-        char *maxSizePtr = strstr(parenPart, "max size:");
+        char *minSizePtr = strstr(parenPart, "max size:");
 
         if (biomePtr && minSizePtr && maxSizePtr) {
             sscanf(biomePtr, "biome: %d", &biome);
