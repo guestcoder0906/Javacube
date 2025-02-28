@@ -174,42 +174,28 @@ const char* getStructureName(int id)
 
 // Function to detect if a land area is an island (surrounded by ocean)
 bool isIsland(Generator *g, int x, int z, int searchRadius) {
-    // Add debug logging for coordinate tracking
-    printf("isIsland check at (%d, %d) with radius %d\n", x, z, searchRadius);
-
     // Define ocean biome IDs
     int oceanBiomes[] = {0, 10, 24, 44, 45, 46, 47, 48, 49, 50}; // All ocean types
     int oceanBiomesCount = sizeof(oceanBiomes) / sizeof(oceanBiomes[0]);
 
-    // Scale the search radius and coordinates for proper sampling
-    // Preserve more precision by scaling down less aggressively
-    int scaledRadius = searchRadius / 4;
-    int scaledX = x / 4;
-    int scaledZ = z / 4;
-
-    printf("Scaled coordinates: (%d, %d) with radius %d\n", scaledX, scaledZ, scaledRadius);
-
     // Get the biome at the center position
-    int centerBiome = getBiomeAt(g, 4, scaledX, 0, scaledZ);
-    printf("Center biome: %d (%s)\n", centerBiome, getBiomeName(centerBiome));
+    int centerBiome = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
 
     // Check if center is ocean - if so, not an island
     for (int i = 0; i < oceanBiomesCount; i++) {
         if (centerBiome == oceanBiomes[i]) {
-            printf("Center is ocean, not an island\n");
             return false;
         }
     }
 
-    // Define the search area with less aggressive scaling
-    int x0 = scaledX - scaledRadius;
-    int z0 = scaledZ - scaledRadius;
-    int width = scaledRadius * 2 + 1;
-    int height = scaledRadius * 2 + 1;
-
-    printf("Search area: x0=%d, z0=%d, width=%d, height=%d\n", x0, z0, width, height);
+    // Define the search area
+    int x0 = x - searchRadius;
+    int z0 = z - searchRadius;
+    int width = searchRadius * 2 / 4 + 1;
+    int height = searchRadius * 2 / 4 + 1;
 
     // Create a grid to represent the area
+    // 0 = unexplored, 1 = land, 2 = water
     char *grid = calloc(width * height, sizeof(char));
     if (!grid) {
         perror("calloc");
@@ -217,30 +203,37 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     }
 
     // Fill the grid with biome information
-    int oceanCount = 0;
-    int landCount = 0;
-
+    int step = 4;
     for (int i = 0; i < width; i++) {
         for (int j = 0; j < height; j++) {
-            int worldX = x0 + i;
-            int worldZ = z0 + j;
-            int biome = getBiomeAt(g, 4, worldX, 0, worldZ);
+            int worldX = x0 + i * step;
+            int worldZ = z0 + j * step;
+
+            int biome = getBiomeAt(g, 4, worldX >> 2, 0, worldZ >> 2);
 
             // Check if this is an ocean biome
             bool isOcean = false;
             for (int k = 0; k < oceanBiomesCount; k++) {
                 if (biome == oceanBiomes[k]) {
                     isOcean = true;
-                    oceanCount++;
                     break;
                 }
             }
-            if (!isOcean) landCount++;
+
             grid[j * width + i] = isOcean ? 2 : 1; // 2 = water, 1 = land
         }
     }
 
-    printf("Found %d ocean blocks and %d land blocks\n", oceanCount, landCount);
+    // Mark the boundary if it contains land
+    for (int i = 0; i < width; i++) {
+        if (grid[i] == 1) grid[i] = 3; // Top boundary
+        if (grid[(height-1) * width + i] == 1) grid[(height-1) * width + i] = 3; // Bottom boundary
+    }
+
+    for (int j = 0; j < height; j++) {
+        if (grid[j * width] == 1) grid[j * width] = 3; // Left boundary
+        if (grid[j * width + width - 1] == 1) grid[j * width + width - 1] = 3; // Right boundary
+    }
 
     // Find the center of the grid
     int centerI = width / 2;
@@ -249,10 +242,10 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     // If the center is not land, it's not an island
     if (grid[centerJ * width + centerI] != 1) {
         free(grid);
-        printf("Center is not land, not an island\n");
         return false;
     }
 
+    // Flood fill from center to find connected land
     // Stack for flood fill
     typedef struct { int x; int y; } Point;
     Point *stack = malloc(width * height * sizeof(Point));
@@ -269,7 +262,7 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     // Mark center as visited (4)
     grid[centerJ * width + centerI] = 4;
 
-    // Perform flood fill to find connected land mass
+    // Perform flood fill
     while (stackSize > 0) {
         Point p = stack[--stackSize];
 
@@ -290,6 +283,12 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
                     stack[stackSize].y = ny;
                     stackSize++;
                 }
+                // If we touch the boundary, it's not an island
+                else if (grid[ny * width + nx] == 3) {
+                    free(stack);
+                    free(grid);
+                    return false;
+                }
             }
         }
     }
@@ -304,34 +303,37 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
         }
     }
 
-    printf("Connected land area size: %d\n", landArea);
-
     free(stack);
     free(grid);
 
     // Return true only if land area is significant enough (minimum 5 cells)
-    // and we have enough ocean blocks around (at least 25% of the area)
-    bool isIslandResult = landArea >= 5 && oceanCount >= (width * height) / 4;
-    printf("Is island: %s\n", isIslandResult ? "true" : "false");
-    return isIslandResult;
+    return landArea >= 5;
 }
 
 // Function to check if a position has a custom biome
 int getCustomBiomeAt(Generator *g, int x, int z, int searchRadius) {
-    // Add debug logging
-    printf("Checking custom biome at coordinates (%d, %d) with radius %d\n", x, z, searchRadius);
-
     // Check for Island biome (187)
     if (isIsland(g, x, z, searchRadius)) {
-        printf("Island biome detected at (%d, %d)\n", x, z);
         return 187; // Island biome ID
     }
 
     // No custom biome detected
-    printf("No custom biome detected at (%d, %d)\n", x, z);
     return -1;
 }
 
+// Wrapper for getBiomeAt that includes custom biome detection
+int getExtendedBiomeAt(Generator *g, int scale, int x, int y, int z, int searchRadius) {
+    // First check for custom biomes
+    int customBiome = getCustomBiomeAt(g, x * scale, z * scale, searchRadius);
+    if (customBiome >= 0) {
+        return customBiome;
+    }
+
+    // Fall back to standard biome detection
+    return getBiomeAt(g, scale, x, y, z);
+}
+
+// -----------------------------------------------------------------------------
 // Approx. function to measure the "patch size" of a given biome around (x,z).
 int getBiomePatchSize(Generator *g, int x, int z, int biome_id)
 {
@@ -832,7 +834,7 @@ int checkBiomeProximity(Generator *g, int structX, int structZ, int *biomesToChe
     int minDistance = INT_MAX;
     int closestBiomeId = -1;
 
-    for(int i = 0; i < blockCount; i++) {
+    for (int i = 0; i < blockCount; i++) {
         int dx = structX - biomeBlocks[i].x;
         int dz = structZ - biomeBlocks[i].z;
         int distance = (int)sqrt(dx*dx + dz*dz);
@@ -866,11 +868,6 @@ volatile uint64_t currentSeed   = 0; // threads will increment this
 // Main seed scanning logic (structures + biome checks)
 int scanSeed(uint64_t seed)
 {
-    // Add debug logging for the seed being checked
-    printf("=== Parameter-Based Scanning ===\n");
-    printf("Seeds scanned: %" PRIu64 "\n", seed);
-    printf("Seed: %" PRIu64 "\n", seed);
-
     bool hasAnyRequirements = false;
     bool allRequirementsMet = true;
 
@@ -883,20 +880,6 @@ int scanSeed(uint64_t seed)
     Pos spawn = {0,0};
     if (useSpawn) {
         spawn = getSpawn(&g);
-
-        // Add debug logging for spawn location and biome
-        int spawnBiome = getExtendedBiomeAt(&g, 4, spawn.x >> 2, 0, spawn.z >> 2, searchRadius);
-        int customBiome = getCustomBiomeAt(&g, spawn.x, spawn.z, searchRadius);
-
-        printf("Structures Spawn Point:\n");
-        if (customBiome == 187) {
-            printf("Spawn Point at (%d, %d) with height at %d in Island Biome with -1 size\n", 
-                   spawn.x, spawn.z, getHeight(&g, spawn.x, spawn.z));
-        } else {
-            printf("Spawn Point at (%d, %d) with height at %d in %s\n", 
-                   spawn.x, spawn.z, getHeight(&g, spawn.x, spawn.z), 
-                   getBiomeName(spawnBiome));
-        }
     }
     int x0 = (useSpawn ? (spawn.x - searchRadius) : (customX - searchRadius));
     int z0 = (useSpawn ? (spawn.z - searchRadius) : (customZ - searchRadius));
@@ -1609,7 +1592,6 @@ void parseParameterLine(char *line)
             sscanf(biomePtr, "biome: %d", &biome);
             sscanf(minSizePtr, "min size: %d", &minSz);
             sscanf(maxSizePtr, "max size: %d", &maxSz);
-        }<removed>
         } else {
             // Defaults
             biome = -1;
@@ -1946,30 +1928,4 @@ int main(int argc, char *argv[])
     free(clusterReq.structureTypes);
 
     return 0;
-}
-// Add back the getExtendedBiomeAt function with proper coordinate handling
-// Wrapper for getBiomeAt that includes custom biome detection
-int getExtendedBiomeAt(Generator *g, int scale, int x, int y, int z, int searchRadius) {
-    // Calculate actual world coordinates
-    int worldX = x * scale;
-    int worldZ = z * scale;
-
-    // First check for custom biomes
-    int customBiome = getCustomBiomeAt(g, worldX, worldZ, searchRadius);
-    if (customBiome >= 0) {
-        return customBiome;
-    }
-
-    // Fall back to standard biome detection
-    return getBiomeAt(g, scale, x, y, z);
-}
-
-// Function to get height at a position (previously missing)
-int getHeight(Generator *g, int x, int z) {
-    int h;
-    if (!estimateTerrainHeight(g, x, z, &h)) {
-        // If estimation fails, return a default height
-        return 64;
-    }
-    return h;
 }
