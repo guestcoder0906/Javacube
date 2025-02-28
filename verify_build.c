@@ -170,6 +170,7 @@ const char* getStructureName(int id)
         case 20: return "Spawn Point";
         default: return "Unknown Structure";
     }
+}
 
 // Helper function to check if a biome ID is present in an array
 bool containsBiome(int *biomeArray, int biomeCount, int biomeId) {
@@ -181,8 +182,6 @@ bool containsBiome(int *biomeArray, int biomeCount, int biomeId) {
         }
     }
     return false;
-}
-
 }
 
 // Function to detect if a land area is an island (surrounded by ocean)
