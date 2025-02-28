@@ -172,18 +172,6 @@ const char* getStructureName(int id)
     }
 }
 
-// Helper function to check if a biome ID is present in an array
-bool containsBiome(int *biomeArray, int biomeCount, int biomeId) {
-    if (!biomeArray || biomeCount <= 0) return false;
-    
-    for (int i = 0; i < biomeCount; i++) {
-        if (biomeArray[i] == biomeId) {
-            return true;
-        }
-    }
-    return false;
-}
-
 // Function to detect if a land area is an island (surrounded by ocean)
 bool isIsland(Generator *g, int x, int z, int searchRadius) {
     // Define ocean biome IDs
@@ -199,9 +187,6 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
             return false;
         }
     }
-
-    // Make sure the search radius is sufficient
-    if (searchRadius < 32) searchRadius = 32;
 
     // Define the search area
     int x0 = x - searchRadius;
@@ -338,13 +323,11 @@ int getCustomBiomeAt(Generator *g, int x, int z, int searchRadius) {
 
 // Wrapper for getBiomeAt that includes custom biome detection
 int getExtendedBiomeAt(Generator *g, int scale, int x, int y, int z, int searchRadius) {
-    // First check for custom biomes
-    int customBiome = getCustomBiomeAt(g, x * scale, z * scale, searchRadius);
+    // Use raw block coordinates for custom biome detection
+    int customBiome = getCustomBiomeAt(g, x, z, searchRadius);
     if (customBiome >= 0) {
         return customBiome;
     }
-
-    // Fall back to standard biome detection
     return getBiomeAt(g, scale, x, y, z);
 }
 
@@ -801,18 +784,6 @@ int checkBiomeProximity(Generator *g, int structX, int structZ, int *biomesToChe
         return 1; // Skip check if disabled
     }
 
-    // Special handling for custom island biome (187)
-    for (int b = 0; b < biomeCount; b++) {
-        if (biomesToCheck[b] == 187) {
-            // Check if the structure location itself is an island
-            if (isIsland(g, structX, structZ, searchRadius / 4)) {
-                if (outDistance) *outDistance = 0; // Zero distance (at the same location)
-                if (outBiomeId) *outBiomeId = 187;
-                return 1; // Found an island at the structure location
-            }
-        }
-    }
-
     // Search area bounds
     int searchRadius = maxDistance + 8; // Add small margin
     int x0 = structX - searchRadius;
@@ -831,11 +802,8 @@ int checkBiomeProximity(Generator *g, int structX, int structZ, int *biomesToChe
         for (int x = x0; x <= x1; x += 4) {
             int biome = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
 
-            // Check for standard biomes
+            // Check if this is a biome we're looking for
             for (int b = 0; b < biomeCount; b++) {
-                // Skip island biome check here, we handled it separately above
-                if (biomesToCheck[b] == 187) continue;
-                
                 if (biome == biomesToCheck[b]) {
                     // Add to our collection
                     if (blockCount >= capacity) {
@@ -900,7 +868,6 @@ int scanSeed(uint64_t seed)
 {
     bool hasAnyRequirements = false;
     bool allRequirementsMet = true;
-    bool islandBiomeRequired = false;
 
     // Overworld generator
     Generator g;
@@ -911,26 +878,16 @@ int scanSeed(uint64_t seed)
     Pos spawn = {0,0};
     if (useSpawn) {
         spawn = getSpawn(&g);
+        // If the spawn coordinates exceed the search radius, use custom coordinates instead.
+        if (abs(spawn.x) > searchRadius || abs(spawn.z) > searchRadius) {
+            spawn.x = customX;
+            spawn.z = customZ;
+        }
     }
     int x0 = (useSpawn ? (spawn.x - searchRadius) : (customX - searchRadius));
     int z0 = (useSpawn ? (spawn.z - searchRadius) : (customZ - searchRadius));
     int x1 = x0 + (searchRadius * 2);
     int z1 = z0 + (searchRadius * 2);
-
-    // Check if any requirement involves island biome
-    for (int i = 0; i < NUM_STRUCTURE_REQUIREMENTS; i++) {
-        if (structureRequirements[i].requiredBiome == 187) {
-            islandBiomeRequired = true;
-            break;
-        }
-        for (int j = 0; j < structureRequirements[i].proximityBiomeCount; j++) {
-            if (structureRequirements[i].proximityBiomes[j] == 187) {
-                islandBiomeRequired = true;
-                break;
-            }
-        }
-        if (islandBiomeRequired) break;
-    }
 
     // Nether & End
     Generator ng, eg;
@@ -1119,28 +1076,20 @@ int scanSeed(uint64_t seed)
 
             // Handle spawn point like other structures
             if (req.structureType == STRUCTURE_TYPE_SPAWN) {
-                Pos spawnPos = getSpawn(&g);
-
-                // Get the surface height for spawn
-                float heightArr[256];
-                int w = 16, h = 16;
-                Range r_range = {4, spawnPos.x >> 2, spawnPos.z >> 2, w, h, 1, 1};
-                mapApproxHeight(heightArr, NULL, &g, &sn, r_range.x, r_range.z, w, h);
-                int lx = spawnPos.x & 15;
-                int lz = spawnPos.z & 15;
-                int height = (int)heightArr[lz*w + lx];
-
-                // Get biome at surface height
-                int biome_id = getBiomeAt(&g, 4, spawnPos.x >> 2, height >> 2, spawnPos.z >> 2);
-
-                // Special check for Island biome (187)
-                if (req.requiredBiome == 187) {
-                    // Check if the spawn location is an island
-                    if (isIsland(&g, spawnPos.x, spawnPos.z, searchRadius / 2)) {
-                        // Explicitly set biome to Island
-                        biome_id = 187;
-                    }
+                // Use the effective spawn computed earlier.
+                int height;
+                {
+                    float heightArr[256];
+                    int w = 16, h = 16;
+                    Range r_range = {4, spawn.x >> 2, spawn.z >> 2, w, h, 1, 1};
+                    mapApproxHeight(heightArr, NULL, &g, &sn, r_range.x, r_range.z, w, h);
+                    int lx = spawn.x & 15;
+                    int lz = spawn.z & 15;
+                    height = (int)heightArr[lz * w + lx];
                 }
+
+                // Get biome at surface height using the effective spawn coordinates.
+                int biome_id = getExtendedBiomeAt(&g, 4, spawn.x, height, spawn.z, searchRadius);
 
                 // Check height constraints
                 if ((req.minHeight != -9999 && height < req.minHeight) ||
@@ -1157,43 +1106,28 @@ int scanSeed(uint64_t seed)
                 int proximity_distance = -1;
                 int closest_biome_id = -1;
                 if (req.proximityBiomeCount > 0 && req.biomeProximity > 0) {
-                    // Special handling for island biome detection
-                    if (containsBiome(req.proximityBiomes, req.proximityBiomeCount, 187)) {
-                        if (isIsland(&g, spawnPos.x, spawnPos.z, searchRadius / 2)) {
-                            proximity_distance = 0;
-                            closest_biome_id = 187;
-                        } else {
-                            // Continue normal proximity check for other biomes
-                            if (!checkBiomeProximity(&g, spawnPos.x, spawnPos.z,
-                                                req.proximityBiomes, req.proximityBiomeCount,
-                                                req.biomeProximity, &proximity_distance, &closest_biome_id)) {
-                                continue;
-                            }
-                        }
-                    } else {
-                        // Regular proximity check for non-island biomes
-                        if (!checkBiomeProximity(&g, spawnPos.x, spawnPos.z,
-                                            req.proximityBiomes, req.proximityBiomeCount,
-                                            req.biomeProximity, &proximity_distance, &closest_biome_id)) {
-                            continue;
-                        }
+                    if (!checkBiomeProximity(&g, spawn.x, spawn.z,
+                                             req.proximityBiomes, req.proximityBiomeCount,
+                                             req.biomeProximity, &proximity_distance, &closest_biome_id)) {
+                        continue;
                     }
                 }
 
-                // Get biome patch size if needed (don't try to measure island size)
+                // Get biome patch size if needed
                 int biome_size = -1;
-                if (biome_id != 187 && (req.minBiomeSize != -1 || req.maxBiomeSize != -1)) {
-                    biome_size = getBiomePatchSize(&g, spawnPos.x, spawnPos.z, closest_biome_id != -1 ? closest_biome_id : biome_id);
+                if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
+                    biome_size = getBiomePatchSize(&g, spawn.x, spawn.z,
+                                     (closest_biome_id != -1 ? closest_biome_id : biome_id));
                     if ((req.minBiomeSize != -1 && biome_size < req.minBiomeSize) ||
                         (req.maxBiomeSize != -1 && biome_size > req.maxBiomeSize)) {
                         continue;
                     }
                 }
 
-                // Add to found positions
-                foundPositions[foundPosCount].x = spawnPos.x;
+                // Add to found positions using the effective spawn coordinates.
+                foundPositions[foundPosCount].x = spawn.x;
                 foundPositions[foundPosCount].y = height;
-                foundPositions[foundPosCount].z = spawnPos.z;
+                foundPositions[foundPosCount].z = spawn.z;
                 foundPositions[foundPosCount].biome_id = biome_id;
                 foundPositions[foundPosCount].biome_size = biome_size;
                 foundPositions[foundPosCount].proximity_distance = proximity_distance;
@@ -1255,11 +1189,11 @@ int scanSeed(uint64_t seed)
                             // For custom biomes like Island (187)
                             if (req.requiredBiome == 187) {
                                 // Check if it's an island
-                                int customBiome = getCustomBiomeAt(curr_gen, pos.x, pos.z, searchRadius / 4);
+                                int customBiome = getCustomBiomeAt(curr_gen, pos.x, pos.z, searchRadius);
                                 if (customBiome != 187) {
                                     continue; // Skip if not an island
                                 }
-                                biome_id = 187; // Set biome_id to Island
+                                biome_id = 187;
                             }
                             // For standard biomes
                             else if (biome_id != req.requiredBiome) {
@@ -1420,8 +1354,7 @@ int scanSeed(uint64_t seed)
     }
 
     if (allRequirementsMet) {
-        // Output is already printed by the structured scan code above
-        // This seed meets all our requirements
+        printf("Valid seed found: %llu\n", (unsigned long long) seed);
         return true;
     }
     return false;
@@ -1913,6 +1846,7 @@ void parseParameterStream(FILE *fp)
 // MAIN
 int main(int argc, char *argv[])
 {
+    setvbuf(stdout, NULL, _IOLBF, 0);
     printf("=== Parameter-Based Scanning ===\n");
     //printf("Attach a .txt file or specify a path to the config, or paste config lines.\n");
 
@@ -1932,6 +1866,8 @@ int main(int argc, char *argv[])
     // 2) Parse the config
     parseParameterStream(fp);
     if (fp != stdin) fclose(fp);
+    printf("Starting seed: %llu\n", (unsigned long long) starting_seed);
+    printf("Custom X: %d, Custom Z: %d\n", customX, customZ);
 
     // 3) Now we have our global variables from the config, set up the BiomeSearch, etc.
     biomeSearch.required      = g_requiredBiomes;
