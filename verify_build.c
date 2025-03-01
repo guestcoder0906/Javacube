@@ -1089,18 +1089,7 @@ int scanSeed(uint64_t seed)
                 }
 
                 // Get biome at surface height using the effective spawn coordinates.
-                int biome_id = getBiomeAt(&g, 4, spawn.x >> 2, height >> 2, spawn.z >> 2);
-                
-                // Special handling for custom biomes like Island (187)
-                if (req.requiredBiome == 187) {
-                    // Check if spawn is on an island
-                    if (isIsland(&g, spawn.x, spawn.z, searchRadius)) {
-                        biome_id = 187; // Set biome to Island
-                    }
-                } else {
-                    // For other custom biomes, use extended detection
-                    biome_id = getExtendedBiomeAt(&g, 4, spawn.x, height, spawn.z, searchRadius);
-                }
+                int biome_id = getExtendedBiomeAt(&g, 4, spawn.x, height, spawn.z, searchRadius);
 
                 // Check height constraints
                 if ((req.minHeight != -9999 && height < req.minHeight) ||
