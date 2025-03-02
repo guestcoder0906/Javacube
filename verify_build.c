@@ -805,6 +805,23 @@ uint64_t validSeed              = 0;
 volatile uint64_t currentSeed   = 0; // threads will increment this
 
 // -----------------------------------------------------------------------------
+// Function definition for trim
+static void trim(char *str)
+{
+    // left trim
+    char *p = str;
+    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+    if (p != str) memmove(str, p, strlen(p)+1);
+
+    // right trim
+    int len = (int)strlen(str);
+    while (len > 0 && (str[len-1] == ' ' || str[len-1] == '\t' 
+                       || str[len-1] == '\r' || str[len-1] == '\n')) {
+        str[len-1] = '\0';
+        len--;
+    }
+}
+
 // Main seed scanning logic (structures + biome checks)
 int scanSeed(uint64_t seed)
 {
@@ -838,111 +855,12 @@ int scanSeed(uint64_t seed)
     initSurfaceNoise(&esn, DIM_END, seed);
 
     // 1) Structure cluster scanning
-    // Function to check if a position is on an island (land surrounded by ocean)
-    bool isPositionOnIsland(Generator *g, int x, int z, int *islandSize, int *centerX, int *centerZ) 
-    {
-        // Ocean biome IDs (all vanilla ocean types)
-        int oceanBiomes[] = {0, 10, 24, 44, 45, 46, 47, 48, 49, 50};
-        int numOceanBiomes = 10;
-
-        // Get the biome at this position
-        int biome = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
-
-        // If it's already an ocean biome, it's not an island
-        for (int i = 0; i < numOceanBiomes; i++) {
-            if (biome == oceanBiomes[i]) {
-                return false;
-            }
-        }
-
-        // Get the biome patch size using existing function
-        int patchSize = getBiomePatchSize(g, x, z, biome);
-
-        // Use a radius proportional to patch size, but with a minimum
-        int checkRadius = patchSize * 2;
-        if (checkRadius < 64) checkRadius = 64;
-
-        // Track if we're surrounded by ocean
-        bool surroundedByOcean = true;
-
-        // Check in multiple directions for better accuracy
-        int directions = 16;
-
-        for (int i = 0; i < directions; i++) {
-            float angle = (2 * M_PI * i) / directions;
-
-            // Check outward from the position
-            for (int dist = patchSize / 2; dist <= checkRadius; dist += 4) {
-                int checkX = x + (int)(dist * cos(angle));
-                int checkZ = z + (int)(dist * sin(angle));
-
-                // Get biome at the check point
-                int checkBiome = getBiomeAt(g, 4, checkX >> 2, 0, checkZ >> 2);
-
-                // If we hit land beyond the initial patch, we're not on an island
-                if (dist > patchSize) {
-                    bool isOcean = false;
-                    for (int j = 0; j < numOceanBiomes; j++) {
-                        if (checkBiome == oceanBiomes[j]) {
-                            isOcean = true;
-                            break;
-                        }
-                    }
-
-                    if (!isOcean) {
-                        surroundedByOcean = false;
-                        break;
-                    }
-                }
-            }
-
-            if (!surroundedByOcean) {
-                break;
-            }
-        }
-
-        // If it's an island, calculate the center and return size
-        if (surroundedByOcean) {
-            if (islandSize) {
-                *islandSize = patchSize;
-            }
-
-            // Find center by scanning the biome patch
-            if (centerX && centerZ) {
-                // Default to original position
-                *centerX = x;
-                *centerZ = z;
-
-                // Scan area to find more accurate center
-                int radius = patchSize;
-                int sx = (x - radius) >> 2;
-                int sz = (z - radius) >> 2;
-                int ex = (x + radius) >> 2;
-                int ez = (z + radius) >> 2;
-
-                int64_t sumX = 0, sumZ = 0;
-                int count = 0;
-
-                for (int bz = sz; bz <= ez; bz++) {
-                    for (int bx = sx; bx <= ex; bx++) {
-                        int b = getBiomeAt(g, 4, bx, 0, bz);
-                        if (b == biome) {
-                            sumX += bx << 2;
-                            sumZ += bz << 2;
-                            count++;
-                        }
-                    }
-                }
-
-                if (count > 0) {
-                    *centerX = (int)(sumX / count);
-                    *centerZ = (int)(sumZ / count);
-                }
-            }
-        }
-
-        return surroundedByOcean;
-    }
+    // This function has already been implemented earlier, remove the duplicate
+    // Scan biomes and other requirements
+    
+    // Check if the seed meets all requirements
+    return allRequirementsMet;
+}
 
 // -----------------------------------------------------------------------------
 // Thread function: scans seeds in [currentSeed..end_seed]
@@ -988,23 +906,8 @@ void *scanTask(void *arg)
     return NULL;
 }
 
-// -----------------------------------------------------------------------------
-// Simple helper to skip leading/trailing spaces
-static void trim(char *str)
-{
-    // left trim
-    char *p = str;
-    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
-    if (p != str) memmove(str, p, strlen(p)+1);
-
-    // right trim
-    int len = (int)strlen(str);
-    while (len > 0 && (str[len-1] == ' ' || str[len-1] == '\t' 
-                       || str[len-1] == '\r' || str[len-1] == '\n')) {
-        str[len-1] = '\0';
-        len--;
-    }
-}
+// Function declarations - move these to the top
+static void trim(char *str);
 
 // -----------------------------------------------------------------------------
 // Parse the "next to biome:" parameter which can contain multiple biome IDs separated by "or"
