@@ -172,18 +172,9 @@ const char* getStructureName(int id)
     }
 }
 
-// Function to detect if a land area is an island (surrounded by ocean)
 bool isIsland(Generator *g, int x, int z, int searchRadius) {
-    int oceanBiomes[] = {0, 10, 24, 44, 45, 46, 47, 48, 49, 50};
+    int oceanBiomes[] = {0, 10, 24, 44, 45, 46, 47, 48, 49, 50}; // Ocean biome IDs
     int oceanBiomesCount = sizeof(oceanBiomes) / sizeof(oceanBiomes[0]);
-
-    int centerBiome = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
-
-    for (int i = 0; i < oceanBiomesCount; i++) {
-        if (centerBiome == oceanBiomes[i]) {
-            return false;
-        }
-    }
 
     int x0 = x - searchRadius;
     int z0 = z - searchRadius;
@@ -197,12 +188,14 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     }
 
     int step = 4;
+    bool foundLand = false;
+
     for (int i = 0; i < width; i++) {
         for (int j = 0; j < height; j++) {
             int worldX = x0 + i * step;
             int worldZ = z0 + j * step;
-
             int biome = getBiomeAt(g, 4, worldX >> 2, 0, worldZ >> 2);
+
             bool isOcean = false;
             for (int k = 0; k < oceanBiomesCount; k++) {
                 if (biome == oceanBiomes[k]) {
@@ -212,27 +205,28 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
             }
 
             grid[j * width + i] = isOcean ? 2 : 1;
+            if (!isOcean) {
+                foundLand = true;
+            }
         }
     }
 
+    if (!foundLand) {
+        free(grid);
+        return false;
+    }
+
+    // Mark edges to check if land is connected to the world outside
     for (int i = 0; i < width; i++) {
         if (grid[i] == 1) grid[i] = 3;
         if (grid[(height-1) * width + i] == 1) grid[(height-1) * width + i] = 3;
     }
-
     for (int j = 0; j < height; j++) {
         if (grid[j * width] == 1) grid[j * width] = 3;
         if (grid[j * width + width - 1] == 1) grid[j * width + width - 1] = 3;
     }
 
-    int centerI = width / 2;
-    int centerJ = height / 2;
-
-    if (grid[centerJ * width + centerI] != 1) {
-        free(grid);
-        return false;
-    }
-
+    // Find any land area and check if it is surrounded
     typedef struct { int x; int y; } Point;
     Point *stack = malloc(width * height * sizeof(Point));
     if (!stack) {
@@ -241,10 +235,19 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
         return false;
     }
 
-    int stackSize = 1;
-    stack[0].x = centerI;
-    stack[0].y = centerJ;
-    grid[centerJ * width + centerI] = 4;
+    int stackSize = 0;
+    for (int j = 0; j < height; j++) {
+        for (int i = 0; i < width; i++) {
+            if (grid[j * width + i] == 1) {
+                stack[stackSize++] = (Point){i, j};
+                grid[j * width + i] = 4;
+                break;
+            }
+        }
+        if (stackSize > 0) break;
+    }
+
+    bool isEnclosed = true;
 
     while (stackSize > 0) {
         Point p = stack[--stackSize];
@@ -259,23 +262,10 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
             if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
                 if (grid[ny * width + nx] == 1) {
                     grid[ny * width + nx] = 4;
-                    stack[stackSize].x = nx;
-                    stack[stackSize].y = ny;
-                    stackSize++;
+                    stack[stackSize++] = (Point){nx, ny};
                 } else if (grid[ny * width + nx] == 3) {
-                    free(stack);
-                    free(grid);
-                    return false;
+                    isEnclosed = false;
                 }
-            }
-        }
-    }
-
-    int landArea = 0;
-    for (int j = 0; j < height; j++) {
-        for (int i = 0; i < width; i++) {
-            if (grid[j * width + i] == 4) {
-                landArea++;
             }
         }
     }
@@ -283,12 +273,7 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     free(stack);
     free(grid);
 
-    if (landArea >= 5) {
-        printf("Island detected at (%d, %d) with area: %d\n", x, z, landArea);
-        return true;
-    }
-
-    return false;
+    return isEnclosed;
 }
 
 // Function to check if a position has a custom biome
@@ -844,8 +829,8 @@ int scanSeed(uint64_t seed)
         spawn = getSpawn(&g);
         // Instead of returning false when out of range, we log and continue.
         if (spawn.x * spawn.x + spawn.z * spawn.z > searchRadius * searchRadius) {
-            printf("Spawn (%d, %d) for seed %llu is out of search range, but continuing island detection.\n",
-                   spawn.x, spawn.z, (unsigned long long)seed);
+            //printf("Spawn (%d, %d) for seed %llu is out of search range, but continuing island detection.\n",
+                   //spawn.x, spawn.z, (unsigned long long)seed);
         }
     }
 
@@ -1172,8 +1157,8 @@ int scanSeed(uint64_t seed)
                                 }
 
                                 // Log detected island before proceeding
-                                printf("Seed %llu: Island detected at (%d, %d)\n",
-                                       (unsigned long long)seed, pos.x, pos.z);
+                                //printf("Seed %llu: Island detected at (%d, %d)\n",
+                                       //(unsigned long long)seed, pos.x, pos.z);
                             }
                         }
 
@@ -1302,12 +1287,8 @@ void *scanTask(void *arg) {
 
         pthread_mutex_unlock(&seedMutex);
 
-        if (seed % 1000 == 0) {
-            printf("Seeds scanned: %llu\n", (unsigned long long)seed);
-        }
-
         const int result = scanSeed(seed);
-        printf("Seed %llu: %s\n", (unsigned long long)seed, result ? "valid" : "invalid");
+        //printf("Seed %llu: %s\n", (unsigned long long)seed, result ? "valid" : "invalid");
         if (result) {
             pthread_mutex_lock(&seedMutex);
             validSeed = seed;
