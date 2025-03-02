@@ -189,6 +189,7 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
 
     int step = 4;
     bool foundLand = false;
+    int landCount = 0;
 
     for (int i = 0; i < width; i++) {
         for (int j = 0; j < height; j++) {
@@ -207,11 +208,12 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
             grid[j * width + i] = isOcean ? 2 : 1;
             if (!isOcean) {
                 foundLand = true;
+                landCount++;
             }
         }
     }
 
-    if (!foundLand) {
+    if (!foundLand || landCount == 0) {
         free(grid);
         return false;
     }
@@ -248,9 +250,11 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     }
 
     bool isEnclosed = true;
+    int islandSize = 0;
 
     while (stackSize > 0) {
         Point p = stack[--stackSize];
+        islandSize++;
 
         int dx[] = {0, 1, 0, -1};
         int dy[] = {-1, 0, 1, 0};
@@ -273,7 +277,8 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     free(stack);
     free(grid);
 
-    return isEnclosed;
+    // Don't count as an island if size is 0 or it's not properly enclosed by ocean
+    return isEnclosed && islandSize > 0;
 }
 
 // Function to check if a position has a custom biome
