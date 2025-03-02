@@ -1110,17 +1110,14 @@ int scanSeed(uint64_t seed)
                             int lz = pos.z & 15;
                             int surface_y = (int)heightArr[lz*w + lx];
                             biome_id = getExtendedBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2, searchRadius / 4);
-                        }
 
-                        if (req.requiredBiome != -1) {
+                            // Check if structure requires an island biome
                             if (req.requiredBiome == 187) {
-                                int customBiome = getCustomBiomeAt(curr_gen, pos.x, pos.z, searchRadius / 4);
-                                if (customBiome != 187) {
-                                    continue;
+                                if (!isIsland(curr_gen, pos.x, pos.z, searchRadius / 4)) {
+                                    continue; // Skip non-island locations
                                 }
-                                biome_id = 187;
-                            }
-                            else if (biome_id != req.requiredBiome) {
+                                biome_id = 187; // Set biome ID to island
+                            } else if (req.requiredBiome != -1 && biome_id != req.requiredBiome) {
                                 continue;
                             }
 
@@ -1148,18 +1145,6 @@ int scanSeed(uint64_t seed)
                             int lx = pos.x & 15;
                             int lz = pos.z & 15;
                             height = (int)heightArr[lz*w + lx];
-
-                            if (biome_id == 187) {
-                                if (!isIsland(curr_gen, pos.x, pos.z, searchRadius / 4)) {
-                                    printf("Seed %llu: NOT an island at (%d, %d), continuing search.\n",
-                                           (unsigned long long)seed, pos.x, pos.z);
-                                    continue; // Skip non-island locations
-                                }
-
-                                // Log detected island before proceeding
-                                //printf("Seed %llu: Island detected at (%d, %d)\n",
-                                       //(unsigned long long)seed, pos.x, pos.z);
-                            }
                         }
 
                         if ((req.minHeight != -9999 && height < req.minHeight) ||
