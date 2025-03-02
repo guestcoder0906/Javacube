@@ -194,6 +194,9 @@ bool isOceanBiome(int id)
 // if every cell at the group’s boundary has an ocean neighbor.
 bool isIslandPatch(Generator *g, StructurePos *group, int groupCount, int step, int x0, int z0, int x1, int z1)
 {
+    if (!g || !group || groupCount <= 0)
+        return false;
+        
     for (int i = 0; i < groupCount; i++) {
          int cx = group[i].x;
          int cz = group[i].z;
@@ -225,24 +228,36 @@ bool isIslandPatch(Generator *g, StructurePos *group, int groupCount, int step, 
 // Returns 0 if the patch is not a valid island (i.e. not fully surrounded by ocean).
 int getIslandPatchInfo(Generator *g, int x, int z, int x0, int z0, int x1, int z1, double *centerX, double *centerZ)
 {
+    if (!g || !centerX || !centerZ)
+        return 0;
+        
     int stepSize = 4;
     typedef struct { int x, z; } Pos2;
-    Pos2 *stack = malloc(10000 * sizeof(Pos2));
+    
+    // Use a larger initial allocation to avoid overflows
+    const int maxCells = 50000;
+    Pos2 *stack = malloc(maxCells * sizeof(Pos2));
     if (!stack) { perror("malloc"); exit(1); }
+    
     int stackSize = 0;
-    Pos2 *group = malloc(10000 * sizeof(Pos2));
+    Pos2 *group = malloc(maxCells * sizeof(Pos2));
+    if (!group) { perror("malloc"); free(stack); exit(1); }
+    
     int groupCount = 0;
     stack[stackSize++] = (Pos2){x, z};
-    while (stackSize > 0) {
+    
+    while (stackSize > 0 && stackSize < maxCells && groupCount < maxCells) {
         Pos2 cur = stack[--stackSize];
         bool inGroup = false;
         for (int i = 0; i < groupCount; i++) {
             if (group[i].x == cur.x && group[i].z == cur.z) { inGroup = true; break; }
         }
         if (inGroup) continue;
+        
         group[groupCount++] = cur;
         int dx[4] = {stepSize, -stepSize, 0, 0};
         int dz[4] = {0, 0, stepSize, -stepSize};
+        
         for (int d = 0; d < 4; d++) {
             int nx = cur.x + dx[d];
             int nz = cur.z + dz[d];
@@ -253,15 +268,17 @@ int getIslandPatchInfo(Generator *g, int x, int z, int x0, int z0, int x1, int z
                 for (int k = 0; k < groupCount; k++) {
                     if (group[k].x == nx && group[k].z == nz) { already = true; break; }
                 }
-                if (!already) {
+                if (!already && stackSize < maxCells) {
                     stack[stackSize++] = (Pos2){nx, nz};
                 }
             }
         }
     }
+    
     free(stack);
     bool isIsland = true;
     double sumX = 0, sumZ = 0;
+    
     for (int i = 0; i < groupCount; i++) {
         int cx = group[i].x;
         int cz = group[i].z;
@@ -269,13 +286,19 @@ int getIslandPatchInfo(Generator *g, int x, int z, int x0, int z0, int x1, int z
         sumZ += cz;
         int dx[4] = {stepSize, -stepSize, 0, 0};
         int dz[4] = {0, 0, stepSize, -stepSize};
+        
         for (int d = 0; d < 4; d++) {
             int nx = cx + dx[d];
             int nz = cz + dz[d];
+            
+            // Skip if outside search area
+            if (nx < x0 || nx > x1 || nz < z0 || nz > z1) continue;
+            
             bool inGroup = false;
             for (int j = 0; j < groupCount; j++) {
                 if (group[j].x == nx && group[j].z == nz) { inGroup = true; break; }
             }
+            
             if (!inGroup) {
                 int nb = getBiomeAt(g, 4, nx >> 2, 0, nz >> 2);
                 if (!isOceanBiome(nb)) {
@@ -286,10 +309,12 @@ int getIslandPatchInfo(Generator *g, int x, int z, int x0, int z0, int x1, int z
         }
         if (!isIsland) break;
     }
-    if (!isIsland) {
+    
+    if (!isIsland || groupCount == 0) {
         free(group);
         return 0;
     }
+    
     *centerX = sumX / groupCount;
     *centerZ = sumZ / groupCount;
     int patchSize = groupCount;
