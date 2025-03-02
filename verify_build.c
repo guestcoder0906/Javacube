@@ -1174,8 +1174,6 @@ int scanSeed(uint64_t seed)
                                 // Log detected island before proceeding
                                 printf("Seed %llu: Island detected at (%d, %d)\n",
                                        (unsigned long long)seed, pos.x, pos.z);
-                            
-                                
                             }
                         }
 
@@ -1210,10 +1208,11 @@ int scanSeed(uint64_t seed)
 
             if (foundCount < req.minCount) {
                 allRequirementsMet = false;
+                break; // No need to check further requirements if one fails
             }
         }
 
-        if (allRequirementsMet) {
+        if (allRequirementsMet && foundPosCount > 0) {
             bool printedHeader = false;
             for (int i = 0; i < NUM_STRUCTURE_REQUIREMENTS; i++) {
                 StructureRequirement req = structureRequirements[i];
@@ -1236,9 +1235,15 @@ int scanSeed(uint64_t seed)
                     }
                 }
 
+                if (!foundValidStructure) {
+                    allRequirementsMet = false;
+                    break; // Failed to find valid structure for this requirement
+                }
+
                 if (foundValidStructure) {
                     if (!printedHeader) {
                         printedHeader = true;
+                        printf("Valid seed found: %llu\n", (unsigned long long)seed);
                     }
                     printf("Seed: %llu\n", (unsigned long long)seed);
                     printf("Structures %s:\n", getStructureName(req.structureType));
@@ -1268,7 +1273,7 @@ int scanSeed(uint64_t seed)
                     }
                 }
             }
-            return true;
+            return allRequirementsMet;
         }
     }
 
@@ -1278,11 +1283,7 @@ int scanSeed(uint64_t seed)
         return false;
     }
 
-    if (allRequirementsMet) {
-        printf("Valid seed found: %llu\n", (unsigned long long) seed);
-        return true;
-    }
-    return false;
+    return false; // By default, return false unless all requirements are met
 }
 
 // -----------------------------------------------------------------------------
