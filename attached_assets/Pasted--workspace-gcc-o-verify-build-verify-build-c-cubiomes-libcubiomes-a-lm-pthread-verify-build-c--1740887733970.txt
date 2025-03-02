@@ -1,0 +1,44 @@
+~/workspace$ gcc -o verify_build verify_build.c cubiomes/libcubiomes.a -lm -pthread
+verify_build.c: In function ‘checkBiomeProximity’:
+verify_build.c:764:5: error: unknown type name ‘BiomeBlock’
+  764 |     BiomeBlock *biomeBlocks = malloc(capacity * sizeof(BiomeBlock));
+      |     ^~~~~~~~~~
+verify_build.c:764:56: error: ‘BiomeBlock’ undeclared (first use in this function); did you mean ‘biomeBlocks’?
+  764 |     BiomeBlock *biomeBlocks = malloc(capacity * sizeof(BiomeBlock));
+      |                                                        ^~~~~~~~~~
+      |                                                        biomeBlocks
+verify_build.c:764:56: note: each undeclared identifier is reported only once for each function it appears in
+verify_build.c:783:44: error: request for member ‘x’ in something not a structure or union
+  783 |                     biomeBlocks[blockCount].x = x;
+      |                                            ^
+verify_build.c:784:44: error: request for member ‘z’ in something not a structure or union
+  784 |                     biomeBlocks[blockCount].z = z;
+      |                                            ^
+verify_build.c:785:44: error: request for member ‘biomeId’ in something not a structure or union
+  785 |                     biomeBlocks[blockCount].biomeId = biome;
+      |                                            ^
+verify_build.c:804:42: error: request for member ‘x’ in something not a structure or union
+  804 |         int dx = structX - biomeBlocks[i].x;
+      |                                          ^
+verify_build.c:805:42: error: request for member ‘z’ in something not a structure or union
+  805 |         int dz = structZ - biomeBlocks[i].z;
+      |                                          ^
+verify_build.c:810:44: error: request for member ‘biomeId’ in something not a structure or union
+  810 |             closestBiomeId = biomeBlocks[i].biomeId;
+      |                                            ^
+verify_build.c: At top level:
+verify_build.c:835:14: error: unknown type name ‘uint664_t’; did you mean ‘uint64_t’?
+  835 | int scanSeed(uint664_t seed)
+      |              ^~~~~~~~~
+      |              uint64_t
+verify_build.c: In function ‘scanTask’:
+verify_build.c:1384:13: warning: implicit declaration of function ‘scanSeed’ [-Wimplicit-function-declaration]
+ 1384 |         if (scanSeed(seed)) {
+      |             ^~~~~~~~
+verify_build.c: In function ‘parseParameterLine’:
+verify_build.c:1609:92: error: ‘ISLAND_BIOME_ID’ undeclared (first use in this function)
+ 1609 | reType < 0 && structureType != STRUCTURE_TYPE_SPAWN && structureType != ISLAND_BIOME_ID) {
+      |                                                                         ^~~~~~~~~~~~~~~
+
+ Environment updated. Reloading shell...
+~/workspace$ 
