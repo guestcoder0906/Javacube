@@ -1298,11 +1298,11 @@ int scanSeed(uint64_t seed)
 
 // -----------------------------------------------------------------------------
 void *scanTask(void *arg) {
-    // Remove the endSeed parameter since we'll scan indefinitely
-    
+    uint64_t *endSeedPtr = (uint64_t*) arg;
+
     while (true) {
         pthread_mutex_lock(&seedMutex);
-        if (foundValidSeed) {
+        if (foundValidSeed || currentSeed > *endSeedPtr) {
             pthread_mutex_unlock(&seedMutex);
             break;
         }
@@ -1690,7 +1690,7 @@ int main(int argc, char *argv[])
 
     pthread_t *threads = malloc(tasksCount * sizeof(pthread_t));
     for (int i = 0; i < tasksCount; i++) {
-        pthread_create(&threads[i], NULL, scanTask, NULL);
+        pthread_create(&threads[i], NULL, scanTask, &end_seed);
     }
 
     for (int i = 0; i < tasksCount; i++) {
@@ -1703,8 +1703,8 @@ int main(int argc, char *argv[])
                (unsigned long long) validSeed, seedsFound);
     }
     else {
-        printf("Finished searching, no valid seeds found starting from %llu.\n",
-               (unsigned long long)starting_seed);
+        printf("Finished searching, no valid seeds found in [%llu..%llu].\n",
+               (unsigned long long)starting_seed, (unsigned long long)end_seed);
     }
 
     for (int i = 0; i < NUM_STRUCTURE_REQUIREMENTS; i++) {
