@@ -1,4 +1,3 @@
-
 // verify_build.c
 #include "cubiomes/finders.h"
 #include <stdio.h>
@@ -139,6 +138,7 @@ const char* getBiomeName(int id)
         case 184: return "Mangrove Swamp";
         case 185: return "Cherry Grove";
         case 186: return "Pale Garden";
+        case 187: return "Island"; // Added Island biome
         default:  return "Unknown";
     }
 }
@@ -208,6 +208,138 @@ int getBiomePatchSize(Generator *g, int x, int z, int biome_id)
     int sizeX = (maxX - minX + 1) * 4;
     int sizeZ = (maxZ - minZ + 1) * 4;
     return (sizeX + sizeZ) / 2;
+}
+
+// Check if a given position is an ocean biome
+int isOceanBiome(int biomeID) {
+    return isOceanic(biomeID);
+}
+
+// Detect if a position is part of an island (land surrounded by ocean)
+int isIslandPosition(Generator *g, int x, int z) {
+    int id = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
+
+    // If the position itself is an ocean, it's not part of an island
+    if (isOceanBiome(id)) {
+        return 0;
+    }
+
+    // Check all 8 surrounding positions to see if it's surrounded by ocean
+    int oceanFound = 0;
+    int offsetX[] = {-1, 0, 1, -1, 1, -1, 0, 1};
+    int offsetZ[] = {-1, -1, -1, 0, 0, 1, 1, 1};
+
+    for (int i = 0; i < 8; i++) {
+        int nx = (x >> 2) + offsetX[i];
+        int nz = (z >> 2) + offsetZ[i];
+        int neighborId = getBiomeAt(g, 4, nx, 0, nz);
+        if (isOceanBiome(neighborId)) {
+            oceanFound++;
+        }
+    }
+
+    // If at least one neighboring position is ocean, it could be part of an island
+    return oceanFound > 0;
+}
+
+// Get the island area with the biome center
+typedef struct {
+    int minX, minZ, maxX, maxZ;
+    int centerX, centerZ;
+    int size;
+} IslandArea;
+
+// Find and map an island starting from a position
+IslandArea findIslandArea(Generator *g, int startX, int startZ, int x0, int z0, int x1, int z1) {
+    // Use flood-fill algorithm to find connected land mass
+    int visited[1024][1024] = {0}; // Adjust size based on search area
+    int queue[262144][2]; // Queue for BFS
+    int queueStart = 0;
+    int queueEnd = 0;
+
+    IslandArea area = {INT_MAX, INT_MAX, INT_MIN, INT_MIN, 0, 0, 0};
+    int sumX = 0, sumZ = 0, count = 0;
+
+    // Normalize coordinates to local grid
+    int gridSizeX = x1 - x0 + 1;
+    int gridSizeZ = z1 - z0 + 1;
+    int localX = (startX >> 2) - x0;
+    int localZ = (startZ >> 2) - z0;
+
+    // Check bounds
+    if (localX < 0 || localX >= gridSizeX || localZ < 0 || localZ >= gridSizeZ) {
+        return area;
+    }
+
+    // Start BFS
+    queue[queueEnd][0] = localX;
+    queue[queueEnd][1] = localZ;
+    queueEnd++;
+    visited[localZ][localX] = 1;
+
+    while (queueStart < queueEnd) {
+        int x = queue[queueStart][0];
+        int z = queue[queueStart][1];
+        queueStart++;
+
+        // Map to global coordinates
+        int globalX = x + x0;
+        int globalZ = z + z0;
+
+        // Get the biome at this position
+        int biomeId = getBiomeAt(g, 4, globalX, 0, globalZ);
+
+        // If it's not an ocean biome, it's part of the island
+        if (!isOceanBiome(biomeId)) {
+            // Update island boundaries
+            if (globalX < area.minX) area.minX = globalX;
+            if (globalX > area.maxX) area.maxX = globalX;
+            if (globalZ < area.minZ) area.minZ = globalZ;
+            if (globalZ > area.maxZ) area.maxZ = globalZ;
+
+            // Update center calculation
+            sumX += globalX;
+            sumZ += globalZ;
+            count++;
+
+            // Check adjacent cells
+            int dx[] = {-1, 0, 1, 0};
+            int dz[] = {0, -1, 0, 1};
+
+            for (int i = 0; i < 4; i++) {
+                int nx = x + dx[i];
+                int nz = z + dz[i];
+
+                // Check if in bounds and not visited
+                if (nx >= 0 && nx < gridSizeX && nz >= 0 && nz < gridSizeZ && !visited[nz][nx]) {
+                    int nGlobalX = nx + x0;
+                    int nGlobalZ = nz + z0;
+                    int nBiomeId = getBiomeAt(g, 4, nGlobalX, 0, nGlobalZ);
+
+                    // Only add to queue if it's not an ocean
+                    if (!isOceanBiome(nBiomeId)) {
+                        queue[queueEnd][0] = nx;
+                        queue[queueEnd][1] = nz;
+                        queueEnd++;
+                        visited[nz][nx] = 1;
+                    }
+                }
+            }
+        }
+    }
+
+    // Calculate center of the island if we found any land
+    if (count > 0) {
+        area.centerX = (sumX / count) * 4;
+        area.centerZ = (sumZ / count) * 4;
+
+        // Calculate approximate size
+        int sizeX = (area.maxX - area.minX + 1) * 4;
+        int sizeZ = (area.maxZ - area.minZ + 1) * 4;
+        area.size = (sizeX + sizeZ) / 2;
+    }
+
+    return area;
 }
 
 // -----------------------------------------------------------------------------
@@ -314,6 +446,12 @@ int numInvalidCombinations = 0;
 // Our array of required structures (dynamically built)
 StructureRequirement *structureRequirements = NULL;
 int NUM_STRUCTURE_REQUIREMENTS = 0;
+
+// Structure to track found islands
+typedef struct {
+    IslandArea area;
+    int found; // Flag to indicate if the island has been reported
+} FoundIsland;
 
 // -----------------------------------------------------------------------------
 // Helper compare function
@@ -598,13 +736,6 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
     return success;
 }
 
-// Structure to track biome blocks
-typedef struct {
-    int x;
-    int z;
-    int biomeId;
-} BiomeBlock;
-
 // -----------------------------------------------------------------------------
 // Check if a structure is close enough to any of the required biomes
 // Returns 1 if a matching biome is found within maxDistance, 0 otherwise
@@ -701,7 +832,7 @@ volatile uint64_t currentSeed   = 0; // threads will increment this
 
 // -----------------------------------------------------------------------------
 // Main seed scanning logic (structures + biome checks)
-int scanSeed(uint64_t seed)
+int scanSeed(uint664_t seed)
 {
     bool hasAnyRequirements = false;
     bool allRequirementsMet = true;
@@ -780,7 +911,7 @@ int scanSeed(uint64_t seed)
                     if (clusterCount == capacity) {
                         capacity *= 2;
                         clusterPositions = realloc(clusterPositions, capacity*sizeof(StructurePos));
-                        if (!clusterPositions) { perror("malloc"); exit(1); }
+                        if (!clusterPositions) { perror("realloc"); exit(1); }
                     }
                     clusterPositions[clusterCount].structureType = stype;
                     clusterPositions[clusterCount].x = pos.x;
@@ -901,10 +1032,14 @@ int scanSeed(uint64_t seed)
 
         FoundPos foundPositions[256];
         int foundPosCount = 0;
+        FoundIsland foundIslands[16]; // Array to store island information
+        int islandCount = 0; // Count of found islands
 
         for (int rIndex = 0; rIndex < NUM_STRUCTURE_REQUIREMENTS; rIndex++) {
             StructureRequirement req = structureRequirements[rIndex];
             int foundCount = 0;
+            memset(foundIslands, 0, sizeof(foundIslands));
+            islandCount = 0;
 
             // Handle spawn point like other structures
             if (req.structureType == STRUCTURE_TYPE_SPAWN) {
@@ -1012,14 +1147,36 @@ int scanSeed(uint64_t seed)
 
                         // Check required biome if specified
                         if (req.requiredBiome != -1) {
-                            if (biome_id != req.requiredBiome)
-                                continue;
-
-                            if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
-                                int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
-                                if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
-                                    (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
+                            if (req.requiredBiome == ISLAND_BIOME_ID) {
+                                // Check if this position is part of an island
+                                if (!isIslandPosition(curr_gen, pos.x, pos.z))
                                     continue;
+
+                                // Find the island area
+                                IslandArea islandArea = findIslandArea(curr_gen, pos.x, pos.z, x0>>2, z0>>2, x1>>2, z1>>2);
+
+                                // Check island size requirements
+                                if ((req.minBiomeSize != -1 && islandArea.size < req.minBiomeSize) ||
+                                    (req.maxBiomeSize != -1 && islandArea.size > req.maxBiomeSize))
+                                    continue;
+
+                                // Store the island information for later reporting
+                                if (islandCount < 16) {
+                                    foundIslands[islandCount].area = islandArea;
+                                    foundIslands[islandCount].found = 1;
+                                    islandCount++;
+                                }
+                            } else {
+                                // Regular biome check
+                                if (biome_id != req.requiredBiome)
+                                    continue;
+
+                                if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
+                                    int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
+                                    if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
+                                        (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
+                                        continue;
+                                }
                             }
                         }
 
@@ -1089,6 +1246,8 @@ int scanSeed(uint64_t seed)
                 StructureRequirement req = structureRequirements[i];
                 bool hasProximityReq = (req.proximityBiomeCount > 0 && req.biomeProximity > 0);
                 bool foundValidStructure = false;
+                memset(foundIslands, 0, sizeof(foundIslands));
+                islandCount = 0;
 
                 // Loop through all found positions first to check if we have any valid ones
                 for (int j = 0; j < foundPosCount; j++) {
@@ -1133,21 +1292,48 @@ int scanSeed(uint64_t seed)
 
                         // Only print if structure is in required biome or if no specific biome was required
                         if (req.requiredBiome == -1 || foundPositions[j].biome_id == req.requiredBiome) {
-                            printf("%s at (%d, %d) with height at %d in %s Biome with %d size",
-                                getStructureName(req.structureType), 
-                                foundPositions[j].x, 
-                                foundPositions[j].z,
-                                foundPositions[j].y, 
-                                getBiomeName(foundPositions[j].biome_id),
-                                foundPositions[j].biome_size);
+                            if (req.requiredBiome == ISLAND_BIOME_ID) {
+                                // Print island information
+                                for (int k = 0; k < islandCount; k++) {
+                                    if (foundIslands[k].found) {
+                                        IslandArea ia = foundIslands[k].area;
+                                        printf("%s at (%d, %d) with height at %d on Island biome with %d size",
+                                            getStructureName(req.structureType),
+                                            foundPositions[j].x,
+                                            foundPositions[j].z,
+                                            foundPositions[j].y,
+                                            ia.size);
+                                        printf(", island center at (%d, %d)", ia.centerX, ia.centerZ);
 
-                            // Print proximity information if applicable
-                            if (foundPositions[j].proximity_distance > 0) {
-                                printf(", %d blocks from nearest %s biome", 
-                                      foundPositions[j].proximity_distance,
-                                      getBiomeName(foundPositions[j].proximity_biome_id));
+                                        // Print proximity information if applicable
+                                        if (foundPositions[j].proximity_distance > 0) {
+                                            printf(", %d blocks from nearest %s biome", 
+                                                  foundPositions[j].proximity_distance,
+                                                  getBiomeName(foundPositions[j].proximity_biome_id));
+                                        }
+                                        printf("\n");
+
+                                        // Mark as reported so we don't print it again
+                                        foundIslands[k].found = 0;
+                                    }
+                                }
+                            } else {
+                                printf("%s at (%d, %d) with height at %d in %s Biome with %d size",
+                                    getStructureName(req.structureType), 
+                                    foundPositions[j].x, 
+                                    foundPositions[j].z,
+                                    foundPositions[j].y, 
+                                    getBiomeName(foundPositions[j].biome_id),
+                                    foundPositions[j].biome_size);
+
+                                // Print proximity information if applicable
+                                if (foundPositions[j].proximity_distance > 0) {
+                                    printf(", %d blocks from nearest %s biome", 
+                                          foundPositions[j].proximity_distance,
+                                          getBiomeName(foundPositions[j].proximity_biome_id));
+                                }
+                                printf("\n");
                             }
-                            printf("\n");
                         }
                     }
                 }
@@ -1420,7 +1606,7 @@ void parseParameterLine(char *line)
                                 structureType == 11);
 
         // Validate structure type
-        if (structureType < 0 && structureType != STRUCTURE_TYPE_SPAWN) {
+        if (structureType < 0 && structureType != STRUCTURE_TYPE_SPAWN && structureType != ISLAND_BIOME_ID) {
             fprintf(stderr, "Warning: Invalid structure type %d\n", structureType);
             return;
         }
@@ -1431,7 +1617,7 @@ void parseParameterLine(char *line)
         if (!structureRequirements) {
             fprintf(stderr, "Failed to allocate memory for structure requirement\n");
             return;
-        }
+                }
 
         // Parse the proximity biomes
         int *proximityBiomes = NULL;
