@@ -1298,11 +1298,11 @@ int scanSeed(uint64_t seed)
 
 // -----------------------------------------------------------------------------
 void *scanTask(void *arg) {
-    uint64_t *endSeedPtr = (uint64_t*) arg;
+   // uint64_t *endSeedPtr = (uint64_t*) arg;
 
     while (true) {
         pthread_mutex_lock(&seedMutex);
-        if (foundValidSeed || currentSeed > *endSeedPtr) {
+        if (foundValidSeed) {
             pthread_mutex_unlock(&seedMutex);
             break;
         }
