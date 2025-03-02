@@ -1,4 +1,3 @@
-
 // verify_build.c
 #include "cubiomes/finders.h"
 #include <stdio.h>
@@ -392,11 +391,11 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
                 int islandBiomeId;
                 double islandCenterX, islandCenterZ;
                 int islandSize;
-                
+
                 // Try to detect an island in the search area
                 bool isIsland = detectIslandBiome(g, (x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, 
                                               &islandBiomeId, &islandCenterX, &islandCenterZ, &islandSize);
-                
+
                 if (isIsland) {
                     // Check size constraints (if any)
                     bool sizeOk = true;
@@ -409,7 +408,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
                             break;
                         }
                     }
-                    
+
                     if (sizeOk) {
                         foundPatchForThisReq = true;
                         if (req->logCenters) {
@@ -745,224 +744,9 @@ pthread_mutex_t seedMutex       = PTHREAD_MUTEX_INITIALIZER;
 uint64_t validSeed              = 0;
 volatile uint64_t currentSeed   = 0; // threads will increment this
 
-// -----------------------------------------------------------------------------
-// Island biome detection function
-// Detects biomes that are fully surrounded by ocean biomes
-// If island is detected, it returns 1 and sets outBiomeId, centerX, centerZ, and islandSize
+// Function prototypes
 int detectIslandBiome(Generator *g, int x, int z, int searchRadius, 
-                     int *outBiomeId, double *centerX, double *centerZ, int *islandSize) 
-{
-    // Define a grid for biome mapping
-    int gridSize = searchRadius * 2 / 4; // Convert to quarter resolution
-    unsigned char *biomeGrid = calloc(gridSize * gridSize, sizeof(unsigned char));
-    if (!biomeGrid) return 0;
-    
-    // Mark ocean cells as 1, land cells as 2
-    int ocean_count = 0;
-    int land_count = 0;
-    int x0 = (x - searchRadius) >> 2;
-    int z0 = (z - searchRadius) >> 2;
-    
-    // Step 1: Map the entire area
-    for (int j = 0; j < gridSize; j++) {
-        for (int i = 0; i < gridSize; i++) {
-            int bx = x0 + i;
-            int bz = z0 + j;
-            int biome_id = getBiomeAt(g, 4, bx, 0, bz);
-            
-            if (isOceanic(biome_id)) {
-                biomeGrid[j * gridSize + i] = 1; // Ocean
-                ocean_count++;
-            } else {
-                biomeGrid[j * gridSize + i] = 2; // Land
-                land_count++;
-            }
-        }
-    }
-    
-    // If there's no land or no ocean, it's not an island
-    if (land_count == 0 || ocean_count == 0) {
-        free(biomeGrid);
-        return 0;
-    }
-    
-    // Step 2: Identify connected land components using flood fill
-    int *parent = malloc(gridSize * gridSize * sizeof(int));
-    if (!parent) {
-        free(biomeGrid);
-        return 0;
-    }
-    
-    // Initialize parent arrays (each cell is its own set initially)
-    for (int i = 0; i < gridSize * gridSize; i++) {
-        parent[i] = i;
-    }
-    
-    // Connect adjacent land cells
-    int dx[] = {0, 1, 0, -1};
-    int dy[] = {-1, 0, 1, 0};
-    
-    for (int j = 0; j < gridSize; j++) {
-        for (int i = 0; i < gridSize; i++) {
-            if (biomeGrid[j * gridSize + i] != 2) continue; // Skip non-land
-            
-            int idx = j * gridSize + i;
-            
-            // Check 4 adjacent cells
-            for (int d = 0; d < 4; d++) {
-                int ni = i + dx[d];
-                int nj = j + dy[d];
-                
-                if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize) {
-                    if (biomeGrid[nj * gridSize + ni] == 2) { // If adjacent cell is land
-                        int nidx = nj * gridSize + ni;
-                        unionSets(parent, idx, nidx);
-                    }
-                }
-            }
-        }
-    }
-    
-    // Step 3: Count cells in each land component and check if completely surrounded by ocean
-    int *compSize = calloc(gridSize * gridSize, sizeof(int));
-    if (!compSize) {
-        free(biomeGrid);
-        free(parent);
-        return 0;
-    }
-    
-    // Count cells in each component
-    for (int j = 0; j < gridSize; j++) {
-        for (int i = 0; i < gridSize; i++) {
-            if (biomeGrid[j * gridSize + i] == 2) { // Land
-                int root = findSet(parent, j * gridSize + i);
-                compSize[root]++;
-            }
-        }
-    }
-    
-    // Check if components touch the edge (not islands)
-    int *touchesEdge = calloc(gridSize * gridSize, sizeof(int));
-    if (!touchesEdge) {
-        free(biomeGrid);
-        free(parent);
-        free(compSize);
-        return 0;
-    }
-    
-    for (int i = 0; i < gridSize; i++) {
-        // Top and bottom edges
-        if (biomeGrid[i] == 2) {
-            int root = findSet(parent, i);
-            touchesEdge[root] = 1;
-        }
-        if (biomeGrid[(gridSize-1) * gridSize + i] == 2) {
-            int root = findSet(parent, (gridSize-1) * gridSize + i);
-            touchesEdge[root] = 1;
-        }
-        
-        // Left and right edges
-        if (biomeGrid[i * gridSize] == 2) {
-            int root = findSet(parent, i * gridSize);
-            touchesEdge[root] = 1;
-        }
-        if (biomeGrid[i * gridSize + (gridSize-1)] == 2) {
-            int root = findSet(parent, i * gridSize + (gridSize-1));
-            touchesEdge[root] = 1;
-        }
-    }
-    
-    // Step 4: Verify if each component is surrounded by ocean (island check)
-    int foundIsland = 0;
-    int largestIslandRoot = -1;
-    int largestIslandSize = 0;
-    
-    for (int j = 0; j < gridSize; j++) {
-        for (int i = 0; i < gridSize; i++) {
-            if (biomeGrid[j * gridSize + i] != 2) continue; // Skip non-land
-            
-            int root = findSet(parent, j * gridSize + i);
-            
-            // Skip if component touches edge or has already been processed
-            if (touchesEdge[root] || compSize[root] == 0) continue;
-            
-            // Check if this component is completely surrounded by ocean
-            int isSurrounded = 1;
-            for (int jj = 0; jj < gridSize && isSurrounded; jj++) {
-                for (int ii = 0; ii < gridSize && isSurrounded; ii++) {
-                    if (findSet(parent, jj * gridSize + ii) != root) continue;
-                    
-                    // Check all adjacent cells
-                    for (int d = 0; d < 4 && isSurrounded; d++) {
-                        int ni = ii + dx[d];
-                        int nj = jj + dy[d];
-                        
-                        if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize) {
-                            // If adjacent cell is neither ocean nor part of this land component
-                            if (biomeGrid[nj * gridSize + ni] != 1 && 
-                                findSet(parent, nj * gridSize + ni) != root) {
-                                isSurrounded = 0;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if (isSurrounded && compSize[root] > largestIslandSize) {
-                foundIsland = 1;
-                largestIslandRoot = root;
-                largestIslandSize = compSize[root];
-            }
-        }
-    }
-    
-    // Step 5: If island found, calculate its center and properties
-    if (foundIsland && largestIslandRoot != -1) {
-        // Calculate center coordinates
-        double sumX = 0, sumZ = 0;
-        int count = 0;
-        int biomeId = -1;
-        
-        for (int j = 0; j < gridSize; j++) {
-            for (int i = 0; i < gridSize; i++) {
-                if (biomeGrid[j * gridSize + i] == 2 && 
-                    findSet(parent, j * gridSize + i) == largestIslandRoot) {
-                    
-                    int realX = (x0 + i) << 2;
-                    int realZ = (z0 + j) << 2;
-                    sumX += realX;
-                    sumZ += realZ;
-                    count++;
-                    
-                    // Sample the biome at the first cell to get a representative biome ID
-                    if (biomeId == -1) {
-                        biomeId = getBiomeAt(g, 4, x0 + i, 0, z0 + j);
-                    }
-                }
-            }
-        }
-        
-        // Set output parameters
-        if (outBiomeId) *outBiomeId = biomeId;
-        if (centerX) *centerX = sumX / count;
-        if (centerZ) *centerZ = sumZ / count;
-        if (islandSize) *islandSize = largestIslandSize * 16; // Convert to blocks (approx)
-        
-        // Clean up
-        free(biomeGrid);
-        free(parent);
-        free(compSize);
-        free(touchesEdge);
-        return 1;
-    }
-    
-    // Clean up
-    free(biomeGrid);
-    free(parent);
-    free(compSize);
-    free(touchesEdge);
-    return 0;
-}
+                     int *outBiomeId, double *centerX, double *centerZ, int *islandSize);
 
 // -----------------------------------------------------------------------------
 // Main seed scanning logic (structures + biome checks)
@@ -1282,24 +1066,24 @@ int scanSeed(uint64_t seed)
                                 int islandBiomeId;
                                 double islandCenterX, islandCenterZ;
                                 int islandSize;
-                                
+
                                 // Detect if there's an island at this position
                                 bool isIsland = detectIslandBiome(curr_gen, pos.x, pos.z, searchRadius/2, 
                                                                &islandBiomeId, &islandCenterX, &islandCenterZ, &islandSize);
-                                
+
                                 if (!isIsland) continue;
-                                
+
                                 // Apply size constraints if specified
                                 if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
                                     if ((req.minBiomeSize != -1 && islandSize < req.minBiomeSize) ||
                                         (req.maxBiomeSize != -1 && islandSize > req.maxBiomeSize))
                                         continue;
                                 }
-                                
+
                                 // Override the position with the island center
                                 pos.x = (int)islandCenterX;
                                 pos.z = (int)islandCenterZ;
-                                
+
                                 // Override biome_id for output
                                 biome_id = CUSTOM_BIOME_ISLAND;
                             } else {
@@ -1509,7 +1293,7 @@ void *scanTask(void *arg)
 
 // -----------------------------------------------------------------------------
 // Simple helper to skip leading/trailing spaces
-static void trim(char *str)
+void trim(char *str)
 {
     // left trim
     char *p = str;
@@ -1865,6 +1649,741 @@ void parseParameterLine(char *line)
         // For demonstration, let's keep them all in a single "required group".
         // Or you might want each line to be a separate requirement. 
         // For simplicity, let's do *one* BiomeRequirement that includes multiple biome IDs.
+
+        // If your logic requires each line to be its own BiomeRequirement, you'd do so here.
+
+        // We'll create or expand a single BiomeRequirement with all these. 
+        if (g_requiredBiomesCount == 0) {
+            g_requiredBiomes = malloc(sizeof(BiomeRequirement));
+            g_requiredBiomesCount = 1;
+            g_requiredBiomes[0].biomeIds     = NULL;
+            g_requiredBiomes[0].biomeCount   = 0;
+            g_requiredBiomes[0].sizeConfigs  = NULL;
+            g_requiredBiomes[0].configCount  = 0;
+            g_requiredBiomes[0].logCenters   = 1; // default
+        }
+        BiomeRequirement *br = &g_requiredBiomes[0];
+        // add this biomeId to br->biomeIds
+        br->biomeIds = realloc(br->biomeIds, (br->biomeCount+1)*sizeof(int));
+        br->biomeIds[br->biomeCount] = biomeId;
+        br->biomeCount++;
+
+        // Also store the size constraints. 
+        // In a more robust design, you'd match them by index or by biome ID. 
+        // For now, let's just store them all in a single array:
+        br->sizeConfigs = realloc(br->sizeConfigs, tmpConfigsCount*sizeof(BiomeSizeConfig));
+        memcpy(br->sizeConfigs, tmpConfigs, tmpConfigsCount*sizeof(BiomeSizeConfig));
+        br->configCount = tmpConfigsCount;
+    }
+    else if (strcmp(currentSection, "===== Clustered Biomes =====") == 0)
+    {
+        // Example lines:
+        // 1. 185, 1 (min size: -1, max size: -1)
+        // 2. 4, 1 (min size: 100, max size: -1)
+        // ...
+        // We'll parse similarly. Suppose each line is one cluster definition.
+        // Then we store it into g_biomeClusters.
+
+        int idx, minSz, maxSz;
+        int b1, b2;
+        // naive parse: "1. 185, 1 (min size: -1, max size: -1)"
+        // or "2. 41 (min size: 100, max size: -1)"
+        char *paren = strchr(line, '(');
+        if (!paren) return;
+
+        char prefix[128];
+        strncpy(prefix, line, paren - line);
+        prefix[paren - line] = '\0';
+        trim(prefix);
+        // e.g. "1. 185, 1"
+        sscanf(prefix, "%d. %d, %d", &idx, &b1, &b2);
+
+        // parse parentheses
+        char parenPart[128];
+        strcpy(parenPart, paren+1);
+        char *endParen = strrchr(parenPart, ')');
+        if (endParen) *endParen = '\0';
+        trim(parenPart);
+        // "min size: -1, max size: -1"
+        sscanf(parenPart, "min size: %d, max size: %d", &minSz, &maxSz);
+
+        // Now store in g_biomeClusters
+        g_biomeClusters = realloc(g_biomeClusters, (g_biomeClustersCount+1)*sizeof(BiomeCluster));
+        BiomeCluster *bc = &g_biomeClusters[g_biomeClustersCount];
+        g_biomeClustersCount++;
+
+        bc->biomeIds = malloc(2*sizeof(int)); // we found 2 from the line
+        bc->biomeIds[0] = b1;
+        bc->biomeIds[1] = b2;
+        bc->biomeCount  = 2;
+        bc->minSize     = minSz;
+        bc->maxSize     = maxSz;
+        bc->logCenters  = 1; // or false, if you prefer
+    }
+}
+
+// -----------------------------------------------------------------------------
+// A function to read from a file or from stdin, building our config
+void parseParameterStream(FILE *fp)
+{
+    char buf[512];
+    while (fgets(buf, sizeof(buf), fp)) {
+        parseParameterLine(buf);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// MAIN
+int main(int argc, char *argv[])
+{
+    printf("=== Parameter-Based Scanning ===\n");
+    //printf("Attach a .txt file or specify a path to the config, or paste config lines.\n");
+
+    // 1) Try to read a file if given:
+    FILE *fp = NULL;
+    if (argc > 1) {
+        fp = fopen(argv[1], "r");
+        if (!fp) {
+            fprintf(stderr, "Could not open file '%s'. Using stdin instead.\n", argv[1]);
+        }
+    }
+    if (!fp) {
+        //printf("Please paste your config (end with Ctrl+D or Ctrl+Z on Windows):\n");
+        fp = stdin;
+    }
+
+    // 2) Parse the config
+    parseParameterStream(fp);
+    if (fp != stdin) fclose(fp);
+
+    // 3) Now we have our global variables from the config, set up the BiomeSearch, etc.
+    biomeSearch.required      = g_requiredBiomes;
+    biomeSearch.requiredCount = g_requiredBiomesCount;
+    biomeSearch.clusters      = g_biomeClusters;
+    biomeSearch.clusterCount  = g_biomeClustersCount;
+
+    // 4) Decide how many seeds to scan
+    // For demonstration, let's just scan 10k seeds from starting_seed
+    uint64_t scanCount = 999999999999;
+    end_seed = starting_seed + scanCount - 1ULL;
+
+    // 6) Initialize global scanning state
+    currentSeed     = starting_seed;
+    foundValidSeed  = false;
+    seedsFound      = 0;
+
+    // 7) Spawn threads
+    pthread_t *threads = malloc(tasksCount * sizeof(pthread_t));
+    for (int i = 0; i < tasksCount; i++) {
+        pthread_create(&threads[i], NULL, scanTask, &end_seed);
+    }
+
+    // 8) Wait for all threads to finish
+    for (int i = 0; i < tasksCount; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    free(threads);
+
+    // 9) Final result
+    if (foundValidSeed) {
+        printf("== Found at least one valid seed (e.g., %llu). Seeds found: %d ==\n",
+               (unsigned long long) validSeed, seedsFound);
+    }
+    else {
+        printf("Finished searching, no valid seeds found in [%llu..%llu].\n",
+               (unsigned long long)starting_seed, (unsigned long long)end_seed);
+    }
+
+    // Clean up your dynamic allocations
+    for (int i = 0; i < NUM_STRUCTURE_REQUIREMENTS; i++) {
+        free(structureRequirements[i].proximityBiomes);
+    }
+    free(structureRequirements);
+
+    for (int i = 0; i < numInvalidCombinations; i++) {
+        free(invalidCombinations[i].types);
+    }
+    free(invalidCombinations);
+
+    if (g_requiredBiomesCount > 0) {
+        for (int i = 0; i < g_requiredBiomesCount; i++) {
+            free(g_requiredBiomes[i].biomeIds);
+            free(g_requiredBiomes[i].sizeConfigs);
+        }
+        free(g_requiredBiomes);
+    }
+
+    if (g_biomeClustersCount > 0) {
+        for (int i = 0; i < g_biomeClustersCount; i++) {
+            free(g_biomeClusters[i].biomeIds);
+        }
+        free(g_biomeClusters);
+    }
+
+    free(clusterReq.structureTypes);
+
+    return 0;
+}
+
+// -----------------------------------------------------------------------------
+// Island biome detection function
+// Detects biomes that are fully surrounded by ocean biomes
+// If island is detected, it returns 1 and sets outBiomeId, centerX, centerZ, and islandSize
+int detectIslandBiome(Generator *g, int x, int z, int searchRadius, 
+                     int *outBiomeId, double *centerX, double *centerZ, int *islandSize) 
+{
+    // Define a grid for biome mapping
+    int gridSize = searchRadius * 2 / 4; // Convert to quarter resolution
+    unsigned char *biomeGrid = calloc(gridSize * gridSize, sizeof(unsigned char));
+    if (!biomeGrid) return 0;
+
+    // Mark ocean cells as 1, land cells as 2
+    int ocean_count = 0;
+    int land_count = 0;
+    int x0 = (x - searchRadius) >> 2;
+    int z0 = (z - searchRadius) >> 2;
+
+    // Step 1: Map the entire area
+    for (int j = 0; j < gridSize; j++) {
+        for (int i = 0; i < gridSize; i++) {
+            int bx = x0 + i;
+            int bz = z0 + j;
+            int biome_id = getBiomeAt(g, 4, bx, 0, bz);
+
+            if (isOceanic(biome_id)) {
+                biomeGrid[j * gridSize + i] = 1; // Ocean
+                ocean_count++;
+            } else {
+                biomeGrid[j * gridSize + i] = 2; // Land
+                land_count++;
+            }
+        }
+    }
+
+    // If there's no land or no ocean, it's not an island
+    if (land_count == 0 || ocean_count == 0) {
+        free(biomeGrid);
+        return 0;
+    }
+
+    // Step 2: Identify connected land components using flood fill
+    int *parent = malloc(gridSize * gridSize * sizeof(int));
+    if (!parent) {
+        free(biomeGrid);
+        return 0;
+    }
+
+    // Initialize parent arrays (each cell is its own set initially)
+    for (int i = 0; i < gridSize * gridSize; i++) {
+        parent[i] = i;
+    }
+
+    // Connect adjacent land cells
+    int dx[] = {0, 1, 0, -1};
+    int dy[] = {-1, 0, 1, 0};
+
+    for (int j = 0; j < gridSize; j++) {
+        for (int i = 0; i < gridSize; i++) {
+            if (biomeGrid[j * gridSize + i] != 2) continue; // Skip non-land
+
+            int idx = j * gridSize + i;
+
+            // Check 4 adjacent cells
+            for (int d = 0; d < 4; d++) {
+                int ni = i + dx[d];
+                int nj = j + dy[d];
+
+                if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize) {
+                    if (biomeGrid[nj * gridSize + ni] == 2) { // If adjacent cell is land
+                        int nidx = nj * gridSize + ni;
+                        unionSets(parent, idx, nidx);
+                    }
+                }
+            }
+        }
+    }
+
+    // Step 3: Count cells in each land component and check if completely surrounded by ocean
+    int *compSize = calloc(gridSize * gridSize, sizeof(int));
+    if (!compSize) {
+        free(biomeGrid);
+        free(parent);
+        return 0;
+    }
+
+    // Count cells in each component
+    for (int j = 0; j < gridSize; j++) {
+        for (int i = 0; i < gridSize; i++) {
+            if (biomeGrid[j * gridSize + i] == 2) { // Land
+                int root = findSet(parent, j * gridSize + i);
+                compSize[root]++;
+            }
+        }
+    }
+
+    // Check if components touch the edge (not islands)
+    int *touchesEdge = calloc(gridSize * gridSize, sizeof(int));
+    if (!touchesEdge) {
+        free(biomeGrid);
+        free(parent);
+        free(compSize);
+        return 0;
+    }
+
+    for (int i = 0; i < gridSize; i++) {
+        // Top and bottom edges
+        if (biomeGrid[i] == 2) {
+            int root = findSet(parent, i);
+            touchesEdge[root] = 1;
+        }
+        if (biomeGrid[(gridSize-1) * gridSize + i] == 2) {
+            int root = findSet(parent, (gridSize-1) * gridSize + i);
+            touchesEdge[root] = 1;
+        }
+
+        // Left and right edges
+        if (biomeGrid[i * gridSize] == 2) {
+            int root = findSet(parent, i * gridSize);
+            touchesEdge[root] = 1;
+        }
+        if (biomeGrid[i * gridSize + (gridSize-1)] == 2) {
+            int root = findSet(parent, i * gridSize + (gridSize-1));
+            touchesEdge[root] = 1;
+        }
+    }
+
+    // Step 4: Verify if each component is surrounded by ocean (island check)
+    int foundIsland = 0;
+    int largestIslandRoot = -1;
+    int largestIslandSize = 0;
+
+    for (int j = 0; j < gridSize; j++) {
+        for (int i = 0; i < gridSize; i++) {
+            if (biomeGrid[j * gridSize + i] != 2) continue; // Skip non-land
+
+            int root = findSet(parent, j * gridSize + i);
+
+            // Skip if component touches edge or has already been processed
+            if (touchesEdge[root] || compSize[root] == 0) continue;
+
+            // Check if this component is completely surrounded by ocean
+            int isSurrounded = 1;
+            for (int jj = 0; jj < gridSize && isSurrounded; jj++) {
+                for (int ii = 0; ii < gridSize && isSurrounded; ii++) {
+                    if (findSet(parent, jj * gridSize + ii) != root) continue;
+
+                    // Check all adjacent cells
+                    for (int d = 0; d < 4 && isSurrounded; d++) {
+                        int ni = ii + dx[d];
+                        int nj = jj + dy[d];
+
+                        if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize) {
+                            // If adjacent cell is neither ocean nor part of this land component
+                            if (biomeGrid[nj * gridSize + ni] != 1 && 
+                                findSet(parent, nj * gridSize + ni) != root) {
+                                isSurrounded = 0;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (isSurrounded && compSize[root] > largestIslandSize) {
+                foundIsland = 1;
+                largestIslandRoot = root;
+                largestIslandSize = compSize[root];
+            }
+        }
+    }
+
+    // Step 5: If island found, calculate its center and properties
+    if (foundIsland && largestIslandRoot != -1) {
+        // Calculate center coordinates
+        double sumX = 0, sumZ = 0;
+        int count = 0;
+        int biomeId = -1;
+
+        for (int j = 0; j < gridSize; j++) {
+            for (int i = 0; i < gridSize; i++) {
+                if (biomeGrid[j * gridSize + i] == 2 && 
+                    findSet(parent, j * gridSize + i) == largestIslandRoot) {
+
+                    int realX = (x0 + i) << 2;
+                    int realZ = (z0 + j) << 2;
+                    sumX += realX;
+                    sumZ += realZ;
+                    count++;
+
+                    // Sample the biome at the first cell to get a representative biome ID
+                    if (biomeId == -1) {
+                        biomeId = getBiomeAt(g, 4, x0 + i, 0, z0 + j);
+                    }
+                }
+            }
+        }
+
+        // Set output parameters
+        if (outBiomeId) *outBiomeId = biomeId;
+        if (centerX) *centerX = sumX / count;
+        if (centerZ) *centerZ = sumZ / count;
+        if (islandSize) *islandSize = largestIslandSize * 16; // Convert to blocks (approx)
+
+        // Clean up
+        free(biomeGrid);
+        free(parent);
+        free(compSize);
+        free(touchesEdge);
+        return 1;
+    }
+
+    // Clean up
+    free(biomeGrid);
+    free(parent);
+    free(compSize);
+    free(touchesEdge);
+    return 0;
+}
+
+// -----------------------------------------------------------------------------
+// Parse the "next to biome:" parameter which can contain multiple biome IDs separated by "or"
+int parseProximityBiomes(char *biomeStr, int **biomesArray) 
+{
+    // Skip if -1 which means no proximity check
+    if (strstr(biomeStr, "-1") == biomeStr) {
+        return 0;
+    }
+
+    // Count how many biomes we have (by counting "or" + 1)
+    int biomeCount = 1;
+    char *p = biomeStr;
+    while ((p = strstr(p, " or ")) != NULL) {
+        biomeCount++;
+        p += 4; // length of " or "
+    }
+
+    // Allocate array
+    *biomesArray = malloc(biomeCount * sizeof(int));
+    if (!*biomesArray) {
+        perror("malloc for proximity biomes");
+        exit(1);
+    }
+
+    // Parse each biome ID
+    char *biomeList = strdup(biomeStr);
+    char *token = strtok(biomeList, " or ");
+    int i = 0;
+    while (token != NULL && i < biomeCount) {
+        (*biomesArray)[i++] = atoi(token);
+        token = strtok(NULL, " or ");
+    }
+
+    free(biomeList);
+    return biomeCount;
+}
+
+// -----------------------------------------------------------------------------
+// Parsing function to read the config from lines (file or otherwise).
+// This is a simplistic parser that looks for known headings and then key lines.
+void parseConfigLine(const char *section, char *line)
+{
+    // Example lines:
+    // "Starting seed: 0"
+    // "Search radius: 1000"
+    // "Use spawn: false"
+    // ...
+    if (strcmp(section, "===== Scanning options =====") == 0) 
+    {
+        // We'll parse scanning options
+        if (strstr(line, "Starting seed:") == line) {
+            sscanf(line, "Starting seed: %" SCNu64, &starting_seed);
+        }
+        else if (strstr(line, "Search radius:") == line) {
+            sscanf(line, "Search radius: %d", &searchRadius);
+        }
+        else if (strstr(line, "Use spawn:") == line) {
+            char val[16];
+            if (sscanf(line, "Use spawn: %15s", val) == 1) {
+                // interpret "true"/"1" as 1, else 0
+                if (strcmp(val, "true") == 0 || strcmp(val, "1") == 0) 
+                    useSpawn = 1;
+                else
+                    useSpawn = 0;
+            }
+        }
+        else if (strstr(line, "Custom x:") == line) {
+            sscanf(line, "Custom x: %d", &customX);
+        }
+        else if (strstr(line, "Custom z:") == line) {
+            sscanf(line, "Custom z: %d", &customZ);
+        }
+    }
+    // etc. For other sections, do similarly.
+}
+
+// A few global variables to track which section we're parsing
+static char currentSection[128] = {0};
+
+void parseParameterLine(char *line)
+{
+    trim(line);
+    if (line[0] == '\0') {
+        return; // skip empty
+    }
+
+    // Check if it's a section heading line
+    if (strstr(line, "=====") == line) {
+        // This means we've reached a new section
+        strcpy(currentSection, line);
+        return;
+    }
+
+    // Otherwise, parse based on the currentSection
+    if (strcmp(currentSection, "===== Scanning options =====") == 0) 
+    {
+        parseConfigLine(currentSection, line);
+    }
+    else if (strcmp(currentSection, "===== Required structures =====") == 0) 
+    {
+        // Example new format:
+        // 1. 8 (min amount: 1, next to biome: 1 or 4 or 185, biome proximity: 8, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
+        int idx, structureType, minCount, minH, maxH, biome, minSz, maxSz, biomeProx;
+
+        // Parse the line format: "1. 5 (min amount: ...)"
+        char *openParen = strchr(line, '(');
+        if (!openParen) return;
+
+        // Get the structure ID directly
+        sscanf(line, "%d. %d", &idx, &structureType);
+
+        // Extract the content inside the parentheses
+        char parenPart[512];
+        strncpy(parenPart, openParen + 1, sizeof(parenPart) - 1);
+        parenPart[sizeof(parenPart) - 1] = '\0';
+        char *closeParen = strrchr(parenPart, ')');
+        if (closeParen) *closeParen = '\0';
+
+        // Now try to extract each parameter individually
+        char *params = parenPart;
+        char *end;
+
+        // Extract min amount
+        if ((end = strstr(params, ", next to biome:")) != NULL) {
+            sscanf(params, "min amount: %d", &minCount);
+            params = end + 2; // Skip ", "
+        } else {
+            // Fallback if new format not found
+            sscanf(params, "min amount: %d", &minCount);
+        }
+
+        // Extract next to biome and biome proximity
+        char proximityBiomeStr[256] = "-1"; // Default if not specified
+        biomeProx = -1; // Default to -1 (no proximity check)
+
+        char *nextToBiome = strstr(parenPart, "next to biome:");
+        char *biomeProxPtr = strstr(parenPart, "biome proximity:");
+
+        if (nextToBiome && biomeProxPtr) {
+            // Extract the proximity biome string
+            char *start = nextToBiome + strlen("next to biome:");
+            char *end = biomeProxPtr - 2; // -2 to skip ", "
+            size_t len = end - start;
+            if (len < sizeof(proximityBiomeStr)) {
+                strncpy(proximityBiomeStr, start, len);
+                proximityBiomeStr[len] = '\0';
+                trim(proximityBiomeStr);
+            }
+
+            // Extract biome proximity
+            sscanf(biomeProxPtr, "biome proximity: %d", &biomeProx);
+        }
+
+        // Parse min and max height
+        char *minHeightPtr = strstr(parenPart, "min height:");
+        char *maxHeightPtr = strstr(parenPart, "max height:");
+
+        if (minHeightPtr && maxHeightPtr) {
+            sscanf(minHeightPtr, "min height: %d", &minH);
+            sscanf(maxHeightPtr, "max height: %d", &maxH);
+        } else {
+            // Defaults
+            minH = -9999;
+            maxH = 9999;
+        }
+
+        // Parse biome and size constraints
+        char *biomePtr = strstr(parenPart, "biome:");
+        char *minSizePtr = strstr(parenPart, "min size:");
+        char *maxSizePtr = strstr(parenPart, "max size:");
+
+        if (biomePtr && minSizePtr && maxSizePtr) {
+            sscanf(biomePtr, "biome: %d", &biome);
+            sscanf(minSizePtr, "min size: %d", &minSz);
+            sscanf(maxSizePtr, "max size: %d", &maxSz);
+        } else {
+            // Defaults
+            biome = -1;
+            minSz = -1;
+            maxSz = -1;
+        }
+
+        // Special case for height handling for certain structure types
+        int skipSurfaceHeight = (structureType == 19 || structureType == 17 || 
+                                structureType == 15 || structureType == 14 || 
+                                structureType == 11);
+
+        // Validate structure type
+        if (structureType < 0 && structureType != STRUCTURE_TYPE_SPAWN) {
+            fprintf(stderr, "Warning: Invalid structure type %d\n", structureType);
+            return;
+        }
+
+        // Add to requirements array
+        structureRequirements = realloc(structureRequirements, 
+                                      (NUM_STRUCTURE_REQUIREMENTS + 1) * sizeof(StructureRequirement));
+        if (!structureRequirements) {
+            fprintf(stderr, "Failed to allocate memory for structure requirement\n");
+            return;
+        }
+
+        // Parse the proximity biomes
+        int *proximityBiomes = NULL;
+        int proximityBiomeCount = parseProximityBiomes(proximityBiomeStr, &proximityBiomes);
+
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].structureType = structureType;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].minCount = minCount;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].minHeight = minH;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].maxHeight = maxH;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].requiredBiome = biome;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].minBiomeSize = minSz;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].maxBiomeSize = maxSz;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].proximityBiomes = proximityBiomes;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].proximityBiomeCount = proximityBiomeCount;
+        structureRequirements[NUM_STRUCTURE_REQUIREMENTS].biomeProximity = biomeProx;
+        NUM_STRUCTURE_REQUIREMENTS++;
+    }
+    else if (strcmp(currentSection, "===== Structure Clusters =====") == 0) 
+    {
+        // Example lines:
+        //   Enabled: true
+        //   Valid biomes: 1, 2, 3, 4, ...
+        //   Min cluster distance = 32,
+        //   Min cluster size  = 2
+        // You can parse them similarly
+        if (strstr(line, "Enabled:") == line) {
+            char val[16];
+            if (sscanf(line, "Enabled: %15s", val) == 1) {
+                if (strcmp(val, "true") == 0 || strcmp(val, "1") == 0) 
+                    clusterReq.enabled = true;
+                else 
+                    clusterReq.enabled = false;
+            }
+        }
+        else if (strstr(line, "Valid biomes:") == line) {
+            // Actually, the example said "Valid biomes: 1,2,3..." 
+            // but the code snippet you gave uses structure IDs, not biome IDs, 
+            // so let's assume these are the structure *types* we want to cluster:
+            // We'll parse them into clusterReq.structureTypes
+            const char *p = strchr(line, ':');
+            if (p) {
+                p++; // skip colon
+                // parse comma-separated
+                char list[256];
+                strcpy(list, p);
+                trim(list);
+                // tokenize
+                char *tok = strtok(list, ",");
+                while (tok) {
+                    int stype = atoi(tok);
+                    clusterReq.structureTypes = realloc(clusterReq.structureTypes, (clusterReq.count+1)*sizeof(int));
+                    clusterReq.structureTypes[clusterReq.count] = stype;
+                    clusterReq.count++;
+                    tok = strtok(NULL, ",");
+                }
+            }
+        }
+        else if (strstr(line, "Min cluster distance") == line) {
+            int dist;
+            if (sscanf(line, "Min cluster distance = %d", &dist) == 1) {
+                clusterReq.clusterDistance = dist;
+            }
+        }
+        else if (strstr(line, "Min cluster size") == line) {
+            int sz;
+            if (sscanf(line, "Min cluster size = %d", &sz) == 1) {
+                clusterReq.minClusterSize = sz;
+            }
+        }
+    }
+    else if (strcmp(currentSection, "===== Invalid Structure Clusters =====") == 0)
+    {
+        // Example lines:
+        //   1. 16, 11
+        //   2. 16, 6
+        // parse each line as a list of structure IDs
+        // We'll store them in invalidCombinations
+        char *dot = strchr(line, '.');
+        if (!dot) return;
+        dot++; // skip the dot
+        trim(dot);
+        // dot might be "16, 11"
+        // parse them
+        int tmpArr[64];
+        int tmpCount = 0;
+        char *tok = strtok(dot, ",");
+        while (tok) {
+            tmpArr[tmpCount++] = atoi(tok);
+            tok = strtok(NULL, ",");
+        }
+        // store in invalidCombinations
+        invalidCombinations = realloc(invalidCombinations, (numInvalidCombinations+1)*sizeof(InvalidCombination));
+        invalidCombinations[numInvalidCombinations].count = tmpCount;
+        invalidCombinations[numInvalidCombinations].types = malloc(tmpCount*sizeof(int));
+        for (int i = 0; i < tmpCount; i++) {
+            invalidCombinations[numInvalidCombinations].types[i] = tmpArr[i];
+        }
+        numInvalidCombinations++;
+    }
+    else if (strcmp(currentSection, "===== Required Biomes =====") == 0)
+    {
+        // Example lines:
+        // 1. 1 (min size: 50, max size: -1)
+        // 2. 185 (min size: -1, max size: -1)
+        // ...
+        // We'll dynamically build g_requiredBiomes as an array of BiomeRequirement,
+        // each with a single biome or potentially more, depending on your structure.
+
+        // But from your example, each line is 1 biome + min/max size.
+        // We might store them separately and then finalize them after parsing
+        static BiomeSizeConfig *tmpConfigs = NULL;
+        static int tmpConfigsCount = 0;
+
+        int idx, biomeId, minSz, maxSz;
+        // parse line e.g.: "1. 1 (min size: 50, max size: -1)"
+        char *paren = strchr(line, '(');
+        if (!paren) return;
+        // parse "x. y"
+        // e.g. "1. 1"
+        int consumed = 0;
+        sscanf(line, "%d. %d%n", &idx, &biomeId, &consumed);
+
+        // parse parentheses
+        char parenPart[256];
+        strcpy(parenPart, paren+1);
+        char *endParen = strrchr(parenPart, ')');
+        if (endParen) *endParen = '\0';
+        // "min size: 50, max size: -1"
+        sscanf(parenPart, "min size: %d, max size: %d", &minSz, &maxSz);
+
+        // We'll store them in a temporary array. 
+        tmpConfigs = realloc(tmpConfigs, (tmpConfigsCount+1)*sizeof(BiomeSizeConfig));
+        tmpConfigs[tmpConfigsCount].biomeId = biomeId;
+        tmpConfigs[tmpConfigsCount].minSize = minSz;
+        tmpConfigs[tmpConfigsCount].maxSize = maxSz;
+        tmpConfigsCount++;
+
+        // For demonstration, let's keep them all in a single "required group".
+        // Or you might want each line to be a separate requirement. 
+        //// For simplicity, let's do *one* BiomeRequirement that includes multiple biome IDs.
 
         // If your logic requires each line to be its own BiomeRequirement, you'd do so here.
 
