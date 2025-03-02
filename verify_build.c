@@ -172,9 +172,18 @@ const char* getStructureName(int id)
     }
 }
 
+// Function to detect if a land area is an island (surrounded by ocean)
 bool isIsland(Generator *g, int x, int z, int searchRadius) {
-    int oceanBiomes[] = {0, 10, 24, 44, 45, 46, 47, 48, 49, 50}; // Ocean biome IDs
+    int oceanBiomes[] = {0, 10, 24, 44, 45, 46, 47, 48, 49, 50};
     int oceanBiomesCount = sizeof(oceanBiomes) / sizeof(oceanBiomes[0]);
+
+    int centerBiome = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
+
+    for (int i = 0; i < oceanBiomesCount; i++) {
+        if (centerBiome == oceanBiomes[i]) {
+            return false;
+        }
+    }
 
     int x0 = x - searchRadius;
     int z0 = z - searchRadius;
@@ -188,15 +197,12 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     }
 
     int step = 4;
-    bool foundLand = false;
-    int landCount = 0;
-
     for (int i = 0; i < width; i++) {
         for (int j = 0; j < height; j++) {
             int worldX = x0 + i * step;
             int worldZ = z0 + j * step;
-            int biome = getBiomeAt(g, 4, worldX >> 2, 0, worldZ >> 2);
 
+            int biome = getBiomeAt(g, 4, worldX >> 2, 0, worldZ >> 2);
             bool isOcean = false;
             for (int k = 0; k < oceanBiomesCount; k++) {
                 if (biome == oceanBiomes[k]) {
@@ -206,29 +212,27 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
             }
 
             grid[j * width + i] = isOcean ? 2 : 1;
-            if (!isOcean) {
-                foundLand = true;
-                landCount++;
-            }
         }
     }
 
-    if (!foundLand || landCount == 0) {
-        free(grid);
-        return false;
-    }
-
-    // Mark edges to check if land is connected to the world outside
     for (int i = 0; i < width; i++) {
         if (grid[i] == 1) grid[i] = 3;
         if (grid[(height-1) * width + i] == 1) grid[(height-1) * width + i] = 3;
     }
+
     for (int j = 0; j < height; j++) {
         if (grid[j * width] == 1) grid[j * width] = 3;
         if (grid[j * width + width - 1] == 1) grid[j * width + width - 1] = 3;
     }
 
-    // Find any land area and check if it is surrounded
+    int centerI = width / 2;
+    int centerJ = height / 2;
+
+    if (grid[centerJ * width + centerI] != 1) {
+        free(grid);
+        return false;
+    }
+
     typedef struct { int x; int y; } Point;
     Point *stack = malloc(width * height * sizeof(Point));
     if (!stack) {
@@ -237,24 +241,13 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
         return false;
     }
 
-    int stackSize = 0;
-    for (int j = 0; j < height; j++) {
-        for (int i = 0; i < width; i++) {
-            if (grid[j * width + i] == 1) {
-                stack[stackSize++] = (Point){i, j};
-                grid[j * width + i] = 4;
-                break;
-            }
-        }
-        if (stackSize > 0) break;
-    }
-
-    bool isEnclosed = true;
-    int islandSize = 0;
+    int stackSize = 1;
+    stack[0].x = centerI;
+    stack[0].y = centerJ;
+    grid[centerJ * width + centerI] = 4;
 
     while (stackSize > 0) {
         Point p = stack[--stackSize];
-        islandSize++;
 
         int dx[] = {0, 1, 0, -1};
         int dy[] = {-1, 0, 1, 0};
@@ -266,10 +259,23 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
             if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
                 if (grid[ny * width + nx] == 1) {
                     grid[ny * width + nx] = 4;
-                    stack[stackSize++] = (Point){nx, ny};
+                    stack[stackSize].x = nx;
+                    stack[stackSize].y = ny;
+                    stackSize++;
                 } else if (grid[ny * width + nx] == 3) {
-                    isEnclosed = false;
+                    free(stack);
+                    free(grid);
+                    return false;
                 }
+            }
+        }
+    }
+
+    int landArea = 0;
+    for (int j = 0; j < height; j++) {
+        for (int i = 0; i < width; i++) {
+            if (grid[j * width + i] == 4) {
+                landArea++;
             }
         }
     }
@@ -277,8 +283,12 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     free(stack);
     free(grid);
 
-    // Don't count as an island if size is 0 or it's not properly enclosed by ocean
-    return isEnclosed && islandSize > 0;
+    if (landArea >= 5) {
+        //printf("Island detected at (%d, %d) with area: %d\n", x, z, landArea);
+        return true;
+    }
+
+    return false;
 }
 
 // Function to check if a position has a custom biome
@@ -1115,14 +1125,17 @@ int scanSeed(uint64_t seed)
                             int lz = pos.z & 15;
                             int surface_y = (int)heightArr[lz*w + lx];
                             biome_id = getExtendedBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2, searchRadius / 4);
+                        }
 
-                            // Check if structure requires an island biome
+                        if (req.requiredBiome != -1) {
                             if (req.requiredBiome == 187) {
-                                if (!isIsland(curr_gen, pos.x, pos.z, searchRadius / 4)) {
-                                    continue; // Skip non-island locations
+                                int customBiome = getCustomBiomeAt(curr_gen, pos.x, pos.z, searchRadius / 4);
+                                if (customBiome != 187) {
+                                    continue;
                                 }
-                                biome_id = 187; // Set biome ID to island
-                            } else if (req.requiredBiome != -1 && biome_id != req.requiredBiome) {
+                                biome_id = 187;
+                            }
+                            else if (biome_id != req.requiredBiome) {
                                 continue;
                             }
 
@@ -1150,6 +1163,18 @@ int scanSeed(uint64_t seed)
                             int lx = pos.x & 15;
                             int lz = pos.z & 15;
                             height = (int)heightArr[lz*w + lx];
+
+                            if (biome_id == 187) {
+                                if (!isIsland(curr_gen, pos.x, pos.z, searchRadius / 4)) {
+                                    printf("Seed %llu: NOT an island at (%d, %d), continuing search.\n",
+                                           (unsigned long long)seed, pos.x, pos.z);
+                                    continue; // Skip non-island locations
+                                }
+
+                                // Log detected island before proceeding
+                                //printf("Seed %llu: Island detected at (%d, %d)\n",
+                                       //(unsigned long long)seed, pos.x, pos.z);
+                            }
                         }
 
                         if ((req.minHeight != -9999 && height < req.minHeight) ||
@@ -1488,7 +1513,7 @@ void parseParameterLine(char *line)
                     clusterReq.enabled = false;
             }
         }
-        else if (strstr(line, "Valid biomes:") == line) {
+        else if (strstr(line, "Valid structures:") == line) {
             const char *p = strchr(line, ':');
             if (p) {
                 p++;
