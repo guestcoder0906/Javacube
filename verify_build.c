@@ -1171,6 +1171,10 @@ int scanSeed(uint64_t seed)
                         foundPositions[foundPosCount].z = pos.z;
                         foundPositions[foundPosCount].y = height;
                         foundPositions[foundPosCount].biome_id = biome_id;
+                        int islandArea = 0;
+                        if (req.requiredBiome == 187 && biome_id == 187) {
+                            islandArea = foundPositions[foundPosCount].biome_size;
+                        }
                         foundPositions[foundPosCount].biome_size = 
                             (biome_id != -1) ? ((req.requiredBiome == 187) ? islandArea : getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id)) : -1;
                         foundPositions[foundPosCount].proximity_distance = proximity_distance;
