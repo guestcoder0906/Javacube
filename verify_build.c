@@ -189,10 +189,11 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     }
 
     // Define the search area
-    int x0 = x - searchRadius;
-    int z0 = z - searchRadius;
-    int width = searchRadius * 2 / 4 + 1;
-    int height = searchRadius * 2 / 4 + 1;
+    int scale = 4; // Define scale for consistent grid calculation
+    int x0 = floordiv(x - searchRadius, scale);
+    int z0 = floordiv(z - searchRadius, scale);
+    int width = (searchRadius * 2) / scale + 1;
+    int height = (searchRadius * 2) / scale + 1;
 
     // Create a grid to represent the area
     // 0 = unexplored, 1 = land, 2 = water
@@ -203,13 +204,12 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     }
 
     // Fill the grid with biome information
-    int step = 4;
     for (int i = 0; i < width; i++) {
         for (int j = 0; j < height; j++) {
-            int worldX = x0 + i * step;
-            int worldZ = z0 + j * step;
+            int worldX = x0 + i;
+            int worldZ = z0 + j;
 
-            int biome = getBiomeAt(g, 4, worldX >> 2, 0, worldZ >> 2);
+            int biome = getBiomeAt(g, 4, worldX, 0, worldZ);
 
             // Check if this is an ocean biome
             bool isOcean = false;
@@ -888,7 +888,7 @@ int scanSeed(uint64_t seed)
             return false;  // Skip this seed without affecting the overall scan.
         }
     }
-    
+
     int x0 = (useSpawn ? (spawn.x - searchRadius) : (customX - searchRadius));
     int z0 = (useSpawn ? (spawn.z - searchRadius) : (customZ - searchRadius));
     int x1 = x0 + (searchRadius * 2);
@@ -1357,7 +1357,7 @@ int scanSeed(uint64_t seed)
     }
 
     if (allRequirementsMet) {
-        printf("Valid seed found: %llu\n", (unsigned long long) seed);
+        printf("Valid seed found: %llu\n", (unsigned long long)seed);
         return true;
     }
     return false;
@@ -1365,7 +1365,7 @@ int scanSeed(uint64_t seed)
 
 // -----------------------------------------------------------------------------
 void *scanTask(void *arg) {
-    uint64_t *endSeedPtr = (uint64_t*) arg;
+    uint64_t *endSeedPtr = (uint64_t*)arg;
 
     while (true) {
         pthread_mutex_lock(&seedMutex);
@@ -1888,7 +1888,7 @@ int main(int argc, char *argv[])
     // 9) Final result
     if (foundValidSeed) {
         printf("== Found at least one valid seed (e.g., %llu). Seeds found: %d ==\n",
-               (unsigned long long) validSeed, seedsFound);
+               (unsigned long long)validSeed, seedsFound);
     }
     else {
         printf("Finished searching, no valid seeds found in [%llu..%llu].\n",
