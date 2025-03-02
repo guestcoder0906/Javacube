@@ -12,6 +12,7 @@
 // Global configuration / defaults
 #define MAX_SEEDS_TO_FIND 1 
 #define STRUCTURE_TYPE_SPAWN 20  
+#define ISLAND_BIOME_ID 187  // Island biome ID
 int seedsFound = 0;          // Tracks how many seeds have been found so far
 
 // Range for seed scanning:
@@ -736,6 +737,13 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
     return success;
 }
 
+// BiomeBlock structure for proximity checking
+typedef struct {
+    int x;
+    int z;
+    int biomeId;
+} BiomeBlock;
+
 // -----------------------------------------------------------------------------
 // Check if a structure is close enough to any of the required biomes
 // Returns 1 if a matching biome is found within maxDistance, 0 otherwise
@@ -832,7 +840,7 @@ volatile uint64_t currentSeed   = 0; // threads will increment this
 
 // -----------------------------------------------------------------------------
 // Main seed scanning logic (structures + biome checks)
-int scanSeed(uint664_t seed)
+int scanSeed(uint64_t seed)
 {
     bool hasAnyRequirements = false;
     bool allRequirementsMet = true;
