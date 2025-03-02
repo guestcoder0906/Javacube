@@ -173,6 +173,14 @@ const char* getStructureName(int id)
 }
 
 // -----------------------------------------------------------------------------
+// Found positions
+typedef struct {
+    int structureType; 
+    int x;
+    int z;
+} StructurePos;
+
+// -----------------------------------------------------------------------------
 // New helper functions for island biome detection
 
 // Returns true if the given biome ID corresponds to an ocean-type biome.
@@ -408,13 +416,6 @@ ClusterRequirement clusterReq = {
     .minClusterSize  = 2
 };
 
-// -----------------------------------------------------------------------------
-// Found positions
-typedef struct {
-    int structureType; 
-    int x;
-    int z;
-} StructurePos;
 
 // -----------------------------------------------------------------------------
 // Optional invalid combination
