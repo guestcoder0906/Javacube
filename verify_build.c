@@ -10,7 +10,7 @@
 
 // -----------------------------------------------------------------------------
 // Global configuration / defaults
-#define MAX_SEEDS_TO_FIND 1
+#define MAX_SEEDS_TO_FIND -1
 #define STRUCTURE_TYPE_SPAWN 20
 int seedsFound = 0;          // Tracks how many seeds have been found so far
 
@@ -174,35 +174,28 @@ const char* getStructureName(int id)
 
 // Function to detect if a land area is an island (surrounded by ocean)
 bool isIsland(Generator *g, int x, int z, int searchRadius) {
-    // Define ocean biome IDs
-    int oceanBiomes[] = {0, 10, 24, 44, 45, 46, 47, 48, 49, 50}; // All ocean types
+    int oceanBiomes[] = {0, 10, 24, 44, 45, 46, 47, 48, 49, 50};
     int oceanBiomesCount = sizeof(oceanBiomes) / sizeof(oceanBiomes[0]);
 
-    // Get the biome at the center position
     int centerBiome = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
 
-    // Check if center is ocean - if so, not an island
     for (int i = 0; i < oceanBiomesCount; i++) {
         if (centerBiome == oceanBiomes[i]) {
             return false;
         }
     }
 
-    // Define the search area
     int x0 = x - searchRadius;
     int z0 = z - searchRadius;
     int width = searchRadius * 2 / 4 + 1;
     int height = searchRadius * 2 / 4 + 1;
 
-    // Create a grid to represent the area
-    // 0 = unexplored, 1 = land, 2 = water
     char *grid = calloc(width * height, sizeof(char));
     if (!grid) {
         perror("calloc");
         return false;
     }
 
-    // Fill the grid with biome information
     int step = 4;
     for (int i = 0; i < width; i++) {
         for (int j = 0; j < height; j++) {
@@ -210,8 +203,6 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
             int worldZ = z0 + j * step;
 
             int biome = getBiomeAt(g, 4, worldX >> 2, 0, worldZ >> 2);
-
-            // Check if this is an ocean biome
             bool isOcean = false;
             for (int k = 0; k < oceanBiomesCount; k++) {
                 if (biome == oceanBiomes[k]) {
@@ -220,33 +211,28 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
                 }
             }
 
-            grid[j * width + i] = isOcean ? 2 : 1; // 2 = water, 1 = land
+            grid[j * width + i] = isOcean ? 2 : 1;
         }
     }
 
-    // Mark the boundary if it contains land
     for (int i = 0; i < width; i++) {
-        if (grid[i] == 1) grid[i] = 3; // Top boundary
-        if (grid[(height-1) * width + i] == 1) grid[(height-1) * width + i] = 3; // Bottom boundary
+        if (grid[i] == 1) grid[i] = 3;
+        if (grid[(height-1) * width + i] == 1) grid[(height-1) * width + i] = 3;
     }
 
     for (int j = 0; j < height; j++) {
-        if (grid[j * width] == 1) grid[j * width] = 3; // Left boundary
-        if (grid[j * width + width - 1] == 1) grid[j * width + width - 1] = 3; // Right boundary
+        if (grid[j * width] == 1) grid[j * width] = 3;
+        if (grid[j * width + width - 1] == 1) grid[j * width + width - 1] = 3;
     }
 
-    // Find the center of the grid
     int centerI = width / 2;
     int centerJ = height / 2;
 
-    // If the center is not land, it's not an island
     if (grid[centerJ * width + centerI] != 1) {
         free(grid);
         return false;
     }
 
-    // Flood fill from center to find connected land
-    // Stack for flood fill
     typedef struct { int x; int y; } Point;
     Point *stack = malloc(width * height * sizeof(Point));
     if (!stack) {
@@ -258,15 +244,11 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     int stackSize = 1;
     stack[0].x = centerI;
     stack[0].y = centerJ;
-
-    // Mark center as visited (4)
     grid[centerJ * width + centerI] = 4;
 
-    // Perform flood fill
     while (stackSize > 0) {
         Point p = stack[--stackSize];
 
-        // Check the 4 adjacent positions
         int dx[] = {0, 1, 0, -1};
         int dy[] = {-1, 0, 1, 0};
 
@@ -274,17 +256,13 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
             int nx = p.x + dx[d];
             int ny = p.y + dy[d];
 
-            // Check if in bounds
             if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                // If land and not visited yet
                 if (grid[ny * width + nx] == 1) {
-                    grid[ny * width + nx] = 4; // Mark as visited
+                    grid[ny * width + nx] = 4;
                     stack[stackSize].x = nx;
                     stack[stackSize].y = ny;
                     stackSize++;
-                }
-                // If we touch the boundary, it's not an island
-                else if (grid[ny * width + nx] == 3) {
+                } else if (grid[ny * width + nx] == 3) {
                     free(stack);
                     free(grid);
                     return false;
@@ -293,7 +271,6 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
         }
     }
 
-    // Count the land area (cells marked as 4)
     int landArea = 0;
     for (int j = 0; j < height; j++) {
         for (int i = 0; i < width; i++) {
@@ -306,8 +283,12 @@ bool isIsland(Generator *g, int x, int z, int searchRadius) {
     free(stack);
     free(grid);
 
-    // Return true only if land area is significant enough (minimum 5 cells)
-    return landArea >= 5;
+    if (landArea >= 5) {
+        printf("Island detected at (%d, %d) with area: %d\n", x, z, landArea);
+        return true;
+    }
+
+    return false;
 }
 
 // Function to check if a position has a custom biome
@@ -1298,22 +1279,27 @@ int scanSeed(uint64_t seed)
 
 // -----------------------------------------------------------------------------
 void *scanTask(void *arg) {
-    uint64_t *endSeedPtr = (uint64_t*) arg;
-
     while (true) {
         pthread_mutex_lock(&seedMutex);
-        if (foundValidSeed || currentSeed > *endSeedPtr) {
+
+        // Exit if a valid seed is found (only condition to stop scanning)
+        if (foundValidSeed) {
             pthread_mutex_unlock(&seedMutex);
             break;
         }
+
         uint64_t seed = currentSeed;
-        currentSeed++;
-        if (seed % 10000 == 0) {
-            printf("Seeds scanned: %llu\n", (unsigned long long)seed);
-        }
+        currentSeed++;  // No upper limit, scan indefinitely
+
         pthread_mutex_unlock(&seedMutex);
 
-        if (scanSeed(seed)) {
+        if (seed % 1000 == 0) {
+            printf("Seeds scanned: %llu\n", (unsigned long long)seed);
+        }
+
+        const int result = scanSeed(seed);
+        printf("Seed %llu: %s\n", (unsigned long long)seed, result ? "valid" : "invalid");
+        if (result) {
             pthread_mutex_lock(&seedMutex);
             validSeed = seed;
             seedsFound++;
@@ -1681,8 +1667,7 @@ int main(int argc, char *argv[])
     biomeSearch.clusters      = g_biomeClusters;
     biomeSearch.clusterCount  = g_biomeClustersCount;
 
-    uint64_t scanCount = 999999999999;
-    end_seed = starting_seed + scanCount - 1ULL;
+    end_seed = UINT64_MAX;  // No upper limit on seed search
 
     currentSeed     = starting_seed;
     foundValidSeed  = false;
