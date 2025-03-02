@@ -1166,8 +1166,16 @@ int scanSeed(uint64_t seed)
 
                             if (biome_id == 187) {
                                 if (!isIsland(curr_gen, pos.x, pos.z, searchRadius / 4)) {
-                                    continue;
+                                    printf("Seed %llu: NOT an island at (%d, %d), continuing search.\n",
+                                           (unsigned long long)seed, pos.x, pos.z);
+                                    continue; // Skip non-island locations
                                 }
+
+                                // Log detected island before proceeding
+                                printf("Seed %llu: Island detected at (%d, %d)\n",
+                                       (unsigned long long)seed, pos.x, pos.z);
+                            
+                                
                             }
                         }
 
