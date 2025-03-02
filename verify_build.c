@@ -12,7 +12,8 @@
 // -----------------------------------------------------------------------------
 // Global configuration / defaults
 #define MAX_SEEDS_TO_FIND 1 
-#define STRUCTURE_TYPE_SPAWN 20  
+#define STRUCTURE_TYPE_SPAWN 20
+#define CUSTOM_BIOME_ISLAND 187  // Custom biome ID for islands
 int seedsFound = 0;          // Tracks how many seeds have been found so far
 
 // Range for seed scanning:
@@ -139,6 +140,7 @@ const char* getBiomeName(int id)
         case 184: return "Mangrove Swamp";
         case 185: return "Cherry Grove";
         case 186: return "Pale Garden";
+        case 187: return "Island";
         default:  return "Unknown";
     }
 }
@@ -376,31 +378,73 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
             BiomeRequirement *req = &bs->required[i];
             bool foundPatchForThisReq = false;
 
-            // Collect all cells that match any biome in req->biomeIds
-            int capacity = 128, count = 0;
-            StructurePos *positions = malloc(capacity * sizeof(StructurePos));
-            if (!positions) { perror("malloc"); exit(1); }
+            // Check if we're looking for island biomes
+            bool checkingForIsland = false;
+            for (int b = 0; b < req->biomeCount; b++) {
+                if (req->biomeIds[b] == CUSTOM_BIOME_ISLAND) {
+                    checkingForIsland = true;
+                    break;
+                }
+            }
 
-            for (int zz = z0; zz <= z1; zz += step) {
-                for (int xx = x0; xx <= x1; xx += step) {
-                    int biome = getBiomeAt(g, 4, xx >> 2, 0, zz >> 2);
-                    // check if biome is in req->biomeIds
-                    for (int b = 0; b < req->biomeCount; b++) {
-                        if (biome == req->biomeIds[b]) {
-                            if (count == capacity) {
-                                capacity *= 2;
-                                positions = realloc(positions, capacity * sizeof(StructurePos));
-                                if (!positions) { perror("realloc"); exit(1); }
-                            }
-                            positions[count].structureType = biome;
-                            positions[count].x = xx;
-                            positions[count].z = zz;
-                            count++;
-                            break; 
+            // If we're looking for islands, handle separately
+            if (checkingForIsland) {
+                int islandBiomeId;
+                double islandCenterX, islandCenterZ;
+                int islandSize;
+                
+                // Try to detect an island in the search area
+                bool isIsland = detectIslandBiome(g, (x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, 
+                                              &islandBiomeId, &islandCenterX, &islandCenterZ, &islandSize);
+                
+                if (isIsland) {
+                    // Check size constraints (if any)
+                    bool sizeOk = true;
+                    for (int sc = 0; sc < req->configCount; sc++) {
+                        if (req->sizeConfigs[sc].biomeId == CUSTOM_BIOME_ISLAND) {
+                            int mn = req->sizeConfigs[sc].minSize;
+                            int mx = req->sizeConfigs[sc].maxSize;
+                            if (mn > -1 && islandSize < mn) sizeOk = false;
+                            if (mx > -1 && islandSize > mx) sizeOk = false;
+                            break;
+                        }
+                    }
+                    
+                    if (sizeOk) {
+                        foundPatchForThisReq = true;
+                        if (req->logCenters) {
+                            printf("Island detected: center (%.1f, %.1f), size=%d, main biome=%s\n",
+                                  islandCenterX, islandCenterZ, islandSize, getBiomeName(islandBiomeId));
                         }
                     }
                 }
-            }
+            } else {
+                // Regular biome handling (original code)
+                // Collect all cells that match any biome in req->biomeIds
+                int capacity = 128, count = 0;
+                StructurePos *positions = malloc(capacity * sizeof(StructurePos));
+                if (!positions) { perror("malloc"); exit(1); }
+
+                for (int zz = z0; zz <= z1; zz += step) {
+                    for (int xx = x0; xx <= x1; xx += step) {
+                        int biome = getBiomeAt(g, 4, xx >> 2, 0, zz >> 2);
+                        // check if biome is in req->biomeIds
+                        for (int b = 0; b < req->biomeCount; b++) {
+                            if (biome == req->biomeIds[b]) {
+                                if (count == capacity) {
+                                    capacity *= 2;
+                                    positions = realloc(positions, capacity * sizeof(StructurePos));
+                                    if (!positions) { perror("realloc"); exit(1); }
+                                }
+                                positions[count].structureType = biome;
+                                positions[count].x = xx;
+                                positions[count].z = zz;
+                                count++;
+                                break; 
+                            }
+                        }
+                    }
+                }
 
             if (count == 0) {
                 // none found for this requirement
@@ -471,9 +515,11 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
                     }
                 }
             }
-            free(processed);
-            free(parent);
-            free(positions);
+            if (!checkingForIsland) {
+                free(processed);
+                free(parent);
+                free(positions);
+            }
 
             if (!foundPatchForThisReq) {
                 allRequirementsFound = false;
@@ -698,6 +744,225 @@ volatile bool foundValidSeed    = false;
 pthread_mutex_t seedMutex       = PTHREAD_MUTEX_INITIALIZER;
 uint64_t validSeed              = 0;
 volatile uint64_t currentSeed   = 0; // threads will increment this
+
+// -----------------------------------------------------------------------------
+// Island biome detection function
+// Detects biomes that are fully surrounded by ocean biomes
+// If island is detected, it returns 1 and sets outBiomeId, centerX, centerZ, and islandSize
+int detectIslandBiome(Generator *g, int x, int z, int searchRadius, 
+                     int *outBiomeId, double *centerX, double *centerZ, int *islandSize) 
+{
+    // Define a grid for biome mapping
+    int gridSize = searchRadius * 2 / 4; // Convert to quarter resolution
+    unsigned char *biomeGrid = calloc(gridSize * gridSize, sizeof(unsigned char));
+    if (!biomeGrid) return 0;
+    
+    // Mark ocean cells as 1, land cells as 2
+    int ocean_count = 0;
+    int land_count = 0;
+    int x0 = (x - searchRadius) >> 2;
+    int z0 = (z - searchRadius) >> 2;
+    
+    // Step 1: Map the entire area
+    for (int j = 0; j < gridSize; j++) {
+        for (int i = 0; i < gridSize; i++) {
+            int bx = x0 + i;
+            int bz = z0 + j;
+            int biome_id = getBiomeAt(g, 4, bx, 0, bz);
+            
+            if (isOceanic(biome_id)) {
+                biomeGrid[j * gridSize + i] = 1; // Ocean
+                ocean_count++;
+            } else {
+                biomeGrid[j * gridSize + i] = 2; // Land
+                land_count++;
+            }
+        }
+    }
+    
+    // If there's no land or no ocean, it's not an island
+    if (land_count == 0 || ocean_count == 0) {
+        free(biomeGrid);
+        return 0;
+    }
+    
+    // Step 2: Identify connected land components using flood fill
+    int *parent = malloc(gridSize * gridSize * sizeof(int));
+    if (!parent) {
+        free(biomeGrid);
+        return 0;
+    }
+    
+    // Initialize parent arrays (each cell is its own set initially)
+    for (int i = 0; i < gridSize * gridSize; i++) {
+        parent[i] = i;
+    }
+    
+    // Connect adjacent land cells
+    int dx[] = {0, 1, 0, -1};
+    int dy[] = {-1, 0, 1, 0};
+    
+    for (int j = 0; j < gridSize; j++) {
+        for (int i = 0; i < gridSize; i++) {
+            if (biomeGrid[j * gridSize + i] != 2) continue; // Skip non-land
+            
+            int idx = j * gridSize + i;
+            
+            // Check 4 adjacent cells
+            for (int d = 0; d < 4; d++) {
+                int ni = i + dx[d];
+                int nj = j + dy[d];
+                
+                if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize) {
+                    if (biomeGrid[nj * gridSize + ni] == 2) { // If adjacent cell is land
+                        int nidx = nj * gridSize + ni;
+                        unionSets(parent, idx, nidx);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Step 3: Count cells in each land component and check if completely surrounded by ocean
+    int *compSize = calloc(gridSize * gridSize, sizeof(int));
+    if (!compSize) {
+        free(biomeGrid);
+        free(parent);
+        return 0;
+    }
+    
+    // Count cells in each component
+    for (int j = 0; j < gridSize; j++) {
+        for (int i = 0; i < gridSize; i++) {
+            if (biomeGrid[j * gridSize + i] == 2) { // Land
+                int root = findSet(parent, j * gridSize + i);
+                compSize[root]++;
+            }
+        }
+    }
+    
+    // Check if components touch the edge (not islands)
+    int *touchesEdge = calloc(gridSize * gridSize, sizeof(int));
+    if (!touchesEdge) {
+        free(biomeGrid);
+        free(parent);
+        free(compSize);
+        return 0;
+    }
+    
+    for (int i = 0; i < gridSize; i++) {
+        // Top and bottom edges
+        if (biomeGrid[i] == 2) {
+            int root = findSet(parent, i);
+            touchesEdge[root] = 1;
+        }
+        if (biomeGrid[(gridSize-1) * gridSize + i] == 2) {
+            int root = findSet(parent, (gridSize-1) * gridSize + i);
+            touchesEdge[root] = 1;
+        }
+        
+        // Left and right edges
+        if (biomeGrid[i * gridSize] == 2) {
+            int root = findSet(parent, i * gridSize);
+            touchesEdge[root] = 1;
+        }
+        if (biomeGrid[i * gridSize + (gridSize-1)] == 2) {
+            int root = findSet(parent, i * gridSize + (gridSize-1));
+            touchesEdge[root] = 1;
+        }
+    }
+    
+    // Step 4: Verify if each component is surrounded by ocean (island check)
+    int foundIsland = 0;
+    int largestIslandRoot = -1;
+    int largestIslandSize = 0;
+    
+    for (int j = 0; j < gridSize; j++) {
+        for (int i = 0; i < gridSize; i++) {
+            if (biomeGrid[j * gridSize + i] != 2) continue; // Skip non-land
+            
+            int root = findSet(parent, j * gridSize + i);
+            
+            // Skip if component touches edge or has already been processed
+            if (touchesEdge[root] || compSize[root] == 0) continue;
+            
+            // Check if this component is completely surrounded by ocean
+            int isSurrounded = 1;
+            for (int jj = 0; jj < gridSize && isSurrounded; jj++) {
+                for (int ii = 0; ii < gridSize && isSurrounded; ii++) {
+                    if (findSet(parent, jj * gridSize + ii) != root) continue;
+                    
+                    // Check all adjacent cells
+                    for (int d = 0; d < 4 && isSurrounded; d++) {
+                        int ni = ii + dx[d];
+                        int nj = jj + dy[d];
+                        
+                        if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize) {
+                            // If adjacent cell is neither ocean nor part of this land component
+                            if (biomeGrid[nj * gridSize + ni] != 1 && 
+                                findSet(parent, nj * gridSize + ni) != root) {
+                                isSurrounded = 0;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (isSurrounded && compSize[root] > largestIslandSize) {
+                foundIsland = 1;
+                largestIslandRoot = root;
+                largestIslandSize = compSize[root];
+            }
+        }
+    }
+    
+    // Step 5: If island found, calculate its center and properties
+    if (foundIsland && largestIslandRoot != -1) {
+        // Calculate center coordinates
+        double sumX = 0, sumZ = 0;
+        int count = 0;
+        int biomeId = -1;
+        
+        for (int j = 0; j < gridSize; j++) {
+            for (int i = 0; i < gridSize; i++) {
+                if (biomeGrid[j * gridSize + i] == 2 && 
+                    findSet(parent, j * gridSize + i) == largestIslandRoot) {
+                    
+                    int realX = (x0 + i) << 2;
+                    int realZ = (z0 + j) << 2;
+                    sumX += realX;
+                    sumZ += realZ;
+                    count++;
+                    
+                    // Sample the biome at the first cell to get a representative biome ID
+                    if (biomeId == -1) {
+                        biomeId = getBiomeAt(g, 4, x0 + i, 0, z0 + j);
+                    }
+                }
+            }
+        }
+        
+        // Set output parameters
+        if (outBiomeId) *outBiomeId = biomeId;
+        if (centerX) *centerX = sumX / count;
+        if (centerZ) *centerZ = sumZ / count;
+        if (islandSize) *islandSize = largestIslandSize * 16; // Convert to blocks (approx)
+        
+        // Clean up
+        free(biomeGrid);
+        free(parent);
+        free(compSize);
+        free(touchesEdge);
+        return 1;
+    }
+    
+    // Clean up
+    free(biomeGrid);
+    free(parent);
+    free(compSize);
+    free(touchesEdge);
+    return 0;
+}
 
 // -----------------------------------------------------------------------------
 // Main seed scanning logic (structures + biome checks)
@@ -1012,14 +1277,42 @@ int scanSeed(uint64_t seed)
 
                         // Check required biome if specified
                         if (req.requiredBiome != -1) {
-                            if (biome_id != req.requiredBiome)
-                                continue;
-
-                            if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
-                                int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
-                                if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
-                                    (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
+                            // Special handling for island biome
+                            if (req.requiredBiome == CUSTOM_BIOME_ISLAND) {
+                                int islandBiomeId;
+                                double islandCenterX, islandCenterZ;
+                                int islandSize;
+                                
+                                // Detect if there's an island at this position
+                                bool isIsland = detectIslandBiome(curr_gen, pos.x, pos.z, searchRadius/2, 
+                                                               &islandBiomeId, &islandCenterX, &islandCenterZ, &islandSize);
+                                
+                                if (!isIsland) continue;
+                                
+                                // Apply size constraints if specified
+                                if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
+                                    if ((req.minBiomeSize != -1 && islandSize < req.minBiomeSize) ||
+                                        (req.maxBiomeSize != -1 && islandSize > req.maxBiomeSize))
+                                        continue;
+                                }
+                                
+                                // Override the position with the island center
+                                pos.x = (int)islandCenterX;
+                                pos.z = (int)islandCenterZ;
+                                
+                                // Override biome_id for output
+                                biome_id = CUSTOM_BIOME_ISLAND;
+                            } else {
+                                // Regular biome check
+                                if (biome_id != req.requiredBiome)
                                     continue;
+
+                                if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
+                                    int patchSize = getBiomePatchSize(curr_gen, pos.x, pos.z, biome_id);
+                                    if ((req.minBiomeSize != -1 && patchSize < req.minBiomeSize) ||
+                                        (req.maxBiomeSize != -1 && patchSize > req.maxBiomeSize))
+                                        continue;
+                                }
                             }
                         }
 
