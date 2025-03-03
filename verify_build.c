@@ -525,8 +525,6 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
 
             for (int zz = z0; zz <= z1; zz += step) {
                 for (int xx = x0; xx <= x1; xx += step) {
-                    // Use extended biome detection that includes custom biomes
-                    int biome;
                     // Check if any of the required biome IDs is 187 (Island)
                     bool needsIslandCheck = false;
                     for (int b = 0; b < req->biomeCount; b++) {
@@ -536,6 +534,8 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
                         }
                     }
                     
+                    // Use extended biome detection only when island check is needed
+                    int biome;
                     if (needsIslandCheck) {
                         biome = getExtendedBiomeAt(g, 4, xx >> 2, 0, zz >> 2, customSearchRadius);
                     } else {
@@ -657,8 +657,22 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
 
             for (int zz = z0; zz <= z1; zz += step) {
                 for (int xx = x0; xx <= x1; xx += step) {
-                    // Use extended biome detection for custom biomes
-                    int biome = getExtendedBiomeAt(g, 4, xx >> 2, 0, zz >> 2, customSearchRadius);
+                    // Check if we need to detect islands (biome 187)
+                    bool needsIslandCheck = false;
+                    for (int b = 0; b < cl->biomeCount; b++) {
+                        if (cl->biomeIds[b] == 187) {
+                            needsIslandCheck = true;
+                            break;
+                        }
+                    }
+                    
+                    // Use extended biome detection only when needed
+                    int biome;
+                    if (needsIslandCheck) {
+                        biome = getExtendedBiomeAt(g, 4, xx >> 2, 0, zz >> 2, customSearchRadius);
+                    } else {
+                        biome = getBiomeAt(g, 4, xx >> 2, 0, zz >> 2);
+                    }
 
                     for (int b = 0; b < cl->biomeCount; b++) {
                         if (biome == cl->biomeIds[b]) {
@@ -1138,11 +1152,17 @@ int scanSeed(uint64_t seed)
                             int lx = pos.x & 15;
                             int lz = pos.z & 15;
                             int surface_y = (int)heightArr[lz*w + lx];
-                            biome_id = getExtendedBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2, searchRadius / 4);
+                            // Only use extended biome detection if we might be looking for islands
+                            if (req.requiredBiome == 187) {
+                                biome_id = getExtendedBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2, searchRadius / 4);
+                            } else {
+                                biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
+                            }
                         }
 
                         if (req.requiredBiome != -1) {
                             if (req.requiredBiome == 187) {
+                                // Only check for island biome if specifically required
                                 int customBiome = getCustomBiomeAt(curr_gen, pos.x, pos.z, searchRadius / 4);
                                 if (customBiome != 187) {
                                     continue;
