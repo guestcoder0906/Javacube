@@ -302,18 +302,6 @@ int getCustomBiomeAt(Generator *g, int x, int z, int searchRadius) {
     return -1;
 }
 
-// Wrapper for getBiomeAt that includes custom biome detection
-int getExtendedBiomeAt(Generator *g, int scale, int x, int y, int z, int searchRadius) {
-    // First check for custom biomes
-    int customBiome = getCustomBiomeAt(g, x * scale, z * scale, searchRadius);
-    if (customBiome >= 0) {
-        return customBiome;
-    }
-
-    // Fall back to standard biome detection
-    return getBiomeAt(g, scale, x, y, z);
-}
-
 // -----------------------------------------------------------------------------
 // Approx. function to measure the "patch size" of a given biome around (x,z).
 int getBiomePatchSize(Generator *g, int x, int z, int biome_id)
@@ -525,8 +513,13 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
 
             for (int zz = z0; zz <= z1; zz += step) {
                 for (int xx = x0; xx <= x1; xx += step) {
-                    // Use extended biome detection that includes custom biomes
-                    int biome = getExtendedBiomeAt(g, 4, xx >> 2, 0, zz >> 2, customSearchRadius);
+                    // Get regular biome
+                    int biome = getBiomeAt(g, 4, xx >> 2, 0, zz >> 2);
+                    
+                    // Check for island biome
+                    if (isIsland(g, xx, zz, customSearchRadius)) {
+                        biome = 187; // Island biome ID
+                    }
 
                     // check if biome is in req->biomeIds
                     for (int b = 0; b < req->biomeCount; b++) {
@@ -1038,7 +1031,10 @@ int scanSeed(uint64_t seed)
                 int lz = spawnPos.z & 15;
                 int height = (int)heightArr[lz*w + lx];
 
-                int biome_id = getExtendedBiomeAt(&g, 4, spawnPos.x >> 2, height >> 2, spawnPos.z >> 2, searchRadius / 4);
+                int biome_id = getBiomeAt(&g, 4, spawnPos.x >> 2, height >> 2, spawnPos.z >> 2);
+                if (isIsland(&g, spawnPos.x, spawnPos.z, searchRadius / 4)) {
+                    biome_id = 187;
+                }
 
                 if ((req.minHeight != -9999 && height < req.minHeight) ||
                     (req.maxHeight != 9999 && height > req.maxHeight)) {
@@ -1124,13 +1120,15 @@ int scanSeed(uint64_t seed)
                             int lx = pos.x & 15;
                             int lz = pos.z & 15;
                             int surface_y = (int)heightArr[lz*w + lx];
-                            biome_id = getExtendedBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2, searchRadius / 4);
+                            biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
+                            if (isIsland(curr_gen, pos.x, pos.z, searchRadius / 4)) {
+                                biome_id = 187;
+                            }
                         }
 
                         if (req.requiredBiome != -1) {
                             if (req.requiredBiome == 187) {
-                                int customBiome = getCustomBiomeAt(curr_gen, pos.x, pos.z, searchRadius / 4);
-                                if (customBiome != 187) {
+                                if (!isIsland(curr_gen, pos.x, pos.z, searchRadius / 4)) {
                                     continue;
                                 }
                                 biome_id = 187;
