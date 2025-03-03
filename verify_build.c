@@ -155,7 +155,7 @@ const char* getStructureName(int id)
         case 5:  return "Village";
         case 6:  return "Ocean Monument";
         case 7:  return "Shipwreck";
-        case 8:  return "Ancient City Base";
+        case 8:  return "Ancient City";
         case 9:  return "Mansion";
         case 10: return "Outpost";
         case 11: return "Ruined Portal";
@@ -525,22 +525,8 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
 
             for (int zz = z0; zz <= z1; zz += step) {
                 for (int xx = x0; xx <= x1; xx += step) {
-                    // Check if any of the required biome IDs is 187 (Island)
-                    bool needsIslandCheck = false;
-                    for (int b = 0; b < req->biomeCount; b++) {
-                        if (req->biomeIds[b] == 187) {
-                            needsIslandCheck = true;
-                            break;
-                        }
-                    }
-                    
-                    // Use extended biome detection only when island check is needed
-                    int biome;
-                    if (needsIslandCheck) {
-                        biome = getExtendedBiomeAt(g, 4, xx >> 2, 0, zz >> 2, customSearchRadius);
-                    } else {
-                        biome = getBiomeAt(g, 4, xx >> 2, 0, zz >> 2);
-                    }
+                    // Use extended biome detection that includes custom biomes
+                    int biome = getExtendedBiomeAt(g, 4, xx >> 2, 0, zz >> 2, customSearchRadius);
 
                     // check if biome is in req->biomeIds
                     for (int b = 0; b < req->biomeCount; b++) {
@@ -657,22 +643,8 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
 
             for (int zz = z0; zz <= z1; zz += step) {
                 for (int xx = x0; xx <= x1; xx += step) {
-                    // Check if we need to detect islands (biome 187)
-                    bool needsIslandCheck = false;
-                    for (int b = 0; b < cl->biomeCount; b++) {
-                        if (cl->biomeIds[b] == 187) {
-                            needsIslandCheck = true;
-                            break;
-                        }
-                    }
-                    
-                    // Use extended biome detection only when needed
-                    int biome;
-                    if (needsIslandCheck) {
-                        biome = getExtendedBiomeAt(g, 4, xx >> 2, 0, zz >> 2, customSearchRadius);
-                    } else {
-                        biome = getBiomeAt(g, 4, xx >> 2, 0, zz >> 2);
-                    }
+                    // Use extended biome detection for custom biomes
+                    int biome = getExtendedBiomeAt(g, 4, xx >> 2, 0, zz >> 2, customSearchRadius);
 
                     for (int b = 0; b < cl->biomeCount; b++) {
                         if (biome == cl->biomeIds[b]) {
@@ -1152,17 +1124,11 @@ int scanSeed(uint64_t seed)
                             int lx = pos.x & 15;
                             int lz = pos.z & 15;
                             int surface_y = (int)heightArr[lz*w + lx];
-                            // Only use extended biome detection if we might be looking for islands
-                            if (req.requiredBiome == 187) {
-                                biome_id = getExtendedBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2, searchRadius / 4);
-                            } else {
-                                biome_id = getBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2);
-                            }
+                            biome_id = getExtendedBiomeAt(curr_gen, 4, pos.x >> 2, surface_y >> 2, pos.z >> 2, searchRadius / 4);
                         }
 
                         if (req.requiredBiome != -1) {
                             if (req.requiredBiome == 187) {
-                                // Only check for island biome if specifically required
                                 int customBiome = getCustomBiomeAt(curr_gen, pos.x, pos.z, searchRadius / 4);
                                 if (customBiome != 187) {
                                     continue;
@@ -1547,7 +1513,7 @@ void parseParameterLine(char *line)
                     clusterReq.enabled = false;
             }
         }
-        else if (strstr(line, "Valid s:") == line) {
+        else if (strstr(line, "Valid structures:") == line) {
             const char *p = strchr(line, ':');
             if (p) {
                 p++;
