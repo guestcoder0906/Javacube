@@ -527,7 +527,16 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
                 for (int xx = x0; xx <= x1; xx += step) {
                     // Use extended biome detection that includes custom biomes
                     int biome;
-                    if (req->requiredBiome == 187) {
+                    // Check if any of the required biome IDs is 187 (Island)
+                    bool needsIslandCheck = false;
+                    for (int b = 0; b < req->biomeCount; b++) {
+                        if (req->biomeIds[b] == 187) {
+                            needsIslandCheck = true;
+                            break;
+                        }
+                    }
+                    
+                    if (needsIslandCheck) {
                         biome = getExtendedBiomeAt(g, 4, xx >> 2, 0, zz >> 2, customSearchRadius);
                     } else {
                         biome = getBiomeAt(g, 4, xx >> 2, 0, zz >> 2);
