@@ -526,7 +526,12 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs)
             for (int zz = z0; zz <= z1; zz += step) {
                 for (int xx = x0; xx <= x1; xx += step) {
                     // Use extended biome detection that includes custom biomes
-                    int biome = getExtendedBiomeAt(g, 4, xx >> 2, 0, zz >> 2, customSearchRadius);
+                    int biome;
+                    if (req->requiredBiome == 187) {
+                        biome = getExtendedBiomeAt(g, 4, xx >> 2, 0, zz >> 2, customSearchRadius);
+                    } else {
+                        biome = getBiomeAt(g, 4, xx >> 2, 0, zz >> 2);
+                    }
 
                     // check if biome is in req->biomeIds
                     for (int b = 0; b < req->biomeCount; b++) {
@@ -1513,7 +1518,7 @@ void parseParameterLine(char *line)
                     clusterReq.enabled = false;
             }
         }
-        else if (strstr(line, "Valid structures:") == line) {
+        else if (strstr(line, "Valid s:") == line) {
             const char *p = strchr(line, ':');
             if (p) {
                 p++;
