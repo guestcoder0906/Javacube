@@ -755,7 +755,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, u
             success = false;
     }
 
-    // 2) Clustered biomes (updated to only log clusters with at least 2 unique biome IDs)
+    // 2) Clustered biomes (unchanged from before)
     if (bs->clusterCount > 0) {
         for (int i = 0; i < bs->clusterCount; i++) {
             BiomeCluster *cl = &bs->clusters[i];
@@ -785,7 +785,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, u
                 free(positions);
                 continue;
             }
-            int *parent = malloc(count * sizeofint);
+            int *parent = malloc(count * sizeof(int));
             if (!parent) { perror("malloc"); exit(1); }
             for (int c = 0; c < count; c++)
                 parent[c] = c;
@@ -805,12 +805,8 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, u
                 if (processed[root]) continue;
                 processed[root] = true;
                 double sumX = 0, sumZ = 0;
-                // Track unique biome IDs
-                int usedBiome[256] = {0};
                 int compCount = 0;
-                double sumX = 0, sumZ = 0;
-
-                // Count components and collect unique biome IDs
+                bool usedBiome[256] = {0};
                 for (int e = 0; e < count; e++) {
                     if (findSet(parent, e) == root) {
                         sumX += positions[e].x;
@@ -821,24 +817,17 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, u
                             usedBiome[bId] = true;
                     }
                 }
-
-                // Count distinct biome IDs
                 int distinctIDs = 0;
                 for (int bId = 0; bId < 256; bId++) {
                     if (usedBiome[bId])
                         distinctIDs++;
                 }
-
-                // Validate cluster requirements
                 bool sizeOk = true;
                 if (cl->minSize > -1 && compCount < cl->minSize) sizeOk = false;
                 if (cl->maxSize > -1 && compCount > cl->maxSize) sizeOk = false;
-
                 // Only consider it a valid cluster if it has at least 2 distinct biome IDs
                 if (distinctIDs < 2) sizeOk = false;
-
-                // Only log valid clusters
-                if (sizeOk && cl->logCenters && distinctIDs >= 2) {
+                if (sizeOk && cl->logCenters) {
                     if (!printedClusterSeedHeader) {
                         printf("Valid seed found: %llu\n", (unsigned long long) seed);
                         printedClusterSeedHeader = true;
@@ -1045,7 +1034,7 @@ int scanSeed(uint64_t seed)
                 // Skip invalid structure types
                 continue;
             }
-
+            
             StructureConfig sconf;
             if (!getStructureConfig(stype, MC_1_21, &sconf)) {
                 // not valid in this version
@@ -1076,7 +1065,7 @@ int scanSeed(uint64_t seed)
                         continue;
                     if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
                         continue;
-
+                    
                     // Check viability - skip if fails
                     if (!isViableStructurePos(stype, curr_gen, pos.x, pos.z, 0))
                         continue;
@@ -1133,7 +1122,7 @@ int scanSeed(uint64_t seed)
                         if (groupSize == indicesCap) {
                             indicesCap *= 2;
                             indices = realloc(indices, indicesCap*sizeof(int));
-                            if (!indices) { perror("malloc"); exit(1); }
+                            if (!indices) { perror("realloc"); exit(1); }
                         }
                         indices[groupSize++] = j;
                     }
@@ -1148,7 +1137,7 @@ int scanSeed(uint64_t seed)
                 // sort the structure types in ascending order
                 int *groupTypes = malloc(groupSize*sizeof(int));
                 if (!groupTypes) { perror("malloc"); exit(1); }
-
+                
                 for (int n = 0; n < groupSize; n++) {
                     groupTypes[n] = clusterPositions[indices[n]].structureType;
                 }
