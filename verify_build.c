@@ -757,8 +757,10 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
             success = false;
     }
 
-    // 2) Clustered biomes (unchanged from before)
+    // 2) Clustered biomes 
     if (bs->clusterCount > 0) {
+        bool foundAnyValidCluster = false; // Track if any valid clusters were found
+        
         for (int i = 0; i < bs->clusterCount; i++) {
             BiomeCluster *cl = &bs->clusters[i];
             int capacity = 128, count = 0;
@@ -802,6 +804,8 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
             }
             bool *processed = calloc(count, sizeof(bool));
             if (!processed) { perror("calloc"); exit(1); }
+            bool foundValidClusterInThisGroup = false;
+            
             for (int c = 0; c < count; c++) {
                 int root = findSet(parent, c);
                 if (processed[root]) continue;
@@ -830,6 +834,9 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
                 // Only consider it a valid cluster if it has at least 2 distinct biome IDs
                 if (distinctIDs < 2) sizeOk = false;
                 if (sizeOk && cl->logCenters) {
+                    foundValidClusterInThisGroup = true;
+                    foundAnyValidCluster = true;
+                    
                     if (!printedClusterSeedHeader) {
                         printf("Valid seed found: %llu\n", (unsigned long long) seed);
                         printedClusterSeedHeader = true;
@@ -843,6 +850,11 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
             free(processed);
             free(parent);
             free(positions);
+        }
+        
+        // If we're specifically looking for biome clusters and found none, the seed is not valid
+        if (bs->clusterCount > 0 && !foundAnyValidCluster) {
+            success = false;
         }
     }
 
