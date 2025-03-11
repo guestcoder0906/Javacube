@@ -1028,6 +1028,11 @@ int scanSeed(uint64_t seed)
 
         for (int i = 0; i < clusterReq.count; i++) {
             int stype = clusterReq.structureTypes[i];
+            if (stype <= 0 || stype >= FEATURE_NUM) {
+                // Skip invalid structure types
+                continue;
+            }
+            
             StructureConfig sconf;
             if (!getStructureConfig(stype, MC_1_21, &sconf)) {
                 // not valid in this version
@@ -1058,6 +1063,8 @@ int scanSeed(uint64_t seed)
                         continue;
                     if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
                         continue;
+                    
+                    // Check viability - skip if fails
                     if (!isViableStructurePos(stype, curr_gen, pos.x, pos.z, 0))
                         continue;
 
@@ -1103,8 +1110,9 @@ int scanSeed(uint64_t seed)
                 processed[root] = true;
 
                 // gather all members in this cluster
-                int *indices = malloc(16*sizeof(int));
                 int indicesCap = 16;
+                int *indices = malloc(indicesCap*sizeof(int));
+                if (!indices) { perror("malloc"); exit(1); }
                 int groupSize = 0;
 
                 for (int j = 0; j < clusterCount; j++) {
@@ -1112,6 +1120,7 @@ int scanSeed(uint64_t seed)
                         if (groupSize == indicesCap) {
                             indicesCap *= 2;
                             indices = realloc(indices, indicesCap*sizeof(int));
+                            if (!indices) { perror("realloc"); exit(1); }
                         }
                         indices[groupSize++] = j;
                     }
@@ -1124,7 +1133,9 @@ int scanSeed(uint64_t seed)
                 }
 
                 // sort the structure types in ascending order
-                int*groupTypes = malloc(groupSize*sizeof(int));
+                int *groupTypes = malloc(groupSize*sizeof(int));
+                if (!groupTypes) { perror("malloc"); exit(1); }
+                
                 for (int n = 0; n < groupSize; n++) {
                     groupTypes[n] = clusterPositions[indices[n]].structureType;
                 }
@@ -1144,8 +1155,9 @@ int scanSeed(uint64_t seed)
                        (unsigned long long) seed, groupSize);
                 for (int n = 0; n < groupSize; n++) {
                     int idx = indices[n];
-                    printf("   Type %d at (%d, %d)\n",
+                    printf("   Type %d (%s) at (%d, %d)\n",
                            clusterPositions[idx].structureType,
+                           getStructureName(clusterPositions[idx].structureType),
                            clusterPositions[idx].x,
                            clusterPositions[idx].z);
                 }
@@ -1651,26 +1663,28 @@ void parseParameterLine(char *line)
                     clusterReq.enabled = false;
             }
         }
-        else if (strstr(line, "Valid biomes:") == line) {
-            // Actually, the example said "Valid biomes: 1,2,3..." 
-            // but the code snippet you gave uses structure IDs, not biome IDs, 
-            // so let's assume these are the structure *types* we want to cluster:
-            // We'll parse them into clusterReq.structureTypes
+        else if (strstr(line, "Valid structures:") == line) {
+            // Parse structure IDs for clustering
             const char *p = strchr(line, ':');
             if (p) {
                 p++; // skip colon
                 // parse comma-separated
                 char list[256];
-                strcpy(list, p);
+                strncpy(list, p, sizeof(list) - 1);
+                list[sizeof(list) - 1] = '\0'; // ensure null termination
                 trim(list);
                 // tokenize
-                char *tok = strtok(list, ",");
+                char *tok = strtok(list, ", ");
                 while (tok) {
                     int stype = atoi(tok);
                     clusterReq.structureTypes = realloc(clusterReq.structureTypes, (clusterReq.count+1)*sizeof(int));
+                    if (clusterReq.structureTypes == NULL) {
+                        fprintf(stderr, "Memory allocation failed for structure types\n");
+                        exit(1);
+                    }
                     clusterReq.structureTypes[clusterReq.count] = stype;
                     clusterReq.count++;
-                    tok = strtok(NULL, ",");
+                    tok = strtok(NULL, ", ");
                 }
             }
         }
