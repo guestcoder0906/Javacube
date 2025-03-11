@@ -755,7 +755,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, u
             success = false;
     }
 
-    // 2) Clustered biomes (unchanged from before)
+    // 2) Clustered biomes (updated)
     if (bs->clusterCount > 0) {
         for (int i = 0; i < bs->clusterCount; i++) {
             BiomeCluster *cl = &bs->clusters[i];
@@ -786,7 +786,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, u
                 continue;
             }
             int *parent = malloc(count * sizeof(int));
-            if (!parent) { perror("malloc"); exit(1); }
+            if (!parent) { perror("malloc"); exit(1);}
             for (int c = 0; c < count; c++)
                 parent[c] = c;
             for (int c = 0; c < count; c++) {
@@ -1034,7 +1034,7 @@ int scanSeed(uint64_t seed)
                 // Skip invalid structure types
                 continue;
             }
-            
+
             StructureConfig sconf;
             if (!getStructureConfig(stype, MC_1_21, &sconf)) {
                 // not valid in this version
@@ -1065,7 +1065,7 @@ int scanSeed(uint64_t seed)
                         continue;
                     if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
                         continue;
-                    
+
                     // Check viability - skip if fails
                     if (!isViableStructurePos(stype, curr_gen, pos.x, pos.z, 0))
                         continue;
@@ -1122,7 +1122,7 @@ int scanSeed(uint64_t seed)
                         if (groupSize == indicesCap) {
                             indicesCap *= 2;
                             indices = realloc(indices, indicesCap*sizeof(int));
-                            if (!indices) { perror("realloc"); exit(1); }
+                            if (!indices) { perror("malloc"); exit(1); }
                         }
                         indices[groupSize++] = j;
                     }
@@ -1137,7 +1137,7 @@ int scanSeed(uint64_t seed)
                 // sort the structure types in ascending order
                 int *groupTypes = malloc(groupSize*sizeof(int));
                 if (!groupTypes) { perror("malloc"); exit(1); }
-                
+
                 for (int n = 0; n < groupSize; n++) {
                     groupTypes[n] = clusterPositions[indices[n]].structureType;
                 }
@@ -1535,8 +1535,7 @@ void parseParameterLine(char *line)
         // 1. 8 (min amount: 1, next to biome: 1 or 4 or 185, biome proximity: 8, min height: -9999, max height: 9999, biome: -1, min size: -1, max size: -1)
         int idx, structureType, minCount, minH, maxH, biome, minSz, maxSz, biomeProx;
 
-        // Parse the line format: "1. 5 (min amount: ...)"
-        char *openParen = strchr(line, '(');
+        // Parse the line format: "1. 5 (min amount: ...)"        char *openParen = strchr(line, '(');
         if (!openParen) return;
 
         // Get the structure ID directly
