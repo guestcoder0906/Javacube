@@ -509,11 +509,13 @@ bool isInvalidClusterDynamic(int *groupTypes, int groupSize)
 }
 
 // Updated scanBiomes function that handles required biomes for islands (biome id == -2)
-bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, uint64_t seed) {
+int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, uint64_t seed) {
     bool success = true; 
     int step = 4;
     bool printedRequiredSeedHeader = false;
     bool printedClusterSeedHeader = false;
+    int *ids = NULL;
+    StructurePos *positions = NULL;
 
     // 1) Required biome patches
     if (bs->requiredCount > 0) {
@@ -665,7 +667,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, u
                 // ----- NORMAL REQUIRED BIOME SCANNING -----
                 bool foundPatchForThisReq = false;
                 int capacity = 128, count = 0;
-                StructurePos *positions = malloc(capacity * sizeof(StructurePos));
+                positions = malloc(capacity * sizeof(StructurePos));
                 if (!positions) { perror("malloc"); exit(1); }
                 for (int zz = z0; zz <= z1; zz += step) {
                     for (int xx = x0; xx <= x1; xx += step) {
@@ -760,7 +762,7 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, u
         for (int i = 0; i < bs->clusterCount; i++) {
             BiomeCluster *cl = &bs->clusters[i];
             int capacity = 128, count = 0;
-            StructurePos *positions = malloc(capacity * sizeof(StructurePos));
+            positions = malloc(capacity * sizeof(StructurePos));
             if (!positions) { perror("malloc"); exit(1); }
             for (int zz = z0; zz <= z1; zz += step) {
                 for (int xx = x0; xx <= x1; xx += step) {
@@ -1034,7 +1036,7 @@ int scanSeed(uint64_t seed)
                 // Skip invalid structure types
                 continue;
             }
-            
+
             StructureConfig sconf;
             if (!getStructureConfig(stype, MC_1_21, &sconf)) {
                 // not valid in this version
@@ -1065,7 +1067,7 @@ int scanSeed(uint64_t seed)
                         continue;
                     if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
                         continue;
-                    
+
                     // Check viability - skip if fails
                     if (!isViableStructurePos(stype, curr_gen, pos.x, pos.z, 0))
                         continue;
@@ -1122,7 +1124,7 @@ int scanSeed(uint64_t seed)
                         if (groupSize == indicesCap) {
                             indicesCap *= 2;
                             indices = realloc(indices, indicesCap*sizeof(int));
-                            if (!indices) { perror("realloc"); exit(1); }
+                            if (!indices) { perror("malloc"); exit(1); }
                         }
                         indices[groupSize++] = j;
                     }
@@ -1137,7 +1139,7 @@ int scanSeed(uint64_t seed)
                 // sort the structure types in ascending order
                 int *groupTypes = malloc(groupSize*sizeof(int));
                 if (!groupTypes) { perror("malloc"); exit(1); }
-                
+
                 for (int n = 0; n < groupSize; n++) {
                     groupTypes[n] = clusterPositions[indices[n]].structureType;
                 }
