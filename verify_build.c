@@ -825,6 +825,8 @@ bool scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, u
                 bool sizeOk = true;
                 if (cl->minSize > -1 && compCount < cl->minSize) sizeOk = false;
                 if (cl->maxSize > -1 && compCount > cl->maxSize) sizeOk = false;
+                // Only consider it a valid cluster if it has at least 2 distinct biome IDs
+                if (distinctIDs < 2) sizeOk = false;
                 if (sizeOk && cl->logCenters) {
                     if (!printedClusterSeedHeader) {
                         printf("Valid seed found: %llu\n", (unsigned long long) seed);
