@@ -760,7 +760,7 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
     // 2) Clustered biomes 
     if (bs->clusterCount > 0) {
         bool foundAnyValidCluster = false; // Track if any valid clusters were found
-
+        
         for (int i = 0; i < bs->clusterCount; i++) {
             BiomeCluster *cl = &bs->clusters[i];
             int capacity = 128, count = 0;
@@ -805,7 +805,7 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
             bool *processed = calloc(count, sizeof(bool));
             if (!processed) { perror("calloc"); exit(1); }
             bool foundValidClusterInThisGroup = false;
-
+            
             for (int c = 0; c < count; c++) {
                 int root = findSet(parent, c);
                 if (processed[root]) continue;
@@ -836,7 +836,7 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
                 if (sizeOk && cl->logCenters) {
                     foundValidClusterInThisGroup = true;
                     foundAnyValidCluster = true;
-
+                    
                     if (!printedClusterSeedHeader) {
                         printf("Valid seed found: %llu\n", (unsigned long long) seed);
                         printedClusterSeedHeader = true;
@@ -851,7 +851,7 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
             free(parent);
             free(positions);
         }
-
+        
         // If we're specifically looking for biome clusters and found none, the seed is not valid
         if (bs->clusterCount > 0 && !foundAnyValidCluster) {
             success = false;
@@ -1006,7 +1006,7 @@ int scanSeed(uint64_t seed)
     }
     if (!runIslandDetection && biomeSearch.clusterCount > 0) {
         for (int i = 0; i < biomeSearch.clusterCount; i++) {
-            BiomeCluster *cl = &bs->clusters[i];
+            BiomeCluster *cl = &biomeSearch.clusters[i];
             for (int j = 0; j < cl->biomeCount; j++) {
                 if (cl->biomeIds[j] == -2) {
                     runIslandDetection = true;
@@ -1349,19 +1349,23 @@ int scanSeed(uint64_t seed)
                 printf("Seed: %llu\n", (unsigned long long) seed);
                 printf("Structures %s:\n", getStructureName(req.structureType));
                 for (int j = 0; j < foundPosCount; j++) {
-                    char proximityInfo[256] = "";
-                    if (foundPositions[j].proximity_distance > 0) {
-                        snprintf(proximityInfo, sizeof(proximityInfo), ", %d blocks from nearest %s biome",
-                                 foundPositions[j].proximity_distance,
-                                 getBiomeName(foundPositions[j].proximity_biome_id));
-                    }
-                    printf("%s at (%d, %d) with height at %d in %s Biome with %d size%s\n",
+                    if (req.requiredBiome != -1 && foundPositions[j].biome_id != req.requiredBiome)
+                        continue;
+                    if (req.proximityBiomeCount > 0 && foundPositions[j].proximity_distance <= -1)
+                        continue;
+                    printf("%s at (%d, %d) with height at %d in %s Biome with %d size",
                            getStructureName(req.structureType),
                            foundPositions[j].x,
                            foundPositions[j].z,
                            foundPositions[j].y,
                            (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
-                           foundPositions[j].biome_size, proximityInfo);
+                           foundPositions[j].biome_size);
+                    if (foundPositions[j].proximity_distance > 0) {
+                        printf(", %d blocks from nearest %s biome",
+                               foundPositions[j].proximity_distance,
+                               getBiomeName(foundPositions[j].proximity_biome_id));
+                    }
+                    printf("\n");
                 }
             }
         }
