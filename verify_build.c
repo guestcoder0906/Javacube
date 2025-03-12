@@ -579,7 +579,9 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
                     for (int k = j + 1; k < count; k++) {
                         int dx = abs(cells[j].x - cells[k].x);
                         int dz = abs(cells[j].z - cells[k].z);
-                        if (dx <= step && dz <= step) {
+                        if (dx <= step && dz <= step &&
+                            cells[j].biome == cells[k].biome)
+                        {
                             unionSets(parent, j, k);
                         }
                     }
@@ -760,7 +762,7 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
     // 2) Clustered biomes 
     if (bs->clusterCount > 0) {
         bool foundAnyValidCluster = false; // Track if any valid clusters were found
-        
+
         for (int i = 0; i < bs->clusterCount; i++) {
             BiomeCluster *cl = &bs->clusters[i];
             int capacity = 128, count = 0;
@@ -805,7 +807,7 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
             bool *processed = calloc(count, sizeof(bool));
             if (!processed) { perror("calloc"); exit(1); }
             bool foundValidClusterInThisGroup = false;
-            
+
             for (int c = 0; c < count; c++) {
                 int root = findSet(parent, c);
                 if (processed[root]) continue;
@@ -836,7 +838,7 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
                 if (sizeOk && cl->logCenters) {
                     foundValidClusterInThisGroup = true;
                     foundAnyValidCluster = true;
-                    
+
                     if (!printedClusterSeedHeader) {
                         printf("Valid seed found: %llu\n", (unsigned long long) seed);
                         printedClusterSeedHeader = true;
@@ -851,7 +853,7 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
             free(parent);
             free(positions);
         }
-        
+
         // If we're specifically looking for biome clusters and found none, the seed is not valid
         if (bs->clusterCount > 0 && !foundAnyValidCluster) {
             success = false;
@@ -1006,7 +1008,7 @@ int scanSeed(uint64_t seed)
     }
     if (!runIslandDetection && biomeSearch.clusterCount > 0) {
         for (int i = 0; i < biomeSearch.clusterCount; i++) {
-            BiomeCluster *cl = &biomeSearch.clusters[i];
+            BiomeCluster *cl = &bs->clusters[i];
             for (int j = 0; j < cl->biomeCount; j++) {
                 if (cl->biomeIds[j] == -2) {
                     runIslandDetection = true;
@@ -1245,10 +1247,17 @@ int scanSeed(uint64_t seed)
                 }
                 printf("Seed: %llu\n", (unsigned long long) seed);
                 printf("Structures Spawn Point:\n");
-                printf("Spawn Point at (%d, %d) with height at %d in %s Biome with %d size\n",
-                       spawnPos.x, spawnPos.z, height,
-                       (req.requiredBiome == -2 ? "Island" : getBiomeName(biome_id)),
-                       biome_size);
+                if (req.proximityBiomeCount > 0 && req.biomeProximity > 0 && proximity_distance > 0) {
+                    printf("Spawn Point at (%d, %d) with height at %d and %d blocks away from %s Biome with %d size\n",
+                           spawnPos.x, spawnPos.z, height, proximity_distance,
+                           getBiomeName(closest_biome_id), biome_size);
+                } else if (req.proximityBiomeCount > 0 && req.biomeProximity == 0) {
+                    printf("Spawn Point at (%d, %d) with height at %d and in %s Biome with %d size\n",
+                           spawnPos.x, spawnPos.z, height, getBiomeName(biome_id), biome_size);
+                } else {
+                    printf("Spawn Point at (%d, %d) with height at %d in %s Biome with %d size\n",
+                           spawnPos.x, spawnPos.z, height, getBiomeName(biome_id), biome_size);
+                }
                 foundPositions[foundPosCount].x = spawnPos.x;
                 foundPositions[foundPosCount].y = height;
                 foundPositions[foundPosCount].z = spawnPos.z;
@@ -1353,19 +1362,23 @@ int scanSeed(uint64_t seed)
                         continue;
                     if (req.proximityBiomeCount > 0 && foundPositions[j].proximity_distance <= -1)
                         continue;
-                    printf("%s at (%d, %d) with height at %d in %s Biome with %d size",
-                           getStructureName(req.structureType),
-                           foundPositions[j].x,
-                           foundPositions[j].z,
-                           foundPositions[j].y,
-                           (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
-                           foundPositions[j].biome_size);
-                    if (foundPositions[j].proximity_distance > 0) {
-                        printf(", %d blocks from nearest %s biome",
-                               foundPositions[j].proximity_distance,
-                               getBiomeName(foundPositions[j].proximity_biome_id));
+                    if (req.proximityBiomeCount > 0 && req.biomeProximity > 0 && foundPositions[j].proximity_distance > 0) {
+                        printf("Structure at (%d, %d) with height at %d and %d blocks away from %s Biome with %d size\n",
+                            foundPositions[j].x, foundPositions[j].z, foundPositions[j].y,
+                            foundPositions[j].proximity_distance,
+                            getBiomeName(foundPositions[j].proximity_biome_id),
+                            foundPositions[j].biome_size);
+                    } else if (req.proximityBiomeCount > 0 && req.biomeProximity == 0) {
+                        printf("Structure at (%d, %d) with height at %d and in %s Biome with %d size\n",
+                            foundPositions[j].x, foundPositions[j].z, foundPositions[j].y,
+                            getBiomeName(foundPositions[j].biome_id),
+                            foundPositions[j].biome_size);
+                    } else {
+                        printf("Structure at (%d, %d) with height at %d in %s Biome with %d size\n",
+                            foundPositions[j].x, foundPositions[j].z, foundPositions[j].y,
+                            getBiomeName(foundPositions[j].biome_id),
+                            foundPositions[j].biome_size);
                     }
-                    printf("\n");
                 }
             }
         }
@@ -1505,7 +1518,7 @@ void parseConfigLine(const char *section, char *line)
             char val[16];
             if (sscanf(line, "Use spawn: %15s", val) == 1) {
                 // interpret "true"/"1" as 1, else 0
-                if (strcmp(val, "true") == 0 || strcmp(val, "1") == 0) 
+                if (strcmpval, "true") == 0 || strcmp(val, "1") == 0) 
                     useSpawn = 1;
                 else
                     useSpawn = 0;
