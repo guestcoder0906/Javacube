@@ -1351,21 +1351,49 @@ int scanSeed(uint64_t seed)
                 for (int j = 0; j < foundPosCount; j++) {
                     if (req.requiredBiome != -1 && foundPositions[j].biome_id != req.requiredBiome)
                         continue;
-                    if (req.proximityBiomeCount > 0 && foundPositions[j].proximity_distance <= -1)
+                    // Skip this structure if biome proximity was required but not found
+                    if (req.proximityBiomeCount > 0 && req.biomeProximity > 0 && 
+                        (foundPositions[j].proximity_distance <= 0 || 
+                         foundPositions[j].proximity_distance > req.biomeProximity)) {
                         continue;
-                    printf("%s at (%d, %d) with height at %d in %s Biome with %d size",
-                           getStructureName(req.structureType),
-                           foundPositions[j].x,
-                           foundPositions[j].z,
-                           foundPositions[j].y,
-                           (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
-                           foundPositions[j].biome_size);
-                    if (foundPositions[j].proximity_distance > 0) {
-                        printf(", %d blocks from nearest %s biome",
-                               foundPositions[j].proximity_distance,
-                               getBiomeName(foundPositions[j].proximity_biome_id));
                     }
-                    printf("\n");
+                    
+                    // Skip if biome proximity is 0 (meaning structure should be in one of the specific biomes)
+                    // but we don't have a valid proximity biome or the distance isn't 0
+                    if (req.proximityBiomeCount > 0 && req.biomeProximity == 0 && 
+                        (foundPositions[j].proximity_biome_id == -1 || 
+                         foundPositions[j].proximity_distance != 0)) {
+                        continue;
+                    }
+                    if (req.biomeProximity > 0 && foundPositions[j].proximity_distance > 0) {
+                        // If biome proximity was set and the structure is some distance from target biome
+                        printf("%s at (%d, %d) with height at %d and %d blocks away from %s Biome with %d size\n",
+                               getStructureName(req.structureType),
+                               foundPositions[j].x,
+                               foundPositions[j].z,
+                               foundPositions[j].y,
+                               foundPositions[j].proximity_distance,
+                               getBiomeName(foundPositions[j].proximity_biome_id),
+                               foundPositions[j].biome_size);
+                    } else if (req.biomeProximity == 0) {
+                        // If biome proximity is 0, structure must be in the biome
+                        printf("%s at (%d, %d) with height at %d and in %s Biome with %d size\n",
+                               getStructureName(req.structureType),
+                               foundPositions[j].x,
+                               foundPositions[j].z,
+                               foundPositions[j].y,
+                               getBiomeName(foundPositions[j].proximity_biome_id),
+                               foundPositions[j].biome_size);
+                    } else {
+                        // Default case (no proximity check or proximity check failed)
+                        printf("%s at (%d, %d) with height at %d in %s Biome with %d size\n",
+                               getStructureName(req.structureType),
+                               foundPositions[j].x,
+                               foundPositions[j].z,
+                               foundPositions[j].y,
+                               (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
+                               foundPositions[j].biome_size);
+                    }
                 }
             }
         }
