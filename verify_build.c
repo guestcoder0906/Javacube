@@ -776,7 +776,8 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
                             if (count == capacity) {
                                 capacity *= 2;
                                 positions = realloc(positions, capacity * sizeof(StructurePos));
-                                if (!positions) { perror("realloc"); exit(1); }
+                                if (!positions) {```cpp
+                                perror("realloc"); exit(1); }
                             }
                             positions[count].structureType = biome;
                             positions[count].x = xx;
@@ -1518,7 +1519,7 @@ void parseConfigLine(const char *section, char *line)
             char val[16];
             if (sscanf(line, "Use spawn: %15s", val) == 1) {
                 // interpret "true"/"1" as 1, else 0
-                if (strcmpval, "true") == 0 || strcmp(val, "1") == 0) 
+                if (strcmp(val, "true") == 0 || strcmp(val, "1") == 0) 
                     useSpawn = 1;
                 else
                     useSpawn = 0;
