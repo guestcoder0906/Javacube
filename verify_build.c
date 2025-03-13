@@ -880,8 +880,29 @@ int checkBiomeProximity(Generator *g, int structX, int structZ, int *biomesToChe
     if (outDistance) *outDistance = -1;
     if (outBiomeId) *outBiomeId = -1;
 
-    if (biomeCount <= 0 || maxDistance < 0) {
-        return 1; // Skip check if disabled
+    if (biomeCount <= 0) {
+        return 1; // Skip check if no biomes to check
+    }
+
+    // First check if the structure itself is in one of the target biomes
+    int structBiome = getBiomeAt(g, 4, structX >> 2, 0, structZ >> 2);
+    for (int b = 0; b < biomeCount; b++) {
+        if (structBiome == biomesToCheck[b]) {
+            // Structure is directly in a target biome
+            if (outDistance) *outDistance = 0;  // 0 distance means "in the biome"
+            if (outBiomeId) *outBiomeId = structBiome;
+            return 1;
+        }
+    }
+    
+    // If maxDistance is 0, we only want structures directly in the target biomes
+    if (maxDistance == 0) {
+        return 0;
+    }
+    
+    // If maxDistance is negative, we skip distance checks entirely
+    if (maxDistance < 0) {
+        return 1;
     }
 
     // Search area bounds
@@ -1229,7 +1250,7 @@ int scanSeed(uint64_t seed)
                     (req.maxHeight != 9999 && height > req.maxHeight))
                     continue;
                 int proximity_distance = -1, closest_biome_id = -1;
-                if (req.proximityBiomeCount > 0 && req.biomeProximity > 0) {
+                if (req.proximityBiomeCount > 0) {
                     if (!checkBiomeProximity(&g, spawnPos.x, spawnPos.z, 
                                               req.proximityBiomes, req.proximityBiomeCount, 
                                               req.biomeProximity, &proximity_distance, &closest_biome_id))
@@ -1325,11 +1346,11 @@ int scanSeed(uint64_t seed)
                             (req.maxHeight != 9999 && height > req.maxHeight))
                             continue;
                         int proximity_distance = -1, closest_biome_id = -1;
-                        if (req.proximityBiomeCount > 0 && req.biomeProximity > 0) {
+                        if (req.proximityBiomeCount > 0) {
                             if (!checkBiomeProximity(curr_gen, pos.x, pos.z, 
                                                      req.proximityBiomes, req.proximityBiomeCount, 
                                                      req.biomeProximity, &proximity_distance, &closest_biome_id))
-                                continue;
+                                continue;  // Skip structures that don't meet proximity requirement
                         }
                         foundPositions[foundPosCount].x = pos.x;
                         foundPositions[foundPosCount].z = pos.z;
@@ -1353,6 +1374,11 @@ int scanSeed(uint64_t seed)
                         continue;
                     if (req.proximityBiomeCount > 0 && foundPositions[j].proximity_distance <= -1)
                         continue;
+                    // Skip structures that don't match proximity requirements
+                    if (req.proximityBiomeCount > 0 && foundPositions[j].proximity_distance == -1) {
+                        continue;  // Skip structures not meeting proximity requirements
+                    }
+
                     // With this updated code:
                     if (req.proximityBiomeCount > 0) {
                         if (foundPositions[j].proximity_distance == 0) {
