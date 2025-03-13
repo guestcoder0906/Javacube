@@ -894,12 +894,12 @@ int checkBiomeProximity(Generator *g, int structX, int structZ, int *biomesToChe
             return 1;
         }
     }
-    
+
     // If maxDistance is 0, we only want structures directly in the target biomes
     if (maxDistance == 0) {
         return 0;
     }
-    
+
     // If maxDistance is negative, we skip distance checks entirely
     if (maxDistance < 0) {
         return 1;
@@ -1379,7 +1379,6 @@ int scanSeed(uint64_t seed)
                         continue;  // Skip structures not meeting proximity requirements
                     }
 
-                    // With this updated code:
                     if (req.proximityBiomeCount > 0) {
                         if (foundPositions[j].proximity_distance == 0) {
                             // Structure is in one of the specified biomes
@@ -1392,17 +1391,20 @@ int scanSeed(uint64_t seed)
                                    foundPositions[j].biome_size);
                         } else {
                             // Structure is near one of the specified biomes
-                            printf("%s at (%d, %d) with height at %d and %d blocks away from %s Biome with %d size",
+                            printf("%s at (%d, %d) with height at %d in %s Biome with %d size",
                                    getStructureName(req.structureType),
                                    foundPositions[j].x,
                                    foundPositions[j].z,
                                    foundPositions[j].y,
-                                   foundPositions[j].proximity_distance,
-                                   getBiomeName(foundPositions[j].proximity_biome_id),
+                                   (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
                                    foundPositions[j].biome_size);
+
+                            printf(", %d blocks from nearest %s biome",
+                                   foundPositions[j].proximity_distance,
+                                   getBiomeName(foundPositions[j].proximity_biome_id));
                         }
                     } else {
-                        // No biome proximity check, use the original formatting
+                        // No biome proximity check, log in the original format
                         printf("%s at (%d, %d) with height at %d in %s Biome with %d size",
                                getStructureName(req.structureType),
                                foundPositions[j].x,
@@ -1410,6 +1412,12 @@ int scanSeed(uint64_t seed)
                                foundPositions[j].y,
                                (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
                                foundPositions[j].biome_size);
+
+                        if (foundPositions[j].proximity_distance > 0) {
+                            printf(", %d blocks from nearest %s biome",
+                                   foundPositions[j].proximity_distance,
+                                   getBiomeName(foundPositions[j].proximity_biome_id));
+                        }
                     }
                     printf("\n");
                 }
