@@ -1322,7 +1322,7 @@ int scanSeed(uint64_t seed)
                     continue;
                 int proximity_distance = -1, closest_biome_id = -1;
                 if (req.proximityBiomeCount > 0) {
-                    if (!checkBiomeProximity(curr_gen, pos.x, pos.z, req.proximityBiomes, req.proximityBiomeCount, req.biomeProximity, &proximity_distance, &closest_biome_id, predefinedIslandInfo)) {
+                    if (!checkBiomeProximity(&g, spawnPos.x, spawnPos.z, req.proximityBiomes, req.proximityBiomeCount, req.biomeProximity, &proximity_distance, &closest_biome_id, predefinedIslandInfo)) {
                         continue;  // Skip structures that don't meet proximity requirement
                     }
                 }
@@ -1417,7 +1417,7 @@ int scanSeed(uint64_t seed)
                             continue;
                         int proximity_distance = -1, closest_biome_id = -1;
                         if (req.proximityBiomeCount > 0) {
-                            if (!checkBiomeProximity(&g, spawnPos.x, spawnPos.z, 
+                            if (!checkBiomeProximity(&g, pos.x, pos.z, 
                                                       req.proximityBiomes, req.proximityBiomeCount, 
                                                       req.biomeProximity, &proximity_distance, &closest_biome_id,
                                                       predefinedIslandInfo))
