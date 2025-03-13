@@ -1266,25 +1266,10 @@ int scanSeed(uint64_t seed)
                 }
                 printf("Seed: %llu\n", (unsigned long long) seed);
                 printf("Structures Spawn Point:\n");
-                if (req.proximityBiomeCount > 0) {
-                    if (proximity_distance == 0) {
-                        printf("Structure at (%d, %d) with height at %d and in %s Biome with %d size\n",
-                               spawnPos.x, spawnPos.z, height,
-                               getBiomeName(closest_biome_id),
-                               biome_size);
-                    } else {
-                        printf("Structure at (%d, %d) with height at %d and %d blocks away from %s Biome with %d size\n",
-                               spawnPos.x, spawnPos.z, height,
-                               proximity_distance,
-                               getBiomeName(closest_biome_id),
-                               biome_size);
-                    }
-                } else {
-                    printf("Spawn Point at (%d, %d) with height at %d in %s Biome with %d size\n",
-                           spawnPos.x, spawnPos.z, height,
-                           (req.requiredBiome == -2 ? "Island" : getBiomeName(biome_id)),
-                           biome_size);
-                }
+                printf("Spawn Point at (%d, %d) with height at %d in %s Biome with %d size\n",
+                       spawnPos.x, spawnPos.z, height,
+                       (req.requiredBiome == -2 ? "Island" : getBiomeName(biome_id)),
+                       biome_size);
                 foundPositions[foundPosCount].x = spawnPos.x;
                 foundPositions[foundPosCount].y = height;
                 foundPositions[foundPosCount].z = spawnPos.z;
@@ -1394,44 +1379,37 @@ int scanSeed(uint64_t seed)
                         continue;  // Skip structures not meeting proximity requirements
                     }
 
-                    // First check if the structure meets biome proximity requirement
-                    bool shouldLog = true;
-                    
-                    // If there's a proximity requirement, only log structures that meet it
-                    if (req.proximityBiomeCount > 0 && foundPositions[j].proximity_distance == -1) {
-                        shouldLog = false; // Skip structures not meeting proximity requirements
-                    }
-                    
-                    if (shouldLog) {
-                        if (req.proximityBiomeCount > 0) {
-                            if (foundPositions[j].proximity_distance == 0) {
-                                // Structure is in one of the specified biomes
-                                printf("Structure at (%d, %d) with height at %d and in %s Biome with %d size",
-                                       foundPositions[j].x,
-                                       foundPositions[j].z,
-                                       foundPositions[j].y,
-                                       getBiomeName(foundPositions[j].proximity_biome_id),
-                                       foundPositions[j].biome_size);
-                            } else {
-                                // Structure is near one of the specified biomes
-                                printf("Structure at (%d, %d) with height at %d and %d blocks away from %s Biome with %d size",
-                                       foundPositions[j].x,
-                                       foundPositions[j].z,
-                                       foundPositions[j].y,
-                                       foundPositions[j].proximity_distance,
-                                       getBiomeName(foundPositions[j].proximity_biome_id),
-                                       foundPositions[j].biome_size);
-                            }
-                        } else {
-                            // No biome proximity check, use the original formatting
-                            printf("%s at (%d, %d) with height at %d in %s Biome with %d size",
+                    // With this updated code:
+                    if (req.proximityBiomeCount > 0) {
+                        if (foundPositions[j].proximity_distance == 0) {
+                            // Structure is in one of the specified biomes
+                            printf("%s at (%d, %d) with height at %d and in %s Biome with %d size",
                                    getStructureName(req.structureType),
                                    foundPositions[j].x,
                                    foundPositions[j].z,
                                    foundPositions[j].y,
-                                   (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
+                                   getBiomeName(foundPositions[j].proximity_biome_id),
+                                   foundPositions[j].biome_size);
+                        } else {
+                            // Structure is near one of the specified biomes
+                            printf("%s at (%d, %d) with height at %d and %d blocks away from %s Biome with %d size",
+                                   getStructureName(req.structureType),
+                                   foundPositions[j].x,
+                                   foundPositions[j].z,
+                                   foundPositions[j].y,
+                                   foundPositions[j].proximity_distance,
+                                   getBiomeName(foundPositions[j].proximity_biome_id),
                                    foundPositions[j].biome_size);
                         }
+                    } else {
+                        // No biome proximity check, use the original formatting
+                        printf("%s at (%d, %d) with height at %d in %s Biome with %d size",
+                               getStructureName(req.structureType),
+                               foundPositions[j].x,
+                               foundPositions[j].z,
+                               foundPositions[j].y,
+                               (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
+                               foundPositions[j].biome_size);
                     }
                     printf("\n");
                 }
