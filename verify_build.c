@@ -1317,38 +1317,67 @@ int scanSeed(uint64_t seed)
                 int lz = spawnPos.z & 15;
                 int height = (int)heightArr[lz * w + lx];
                 int biome_id = getBiomeAt(&g, 4, spawnPos.x >> 2, height >> 2, spawnPos.z >> 2);
+
+                // Use a flag to track if spawn meets all criteria
+                bool spawnMeetsCriteria = true;
+
+                // Check height requirements
                 if ((req.minHeight != -9999 && height < req.minHeight) ||
-                    (req.maxHeight != 9999 && height > req.maxHeight))
-                    continue;
+                    (req.maxHeight != 9999 && height > req.maxHeight)) {
+                    spawnMeetsCriteria = false;
+                }
+
+                // Check proximity requirements
                 int proximity_distance = -1, closest_biome_id = -1;
-                if (req.proximityBiomeCount > 0) {
+                if (spawnMeetsCriteria && req.proximityBiomeCount > 0) {
                     if (!checkBiomeProximity(&g, spawnPos.x, spawnPos.z, req.proximityBiomes, req.proximityBiomeCount, req.biomeProximity, &proximity_distance, &closest_biome_id, predefinedIslandInfo)) {
-                        continue;  // Skip structures that don't meet proximity requirement
+                        spawnMeetsCriteria = false;
                     }
                 }
+
+                // Check biome size requirements
                 int biome_size = -1;
-                if (req.minBiomeSize != -1 || req.maxBiomeSize != -1) {
+                if (spawnMeetsCriteria && (req.minBiomeSize != -1 || req.maxBiomeSize != -1)) {
                     biome_size = getBiomePatchSize(&g, spawnPos.x, spawnPos.z, 
                         (req.requiredBiome == -2 ? -2 : biome_id));
                     if ((req.minBiomeSize != -1 && biome_size < req.minBiomeSize) ||
-                        (req.maxBiomeSize != -1 && biome_size > req.maxBiomeSize))
-                        continue;
+                        (req.maxBiomeSize != -1 && biome_size > req.maxBiomeSize)) {
+                        spawnMeetsCriteria = false;
+                    }
                 }
-                printf("Seed: %llu\n", (unsigned long long) seed);
-                printf("Structures Spawn Point:\n");
-                printf("Spawn Point at (%d, %d) with height at %d in %s Biome with %d size\n",
-                       spawnPos.x, spawnPos.z, height,
-                       (req.requiredBiome == -2 ? "Island" : getBiomeName(biome_id)),
-                       biome_size);
-                foundPositions[foundPosCount].x = spawnPos.x;
-                foundPositions[foundPosCount].y = height;
-                foundPositions[foundPosCount].z = spawnPos.z;
-                foundPositions[foundPosCount].biome_id = biome_id;
-                foundPositions[foundPosCount].biome_size = biome_size;
-                foundPositions[foundPosCount].proximity_distance = proximity_distance;
-                foundPositions[foundPosCount].proximity_biome_id = closest_biome_id;
-                foundPosCount++;
-                foundCount++;
+
+                // Check required biome if specified
+                if (spawnMeetsCriteria && req.requiredBiome != -1 && biome_id != req.requiredBiome) {
+                    spawnMeetsCriteria = false;
+                }
+
+                // Only if spawn meets all criteria, output information and increment counters
+                if (spawnMeetsCriteria) {
+                    printf("Seed: %llu\n", (unsigned long long) seed);
+                    printf("Structures Spawn Point:\n");
+                    if (req.proximityBiomeCount > 0 && proximity_distance >= 0) {
+                        printf("Spawn Point at (%d, %d) with height at %d in %s Biome with %d size, %d blocks away from %s\n",
+                               spawnPos.x, spawnPos.z, height,
+                               (req.requiredBiome == -2 ? "Island" : getBiomeName(biome_id)),
+                               biome_size,
+                               proximity_distance,
+                               getBiomeName(closest_biome_id));
+                    } else {
+                        printf("Spawn Point at (%d, %d) with height at %d in %s Biome with %d size\n",
+                               spawnPos.x, spawnPos.z, height,
+                               (req.requiredBiome == -2 ? "Island" : getBiomeName(biome_id)),
+                               biome_size);
+                    }
+                    foundPositions[foundPosCount].x = spawnPos.x;
+                    foundPositions[foundPosCount].y = height;
+                    foundPositions[foundPosCount].z = spawnPos.z;
+                    foundPositions[foundPosCount].biome_id = biome_id;
+                    foundPositions[foundPosCount].biome_size = biome_size;
+                    foundPositions[foundPosCount].proximity_distance = proximity_distance;
+                    foundPositions[foundPosCount].proximity_biome_id = closest_biome_id;
+                    foundPosCount++;
+                    foundCount++;
+                }
             }
             else {
                 StructureConfig sconf;
