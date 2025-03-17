@@ -537,7 +537,6 @@ bool isInvalidClusterDynamic(int *groupTypes, int groupSize)
 }
 
 // Updated scanBiomes function that handles required biomes for islands (biome id == -2)
-// Updated scanBiomes function that handles required biomes for islands (biome id == -2)
 int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, uint64_t seed) {
     bool success = true; 
     int step = 4;
@@ -788,8 +787,131 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
 
     // 2) Clustered biomes 
     if (bs->clusterCount > 0) {
-        // Rest of the clustered biomes scanning code remains the same
-        // ...
+        bool foundAnyValidCluster = false;
+        int capacity = 128, count = 0;
+        positions = malloc(capacity * sizeof(StructurePos));
+        if (!positions) { perror("malloc"); exit(1); }
+
+        for        int i = 0; i < bs->clusterCount; i++) {
+            BiomeCluster *cluster = &bs->clusters[i];
+            count = 0;
+
+            // Scan area for all cluster biomes
+            for (int z = z0; z <= z1; z += step) {
+                for (int x = x0; x <= x1; x += step) {
+                    int biome = getBiomeAt(&g, 4, x >> 2, 0, z >> 2);
+                    for (int b = 0; b < cluster->biomeCount; b++) {
+                        if (biome == cluster->biomeIds[b]) {
+                            if (count == capacity) {
+                                capacity *= 2;
+                                positions = realloc(positions, capacity * sizeof(StructurePos));
+                                if (!positions) { perror("realloc"); exit(1); }
+                            }
+                            positions[count].structureType = biome;
+                            positions[count].x = x;
+                            positions[count].z = z;
+                            count++;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (count >= 2) {
+                // Create union-find structure
+                int *parent = malloc(count * sizeof(int));
+                if (!parent) { perror("malloc"); exit(1); }
+                for (int j = 0; j < count; j++) parent[j] = j;
+
+                // Connect adjacent cells
+                for (int j = 0; j < count; j++) {
+                    for (int k = j + 1; k < count; k++) {
+                        int dx = abs(positions[j].x - positions[k].x);
+                        int dz = abs(positions[j].z - positions[k].z);
+                        if (dx <= step && dz <= step) {
+                            unionSets(parent, j, k);
+                        }
+                    }
+                }
+
+                bool *processed = calloc(count, sizeof(bool));
+                if (!processed) { perror("calloc"); exit(1); }
+
+                // Process each cluster
+                for (int j = 0; j < count; j++) {
+                    int root = findSet(parent, j);
+                    if (processed[root]) continue;
+                    processed[root] = true;
+
+                    // Count biomes in this cluster
+                    double sumX = 0, sumZ = 0;
+                    int compCount = 0;
+                    int distinctBiomes[32] = {0};
+                    int distinctCount = 0;
+
+                    for (int k = 0; k < count; k++) {
+                        if (findSet(parent, k) == root) {
+                            sumX += positions[k].x;
+                            sumZ += positions[k].z;
+                            compCount++;
+
+                            // Track distinct biomes
+                            bool found = false;
+                            for (int d = 0; d < distinctCount; d++) {
+                                if (distinctBiomes[d] == positions[k].structureType) {
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if (!found && distinctCount < 32) {
+                                distinctBiomes[distinctCount++] = positions[k].structureType;
+                            }
+                        }
+                    }
+
+                    // Check cluster requirements
+                    bool validCluster = true;
+                    if (cluster->minSize > -1 && compCount < cluster->minSize) validCluster = false;
+                    if (cluster->maxSize > -1 && compCount > cluster->maxSize) validCluster = false;
+
+                    // Must have all required biomes
+                    for (int b = 0; b < cluster->biomeCount; b++) {
+                        bool found = false;
+                        for (int d = 0; d < distinctCount; d++) {
+                            if (distinctBiomes[d] == cluster->biomeIds[b]) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            validCluster = false;
+                            break;
+                        }
+                    }
+
+                    if (validCluster) {
+                        foundAnyValidCluster = true;
+                        if (!printedClusterSeedHeader) {
+                            printf("Seed: %llu\n", (unsigned long long)seed);
+                            printedClusterSeedHeader = true;
+                        }
+                        double centerX = sumX / compCount;
+                        double centerZ = sumZ / compCount;
+                        printf("Clustered biome group %d: center(%.1f,%.1f), cells=%d\n  Biomes: ",
+                               i+1, centerX, centerZ, compCount);
+                        for (int d = 0; d < distinctCount; d++) {
+                            printf("%s%s", 
+                                   getBiomeName(distinctBiomes[d]),
+                                   d < distinctCount-1 ? ", " : "\n");
+                        }
+                    }
+                }
+                free(processed);
+                free(parent);
+            }
+        }
+        free(positions);
+        if (!foundAnyValidCluster) success = false;
     }
 
     return success;
@@ -802,8 +924,6 @@ typedef struct {
     int biomeId;
 } BiomeBlock;
 
-// -----------------------------------------------------------------------------
-// Modify the checkBiomeProximity function to support island detection
 // -----------------------------------------------------------------------------
 // Modify the checkBiomeProximity function to support island detection
 int checkBiomeProximity(Generator *g, int structX, int structZ, int *biomesToCheck, int biomeCount, 
@@ -1432,7 +1552,7 @@ int scanSeed(uint64_t seed)
                                foundPositions[j].biome_size,
                                foundPositions[j].proximity_distance,
                                (foundPositions[j].proximity_biome_id == -2 ? "Island" : getBiomeName(foundPositions[j].proximity_biome_id)));
-                    } else {
+                                        } else {
                         // No biome proximity requirement
                         printf("%s at (%d, %d) with height at %d in %s Biome with %d size\n",
                                getStructureName(req.structureType),
