@@ -537,6 +537,7 @@ bool isInvalidClusterDynamic(int *groupTypes, int groupSize)
 }
 
 // Updated scanBiomes function that handles required biomes for islands (biome id == -2)
+// Updated scanBiomes function that handles required biomes for islands (biome id == -2)
 int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, uint64_t seed) {
     bool success = true; 
     int step = 4;
@@ -786,6 +787,7 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
     }
 
     // 2) Clustered biomes 
+    printf(bs->clusterCount > 0 ? "Clustered biomes:\n" : "No clustered biomes.\n");
     if (bs->clusterCount > 0) {
         bool foundAnyValidCluster = false;
         int capacity = 128, count = 0;
@@ -913,7 +915,6 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
         free(positions);
         if (!foundAnyValidCluster) success = false;
     }
-
     return success;
 }
 
@@ -924,6 +925,8 @@ typedef struct {
     int biomeId;
 } BiomeBlock;
 
+// -----------------------------------------------------------------------------
+// Modify the checkBiomeProximity function to support island detection
 // -----------------------------------------------------------------------------
 // Modify the checkBiomeProximity function to support island detection
 int checkBiomeProximity(Generator *g, int structX, int structZ, int *biomesToCheck, int biomeCount, 
@@ -1520,50 +1523,107 @@ int scanSeed(uint64_t seed)
             else {
                 printf("Seed: %llu\n", (unsigned long long) seed);
                 printf("Structures %s:\n", getStructureName(req.structureType));
-
-                // Single clean loop over found positions
                 for (int j = 0; j < foundPosCount; j++) {
-                    // Skip structures that don't match required biome criteria
-                    if (req.requiredBiome != -1) {
-                        if (req.requiredBiome == -2) {
-                            // If islands were detected but structure must be on one
-                            if (predefinedIslandInfo <= 0) {
+                    if (req.requiredBiome != -1 && foundPositions[j].biome_id != req.requiredBiome)
+                        continue;
+                    if (req.proximityBiomeCount > 0 && foundPositions[j].proximity_distance <= -1)
+                        continue;
+                    // Skip structures that don't match proximity requirements
+                    if (req.proximityBiomeCount > 0 && foundPositions[j].proximity_distance == -1) {
+                        continue;  // Skip structures not meeting proximity requirements
+                    }
+
+                    for (int j = 0; j < foundPosCount; j++) {
+                        if (req.requiredBiome != -1 && foundPositions[j].biome_id != req.requiredBiome)
+                            continue;
+                        if (req.proximityBiomeCount > 0 && foundPositions[j].proximity_distance <= -1)
+                            continue;
+                        // Skip structures that don't match proximity requirements
+                        if (req.proximityBiomeCount > 0 && foundPositions[j].proximity_distance == -1) {
+                            continue;  // Skip structures not meeting proximity requirements
+                        }
+
+                        // In scanSeed function, when processing structure positions:
+                        for (int j = 0; j < foundPosCount; j++) {
+                            // Skip structures that don't match required biome
+                            if (req.requiredBiome != -1 && foundPositions[j].biome_id != req.requiredBiome)
+                                continue;
+
+                            // Skip structures that don't have proximity information if required
+                            if (req.proximityBiomeCount > 0 && foundPositions[j].proximity_distance == -1)
+                                continue;
+
+                            // Log the structure information
+                            if (req.proximityBiomeCount > 0) {
+                                // Structure is near a target biome
+                                printf("%s at (%d, %d) with height at %d in %s Biome with %d size, %d blocks away from %s\n",
+                                       getStructureName(req.structureType),
+                                       foundPositions[j].x,
+                                       foundPositions[j].z,
+                                       foundPositions[j].y,
+                                       (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
+                                       foundPositions[j].biome_size,
+                                       foundPositions[j].proximity_distance,
+                                       getBiomeName(foundPositions[j].proximity_biome_id));  // THIS LINE NEEDS FIXING
+                            } else {
+                                // No biome proximity requirement
+                                printf("%s at (%d, %d) with height at %d in %s Biome with %d size\n",
+                                       getStructureName(req.structureType),
+                                       foundPositions[j].x,
+                                       foundPositions[j].z,
+                                       foundPositions[j].y,
+                                       (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
+                                       foundPositions[j].biome_size);
+                            }
+                        }
+                        printf("\n");
+                    }
+
+                    // And replace it with this (remove the nested duplicate loop and fix the island logging):
+
+                    for (int j = 0; j < foundPosCount; j++) {
+                        // Skip structures that don't match required biome
+                        if (req.requiredBiome != -1) {
+                            if (req.requiredBiome == -2) {
+                                // If islands were detected but structure must be on one
+                                if (predefinedIslandInfo <= 0) {
+                                    continue;
+                                }
+                            }
+                            else if (foundPositions[j].biome_id != req.requiredBiome) {
                                 continue;
                             }
                         }
-                        else if (foundPositions[j].biome_id != req.requiredBiome) {
+
+                        // Skip structures that don't have proximity information if required
+                        if (req.proximityBiomeCount > 0 && foundPositions[j].proximity_distance == -1)
                             continue;
+
+                        // Log the structure information
+                        if (req.proximityBiomeCount > 0) {
+                            // Structure is near a target biome
+                            printf("%s at (%d, %d) with height at %d in %s Biome with %d size, %d blocks away from %s\n",
+                                   getStructureName(req.structureType),
+                                   foundPositions[j].x,
+                                   foundPositions[j].z,
+                                   foundPositions[j].y,
+                                   (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
+                                   foundPositions[j].biome_size,
+                                   foundPositions[j].proximity_distance,
+                                   (foundPositions[j].proximity_biome_id == -2 ? "Island" : getBiomeName(foundPositions[j].proximity_biome_id)));
+                        } else {
+                            // No biome proximity requirement
+                            printf("%s at (%d, %d) with height at %d in %s Biome with %d size\n",
+                                   getStructureName(req.structureType),
+                                   foundPositions[j].x,
+                                   foundPositions[j].z,
+                                   foundPositions[j].y,
+                                   (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
+                                   foundPositions[j].biome_size);
                         }
                     }
-
-                    // Skip structures that don't have proximity information if required
-                    if (req.proximityBiomeCount > 0 && foundPositions[j].proximity_distance == -1)
-                        continue;
-
-                    // Log the structure information
-                    if (req.proximityBiomeCount > 0) {
-                        // Structure is near a target biome
-                        printf("%s at (%d, %d) with height at %d in %s Biome with %d size, %d blocks away from %s\n",
-                               getStructureName(req.structureType),
-                               foundPositions[j].x,
-                               foundPositions[j].z,
-                               foundPositions[j].y,
-                               (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
-                               foundPositions[j].biome_size,
-                               foundPositions[j].proximity_distance,
-                               (foundPositions[j].proximity_biome_id == -2 ? "Island" : getBiomeName(foundPositions[j].proximity_biome_id)));
-                                        } else {
-                        // No biome proximity requirement
-                        printf("%s at (%d, %d) with height at %d in %s Biome with %d size\n",
-                               getStructureName(req.structureType),
-                               foundPositions[j].x,
-                               foundPositions[j].z,
-                               foundPositions[j].y,
-                               (req.requiredBiome == -2 ? "Island" : getBiomeName(foundPositions[j].biome_id)),
-                               foundPositions[j].biome_size);
-                    }
+                    printf("\n");
                 }
-                printf("\n");
             }
         }
         if (allRequirementsMet) {
