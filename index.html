@@ -311,7 +311,7 @@
                 </ul>
 
                 <h2>Usage</h2>
-                <p><b>Set up your parameters in the text box then press scan to start scanning for seeds.</b> When specifying structures or biomes, use their corresponding IDs from the ID References tab. Use -1 for N/A and use 0 for next to biome to find structures in that biome.</p>
+                <p><b>Set up your parameters in the text box then press scan to start scanning for seeds.</b> When specifying structures or biomes, use their corresponding IDs from the ID References tab. Use -1 for N/A and use 0 for next to biome to find structures in that biome. At least one section is required to be filled.</p>
 
                 <h2>Example Parameters</h2>
                 <h3>Example 1:</h3>
@@ -365,7 +365,69 @@ Min cluster size  = 2
 1. 185, 1 (min size: -1, max size: -1)
 2. 4, 1 (min size: 100, max size: -1)
 2. 185, 4 (min size: -1, max size: -1)</pre>
+                <h2>1. Scanning Options</h2>
+                <table class="reference-table">
+                    <tr><th>Parameter</th><th>Description</th></tr>
+                    <tr><td>Starting seed</td><td>The first seed to start scanning from.</td></tr>
+                    <tr><td>Search radius</td><td>Defines how far to search for structures and biomes.</td></tr>
+                    <tr><td>Use spawn</td><td>true = search near spawn, false = search anywhere.</td></tr>
+                    <tr><td>Custom x / Custom z</td><td>Specific coordinates to scan from (if Use spawn = false).</td></tr>
+                </table>
 
+                <h2>2. Required Structures</h2>
+                <p>Defines which structures must be present in the world.</p>
+                <table class="reference-table">
+                    <tr><th>Parameter</th><th>Description</th></tr>
+                    <tr><td>Structure ID</td><td>The ID of the structure (see ID References tab).</td></tr>
+                    <tr><td>Min amount</td><td>Minimum number of structures in the search area.</td></tr>
+                    <tr><td>Next to biome</td><td>Finds structures near a specific biome (-1 for any biome).</td></tr>
+                    <tr><td>Biome proximity</td><td>Distance in blocks from the structure to the biome.</td></tr>
+                    <tr><td>Min height / Max height</td><td>Height restrictions for structures.</td></tr>
+                </table>
+
+                <h3>Example:</h3>
+                <pre>1. 5 (min amount: 1, next to biome: 2, biome proximity: 0, min height: -9999, max height: 9999)</pre>
+
+                <h2>3. Structure Clusters</h2>
+                <p>Searches for groups of structures close together.</p>
+                <table class="reference-table">
+                    <tr><th>Parameter</th><th>Description</th></tr>
+                    <tr><td>Enabled</td><td>Set to true to enable clustering.</td></tr>
+                    <tr><td>Valid structures</td><td>List of structure IDs that count toward a valid cluster.</td></tr>
+                    <tr><td>Min cluster distance</td><td>Minimum distance between structures to count as a cluster.</td></tr>
+                    <tr><td>Min cluster size</td><td>Minimum number of structures required for a valid cluster.</td></tr>
+                </table>
+
+                <h2>4. Required Biomes</h2>
+                <p>Filters worlds based on the presence of specific biomes.</p>
+                <table class="reference-table">
+                    <tr><th>Parameter</th><th>Description</th></tr>
+                    <tr><td>Biome ID</td><td>The ID of the required biome.</td></tr>
+                    <tr><td>Min size / Max size</td><td>Size requirements for the biome.</td></tr>
+                </table>
+
+                <h3>Example:</h3>
+                <pre>1. 1 (min size: 50, max size: -1)</pre>
+
+                <h2>5. Clustered Biomes</h2>
+                <p>Finds biomes that generate next to each other.</p>
+                <table class="reference-table">
+                    <tr><th>Parameter</th><th>Description</th></tr>
+                    <tr><td>Biome list</td><td>Group of multiple biomes that must be next to each other.</td></tr>
+                    <tr><td>Min size / Max size</td><td>Size restrictions for the clustered biomes.</td></tr>
+                </table>
+
+                <h3>Example:</h3>
+                <pre>1. 185, 1 (min size: -1, max size: -1)</pre>
+
+                <h2>Steps</h2>
+                <ol>
+                    <li>Set up scanning options to define the search area.</li>
+                    <li>Add required structures and their conditions.</li>
+                    <li>Enable structure clusters if needed.</li>
+                    <li>Define required biomes and biome clusters.</li>
+                </ol>
+                <p>Once your parameters are set, press <strong>Scan</strong> to find the best Minecraft seed for your needs!</p>
             </div>
         </div>
 
