@@ -794,14 +794,14 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
         positions = malloc(capacity * sizeof(StructurePos));
         if (!positions) { perror("malloc"); exit(1); }
 
-        for        int i = 0; i < bs->clusterCount; i++) {
+        for (int i = 0; i < bs->clusterCount; i++) {
             BiomeCluster *cluster = &bs->clusters[i];
             count = 0;
 
             // Scan area for all cluster biomes
             for (int z = z0; z <= z1; z += step) {
                 for (int x = x0; x <= x1; x += step) {
-                    int biome = getBiomeAt(&g, 4, x >> 2, 0, z >> 2);
+                    int biome = getBiomeAt(g, 4, x >> 2, 0, z >> 2);
                     for (int b = 0; b < cluster->biomeCount; b++) {
                         if (biome == cluster->biomeIds[b]) {
                             if (count == capacity) {
