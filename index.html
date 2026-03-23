@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Javacube - Fast Minecraft Seed Finder for Java</title>
+    <link rel="icon" href="CubioSeedFinderIcon.png" type="image/png">
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #ffffff;
+            --input-bg: #2d2d2d;
+            --button-bg: #4a4a4a;
+            --button-hover: #5a5a5a;
+            --border-color: #3d3d3d;
+            --active-tab: #007bff;
+            --overlay-bg: rgba(0, 0, 0, 0.8);
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .header img {
+            width: 50px;
+            height: 50px;
+            margin-right: 15px;
+        }
+
+        .title-container {
+            text-align: center;
+        }
+
+        h1 {
+            color: #007bff;
+            margin: 0;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-top: 5px;
+            font-size: 1.1em;
+        }
+
+        /* Tab Styles */
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 1.1em;
+        }
+
+        .tab.active {
+            color: var(--active-tab);
+            border-bottom: 2px solid var(--active-tab);
+            margin-bottom: -2px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--button-bg);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: var(--button-hover);
+        }
+
+        button#scanButton {
+            background-color: #007bff;
+            flex: 2;
+        }
+
+        button#scanButton:hover {
+            background-color: #0056b3;
+        }
+
+        button#clearButton {
+            background-color: #dc3545;
+            flex: 1;
+        }
+
+        button#clearButton:hover {
+            background-color: #c82333;
+        }
+
+        #results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            min-height: 200px;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+
+        /* Tutorial Styles */
+        .tutorial {
+            line-height: 1.6;
+        }
+
+        .tutorial h2 {
+            color: #007bff;
+            margin-top: 30px;
+        }
+
+        .tutorial h3 {
+            color: #666;
+            margin-top: 20px;
+        }
+
+        .tutorial pre {
+            background-color: var(--input-bg);
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+
+        .tutorial ul {
+            padding-left: 20px;
+        }
+
+        .tutorial li {
+            margin: 5px 0;
+        }
+
+        .tutorial a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .tutorial a:hover {
+            text-decoration: underline;
+        }
+
+        /* Add styles for reference tables */
+        .reference-tables {
+            padding: 20px 0;
+        }
+
+        .reference-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background-color: var(--input-bg);
+            border-radius: 4px;
+        }
+
+        .reference-table th,
+        .reference-table td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid var(--border-color);
+        }
+
+        .reference-table th {
+            background-color: var(--button-bg);
+            color: var(--text-color);
+            font-weight: bold;
+        }
+
+        .reference-table tr:hover {
+            background-color: var(--button-hover);
+        }
+
+        /* Add new overlay styles */
+        .scan-overlay {
+            display: none; /* Hidden initially */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--overlay-bg);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .scan-stats {
+            background-color: var(--input-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--active-tab);
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            color: var(--text-color);
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="CubioSeedFinderIcon.png" alt="Cubio Seed Finder Icon">
+            <div class="title-container">
+                <h1>Javacube Seed Finder</h1>
+                <div class="subtitle">Fast Minecraft Seed Finder for Java</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('seedFinder')">Seed Finder</button>
+            <button class="tab" onclick="switchTab('tutorial')">Tutorial</button>
+            <button class="tab" onclick="switchTab('idReferences')">ID References</button>
+        </div>
+
+        <div id="seedFinder" class="tab-content active">
+            <form id="scanForm">
+                <div class="form-group">
+                    <label for="params">Parameters:</label>
+                    <textarea id="params" name="params" rows="4" placeholder="Enter your parameters here..."></textarea>
+                </div>
+                <div class="button-group">
+                    <button type="submit" id="scanButton">Scan</button>
+                    <button type="button" id="clearButton">Clear Results</button>
+                </div>
+            </form>
+            <div id="results"></div>
+        </div>
+
+        <div id="tutorial" class="tab-content">
+            <div class="tutorial">
+                <h2>Javacube Seed Finder</h2>
+                <p>This tool automates finding Minecraft seeds by entering search parameters with about 100 seeds scanned per second. If you also want to check for ravines, caves, valleys, and encircling tall terrain, consider using <a href="https://github.com/Dalle2fan/MC-SeedLocator" target="_blank">MC-SeedLocator</a> (note: it is slower).</p>
+
+                <h2>Features</h2>
+                <ul>
+                    <li>Find structures with biome constraints, height ranges, and minimum amount</li>
+                    <li>Find any biomes (including island biomes) and biome combinations</li>
+                    <li>Locate clustered structures (structures next to each other)</li>
+                    <li>Set biome size requirements</li>
+                </ul>
+
+                <h2>Usage</h2>
+                <p><b>Set up your parameters in the text box then press scan to start scanning for seeds.</b> When specifying structures or biomes, use their corresponding IDs from the ID References tab. Use -1 for N/A and use 0 for next to biome to find structures in that biome. At least one section is required to be filled.</p>
+
+                <h2>Example Parameters</h2>
+                <h3>Example 1:</h3>
+                <pre>===== Scanning options =====
+Starting seed: 0
+Search radius: 500
+Use spawn: true
+Custom z: 0
+Custom x: 0
+
+===== Required structures =====
+1. 5 (min amount: 1, next to biome: 2, biome proximity: 0, min size: -1, max size: -1, min height: -9999, max height: 9999)
+
+===== Structure Clusters =====
+
+===== Invalid Structure Clusters =====
+
+===== Required Biomes =====
+
+===== Clustered Biomes =====
+
+</pre>
+                <h3>Example 2:</h3>
+                <pre>===== Scanning options =====
+Starting seed: 0
+Search radius: 1000
+Use spawn: false
+Custom z: 0
+Custom x: 0
+
+===== Required structures =====
+1. 5 (min amount: 1, next to biome: 2, biome proximity: 0, min size: -1, max size: -1, min height: -9999, max height: 9999)
+2. 7 (min amount: 1, next to biome: 4, biome proximity: 16, min size: -1, max size: -1, min height: -9999, max height: 9999)
+3. 7 (min amount: 1, next to biome: -1, biome proximity: -1, min size: -1, max size: -1, min height: 150, max height: 9999)
+
+===== Structure Clusters =====
+Enabled: true
+Valid structures: 1, 2, 3, 4, 5, 7, 8, 9, 10
+Min cluster distance = 32,
+Min cluster size  = 2
+
+===== Invalid Structure Clusters =====
+1. 7, 8
+
+===== Required Biomes =====
+1. 1 (min size: 50, max size: -1)
+2. 185 (min size: -1, max size: -1)
+3. 4 (min size: -1, max size: -1)
+
+===== Clustered Biomes =====
+1. 185, 1 (min size: -1, max size: -1)
+2. 4, 1 (min size: 100, max size: -1)
+2. 185, 4 (min size: -1, max size: -1)</pre>
+                <h2>1. Scanning Options</h2>
+                <table class="reference-table">
+                    <tr><th>Parameter</th><th>Description</th></tr>
+                    <tr><td>Starting seed</td><td>The first seed to start scanning from.</td></tr>
+                    <tr><td>Search radius</td><td>Defines how far to search for structures and biomes.</td></tr>
+                    <tr><td>Use spawn</td><td>true = search near spawn, false = search anywhere.</td></tr>
+                    <tr><td>Custom x / Custom z</td><td>Specific coordinates to scan from (if Use spawn = false).</td></tr>
+                </table>
+
+                <h2>2. Required Structures</h2>
+                <p>Defines which structures must be present in the world.</p>
+                <table class="reference-table">
+                    <tr><th>Parameter</th><th>Description</th></tr>
+                    <tr><td>Structure ID</td><td>The ID of the structure (see ID References tab).</td></tr>
+                    <tr><td>Min amount</td><td>Minimum number of structures in the search area.</td></tr>
+                    <tr><td>Next to biome</td><td>Finds structures near a specific biome (-1 for any biome).</td></tr>
+                    <tr><td>Biome proximity</td><td>Distance in blocks from the structure to the biome.</td></tr>
+                    <tr><td>Min height / Max height</td><td>Height restrictions for structures.</td></tr>
+                </table>
+
+                <h3>Example:</h3>
+                <pre>1. 5 (min amount: 1, next to biome: 2, biome proximity: 0, min height: -9999, max height: 9999)</pre>
+
+                <h2>3. Structure Clusters</h2>
+                <p>Searches for groups of structures close together.</p>
+                <table class="reference-table">
+                    <tr><th>Parameter</th><th>Description</th></tr>
+                    <tr><td>Enabled</td><td>Set to true to enable clustering.</td></tr>
+                    <tr><td>Valid structures</td><td>List of structure IDs that count toward a valid cluster.</td></tr>
+                    <tr><td>Min cluster distance</td><td>Minimum distance between structures to count as a cluster.</td></tr>
+                    <tr><td>Min cluster size</td><td>Minimum number of structures required for a valid cluster.</td></tr>
+                </table>
+
+                <h2>4. Required Biomes</h2>
+                <p>Filters worlds based on the presence of specific biomes.</p>
+                <table class="reference-table">
+                    <tr><th>Parameter</th><th>Description</th></tr>
+                    <tr><td>Biome ID</td><td>The ID of the required biome.</td></tr>
+                    <tr><td>Min size / Max size</td><td>Size requirements for the biome.</td></tr>
+                </table>
+
+                <h3>Example:</h3>
+                <pre>1. 1 (min size: 50, max size: -1)</pre>
+
+                <h2>5. Clustered Biomes</h2>
+                <p>Finds biomes that generate next to each other.</p>
+                <table class="reference-table">
+                    <tr><th>Parameter</th><th>Description</th></tr>
+                    <tr><td>Biome list</td><td>Group of multiple biomes that must be next to each other.</td></tr>
+                    <tr><td>Min size / Max size</td><td>Size restrictions for the clustered biomes.</td></tr>
+                </table>
+
+                <h3>Example:</h3>
+                <pre>1. 185, 1 (min size: -1, max size: -1)</pre>
+
+                <h2>Steps</h2>
+                <ol>
+                    <li>Set up scanning options to define the search area.</li>
+                    <li>Add required structures and their conditions.</li>
+                    <li>Enable structure clusters if needed.</li>
+                    <li>Define required biomes and biome clusters.</li>
+                </ol>
+                <p>Once your parameters are set, press <strong>Scan</strong> to find the best Minecraft seed for your needs!</p>
+            </div>
+        </div>
+
+        <div id="idReferences" class="tab-content">
+            <div class="reference-tables">
+                <h2>Structure ID Reference</h2>
+                <table class="reference-table">
+                    <tr><th>ID</th><th>Structure</th></tr>
+                    <tr><td>-1</td><td>None</td></tr>
+                    <tr><td>0</td><td>Feature</td></tr>
+                    <tr><td>1</td><td>Desert Pyramid</td></tr>
+                    <tr><td>2</td><td>Jungle Temple</td></tr>
+                    <tr><td>3</td><td>Swamp Hut</td></tr>
+                    <tr><td>4</td><td>Igloo</td></tr>
+                    <tr><td>5</td><td>Village</td></tr>
+                    <tr><td>6</td><td>Ocean Ruin</td></tr>
+                    <tr><td>7</td><td>Shipwreck</td></tr>
+                    <tr><td>8</td><td>Monument</td></tr>
+                    <tr><td>9</td><td>Mansion</td></tr>
+                    <tr><td>10</td><td>Outpost</td></tr>
+                    <tr><td>11</td><td>Ruined Portal</td></tr>
+                    <tr><td>12</td><td>Ruined Portal N</td></tr>
+                    <tr><td>13</td><td>Ancient City</td></tr>
+                    <tr><td>14</td><td>Treasure</td></tr>
+                    <tr><td>15</td><td>Mineshaft</td></tr>
+                    <tr><td>16</td><td>Desert Well</td></tr>
+                    <tr><td>17</td><td>Geode</td></tr>
+                    <tr><td>18</td><td>Trail Ruins</td></tr>
+                    <tr><td>19</td><td>Trial Chambers</td></tr>
+                    <tr><td>20</td><td>Spawn</td></tr>
+                </table>
+
+                <h2>Biome ID Reference</h2>
+                <table class="reference-table">
+                    <tr><th>ID</th><th>Biome</th></tr>
+                    <tr><td>-2</td><td>Island</td></tr>
+                    <tr><td>-1</td><td>None</td></tr>
+                    <tr><td>0</td><td>Ocean</td></tr>
+                    <tr><td>1</td><td>Plains</td></tr>
+                    <tr><td>2</td><td>Desert</td></tr>
+                    <tr><td>3</td><td>Windswept Hills</td></tr>
+                    <tr><td>4</td><td>Forest</td></tr>
+                    <tr><td>5</td><td>Taiga</td></tr>
+                    <tr><td>6</td><td>Swamp</td></tr>
+                    <tr><td>7</td><td>River</td></tr>
+                    <tr><td>10</td><td>Frozen Ocean</td></tr>
+                    <tr><td>11</td><td>Frozen River</td></tr>
+                    <tr><td>12</td><td>Snowy Plains</td></tr>
+                    <tr><td>13</td><td>Snowy Mountains</td></tr>
+                    <tr><td>14</td><td>Mushroom Fields</td></tr>
+                    <tr><td>15</td><td>Mushroom Fields Shore</td></tr>
+                    <tr><td>16</td><td>Beach</td></tr>
+                    <tr><td>17</td><td>Desert Hills</td></tr>
+                    <tr><td>18</td><td>Windswept Forest</td></tr>
+                    <tr><td>19</td><td>Taiga Hills</td></tr>
+                    <tr><td>20</td><td>Mountain Edge</td></tr>
+                    <tr><td>21</td><td>Jungle</td></tr>
+                    <tr><td>22</td><td>Jungle Hills</td></tr>
+                    <tr><td>23</td><td>Sparse Jungle</td></tr>
+                    <tr><td>24</td><td>Deep Ocean</td></tr>
+                    <tr><td>25</td><td>Stony Shore</td></tr>
+                    <tr><td>26</td><td>Snowy Beach</td></tr>
+                    <tr><td>27</td><td>Birch Forest</td></tr>
+                    <tr><td>28</td><td>Birch Forest Hills</td></tr>
+                    <tr><td>29</td><td>Dark Forest</td></tr>
+                    <tr><td>30</td><td>Snowy Taiga</td></tr>
+                    <tr><td>31</td><td>Snowy Taiga Hills</td></tr>
+                    <tr><td>32</td><td>Old Growth Pine Taiga</td></tr>
+                    <tr><td>33</td><td>Giant Tree Taiga Hills</td></tr>
+                    <tr><td>34</td><td>Wooded Mountains</td></tr>
+                    <tr><td>35</td><td>Savanna</td></tr>
+                    <tr><td>36</td><td>Savanna Plateau</td></tr>
+                    <tr><td>37</td><td>Badlands</td></tr>
+                    <tr><td>38</td><td>Wooded Badlands</td></tr>
+                    <tr><td>39</td><td>Badlands Plateau</td></tr>
+                    <tr><td>44</td><td>Warm Ocean</td></tr>
+                    <tr><td>45</td><td>Lukewarm Ocean</td></tr>
+                    <tr><td>46</td><td>Cold Ocean</td></tr>
+                    <tr><td>47</td><td>Deep Warm Ocean</td></tr>
+                    <tr><td>48</td><td>Deep Lukewarm Ocean</td></tr>
+                    <tr><td>49</td><td>Deep Cold Ocean</td></tr>
+                    <tr><td>50</td><td>Deep Frozen Ocean</td></tr>
+                    <tr><td>129</td><td>Sunflower Plains</td></tr>
+                    <tr><td>130</td><td>Desert Lakes</td></tr>
+                    <tr><td>131</td><td>Windswept Gravelly Hills</td></tr>
+                    <tr><td>132</td><td>Flower Forest</td></tr>
+                    <tr><td>133</td><td>Taiga Mountains</td></tr>
+                    <tr><td>134</td><td>Swamp Hills</td></tr>
+                    <tr><td>140</td><td>Ice Spikes</td></tr>
+                    <tr><td>149</td><td>Modified Jungle</td></tr>
+                    <tr><td>151</td><td>Modified Jungle Edge</td></tr>
+                    <tr><td>155</td><td>Old Growth Birch Forest</td></tr>
+                    <tr><td>156</td><td>Tall Birch Hills</td></tr>
+                    <tr><td>157</td><td>Dark Forest Hills</td></tr>
+                    <tr><td>158</td><td>Snowy Taiga Mountains</td></tr>
+                    <tr><td>160</td><td>Old Growth Spruce Taiga</td></tr>
+                    <tr><td>161</td><td>Giant Spruce Taiga Hills</td></tr>
+                    <tr><td>162</td><td>Gravelly Mountains+</td></tr>
+                    <tr><td>163</td><td>Windswept Savanna</td></tr>
+                    <tr><td>164</td><td>Shattered Savanna Plateau</td></tr>
+                    <tr><td>165</td><td>Eroded Badlands</td></tr>
+                    <tr><td>166</td><td>Modified Wooded Badlands Plateau</td></tr>
+                    <tr><td>167</td><td>Modified Badlands Plateau</td></tr>
+                    <tr><td>168</td><td>Bamboo Jungle</td></tr>
+                    <tr><td>169</td><td>Bamboo Jungle Hills</td></tr>
+                    <tr><td>170</td><td>Underground</td></tr>
+                    <tr><td>171</td><td>Underground</td></tr>
+                    <tr><td>172</td><td>Underground</td></tr>
+                    <tr><td>174</td><td>Dripstone Caves</td></tr>
+                    <tr><td>175</td><td>Lush Caves</td></tr>
+                    <tr><td>177</td><td>Meadow</td></tr>
+                    <tr><td>178</td><td>Grove</td></tr>
+                    <tr><td>179</td><td>Snowy Slopes</td></tr>
+                    <tr><td>180</td><td>Frozen Peaks</td></tr>
+                    <tr><td>181</td><td>Jagged Peaks</td></tr>
+                    <tr><td>182</td><td>Stony Peaks</td></tr>
+                    <tr><td>183</td><td>Deep Dark</td></tr>
+                    <tr><td>184</td><td>Mangrove Swamp</td></tr>
+                    <tr><td>185</td><td>Cherry Grove</td></tr>
+                    <tr><td>186</td><td>Pale Garden</td></tr>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="scan-overlay">
+        <div class="scan-stats">
+            <div class="stat-label">Time Elapsed</div>
+            <div id="timeElapsed" class="stat-value">00:00:00</div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabId) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        document.getElementById('scanForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const params = document.getElementById('params').value;
+            const resultsDiv = document.getElementById('results');
+
+            // Reset elapsed time display
+            document.getElementById('timeElapsed').textContent = '00:00:00';
+            showScanOverlay();
+
+            try {
+                const response = await fetch('/scan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ params }),
+                });
+
+                const data = await response.json();
+                if (data.error) {
+                    resultsDiv.textContent += `Error: ${data.error}\n\n`;
+                } else {
+                    const elapsedTime = data.stats.elapsed_time || 0;
+                    const hours = Math.floor(elapsedTime / 3600) || 0;
+                    const minutes = Math.floor((elapsedTime % 3600) / 60) || 0;
+                    const seconds = Math.floor(elapsedTime % 60) || 0;
+                    
+                    let timeStr = '';
+                    if (hours > 0) timeStr += `${hours}hr `;
+                    if (minutes > 0) timeStr += `${minutes}min `;
+                    timeStr += `${seconds}sec`;
+                    
+                    resultsDiv.textContent += data.output + `\nScan completed in ${timeStr}\n\n`;
+                }
+                resultsDiv.scrollTop = resultsDiv.scrollHeight;
+            } catch (error) {
+                resultsDiv.textContent += `Error: ${error.message}\n\n`;
+            } finally {
+                hideScanOverlay();
+            }
+        });
+
+        document.getElementById('clearButton').addEventListener('click', () => {
+            document.getElementById('results').textContent = '';
+        });
+
+
+        const overlay = document.querySelector('.scan-overlay');
+
+        async function updateOverlay() {
+            try {
+                const response = await fetch('/scan_stats');
+                const stats = await response.json();
+
+                const elapsedTime = Math.floor(stats.elapsed_time);
+                const hours = Math.floor(elapsedTime / 3600);
+                const minutes = Math.floor((elapsedTime % 3600) / 60);
+                const seconds = elapsedTime % 60;
+
+                document.getElementById('timeElapsed').textContent =
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } catch (error) {
+                console.error('Error fetching scan stats:', error);
+            }
+        }
+
+        function showScanOverlay() {
+            overlay.style.display = 'flex';
+            scanStartTime = new Date();
+            scanInterval = setInterval(updateOverlay, 1000);
+        }
+
+        function hideScanOverlay() {
+            overlay.style.display = 'none';
+            clearInterval(scanInterval);
+        }
+    </script>
+</body>
+</html>
