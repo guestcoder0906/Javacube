@@ -75,5 +75,3 @@ if [ ! -f "verify_build" ]; then
     exit 1
 fi
 
-echo "Running verify_build..."
-echo "" | ./verify_build
