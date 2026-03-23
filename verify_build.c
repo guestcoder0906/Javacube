@@ -324,6 +324,19 @@ int compareInts(const void *a, const void *b)
     return (A - B);
 }
 
+// Define the ocean biome IDs (as used in getBiomeName)
+static const int oceanBiomes[] = {0, 10, 24, 44, 45, 46, 47, 48, 49, 50};
+static const int oceanCount = sizeof(oceanBiomes) / sizeof(oceanBiomes[0]);
+
+// Helper function to check if a biome is considered ocean.
+static bool isOcean(int biome) {
+    for (int i = 0; i < oceanCount; i++) {
+        if (biome == oceanBiomes[i])
+            return true;
+    }
+    return false;
+}
+
 int detectIslands(Generator *g, int x0, int z0, int x1, int z1, bool printDetails) {
     int step = 4;  // same step as used in other biome scans
     int totalIslandsDetected = 0;  // Counter for islands detected
@@ -340,18 +353,7 @@ int detectIslands(Generator *g, int x0, int z0, int x1, int z1, bool printDetail
     IslandCell *cells = malloc(capacity * sizeof(IslandCell));
     if (!cells) { perror("malloc"); exit(1); }
 
-    // Define the ocean biome IDs (as used in getBiomeName)
-    int oceanBiomes[] = {0, 10, 24, 44, 45, 46, 47, 48, 49, 50};
-    int oceanCount = sizeof(oceanBiomes) / sizeof(oceanBiomes[0]);
-
-    // Helper inline function to check if a biome is considered ocean.
-    bool isOcean(int biome) {
-        for (int i = 0; i < oceanCount; i++) {
-            if (biome == oceanBiomes[i])
-                return true;
-        }
-        return false;
-    }
+// detectIslands function (isOcean moved to file scope) is below...
 
     // Sample the scanning region at intervals of 'step'
     for (int z = z0; z <= z1; z += step) {
@@ -787,7 +789,6 @@ int scanBiomes(Generator *g, int x0, int z0, int x1, int z1, BiomeSearch *bs, ui
     }
 
     // 2) Clustered biomes 
-    printf(bs->clusterCount > 0 ? "Clustered biomes:\n" : "No clustered biomes.\n");
     if (bs->clusterCount > 0) {
         bool foundAnyValidCluster = false;
         int capacity = 128, count = 0;

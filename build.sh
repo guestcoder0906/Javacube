@@ -76,4 +76,4 @@ if [ ! -f "verify_build" ]; then
 fi
 
 echo "Running verify_build..."
-./verify_build
+echo "" | ./verify_build

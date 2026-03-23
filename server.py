@@ -269,7 +269,7 @@ def kill_port_processes(port):
             pass
 
 if __name__ == '__main__':
-    port = 5000
+    port = int(os.environ.get('PORT', 7860))
     retries = 3
     retry_delay = 2
 

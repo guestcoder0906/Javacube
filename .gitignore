@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+.breakpoints
+.local/
+verify_build
+cubiomes/
+*.pyc
+.replit
+replit.nix
+venv/
+libcubiomes.a
+*.o
+*.out
