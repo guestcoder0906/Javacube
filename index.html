@@ -594,11 +594,18 @@ Min cluster size  = 2
                     body: JSON.stringify({ params }),
                 });
 
-                const data = await response.json();
+                let data;
+                const text = await response.text();
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    data = { error: text || 'Unknown response from server' };
+                }
+
                 if (data.error) {
                     resultsDiv.textContent += `Error: ${data.error}\n\n`;
                 } else {
-                    const elapsedTime = data.stats.elapsed_time || 0;
+                    const elapsedTime = data.stats?.elapsed_time || 0;
                     const hours = Math.floor(elapsedTime / 3600) || 0;
                     const minutes = Math.floor((elapsedTime % 3600) / 60) || 0;
                     const seconds = Math.floor(elapsedTime % 60) || 0;
@@ -608,7 +615,7 @@ Min cluster size  = 2
                     if (minutes > 0) timeStr += `${minutes}min `;
                     timeStr += `${seconds}sec`;
                     
-                    resultsDiv.textContent += data.output + `\nScan completed in ${timeStr}\n\n`;
+                    resultsDiv.textContent += (data.output || '') + `\nScan completed in ${timeStr}\n\n`;
                 }
                 resultsDiv.scrollTop = resultsDiv.scrollHeight;
             } catch (error) {
@@ -628,9 +635,16 @@ Min cluster size  = 2
         async function updateOverlay() {
             try {
                 const response = await fetch('/scan_stats');
-                const stats = await response.json();
+                const text = await response.text();
+                let stats;
+                try {
+                    stats = JSON.parse(text);
+                } catch (e) {
+                    console.error('Invalid JSON from /scan_stats:', text);
+                    return;
+                }
 
-                const elapsedTime = Math.floor(stats.elapsed_time);
+                const elapsedTime = Math.floor(stats.elapsed_time || 0);
                 const hours = Math.floor(elapsedTime / 3600);
                 const minutes = Math.floor((elapsedTime % 3600) / 60);
                 const seconds = elapsedTime % 60;

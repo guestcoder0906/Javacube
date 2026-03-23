@@ -18,6 +18,13 @@ app = Flask(__name__, static_url_path='')
 # Use environment variable for session secret or generate a random one
 app.secret_key = os.environ.get('SESSION_SECRET', os.urandom(24))
 
+# Configure session cookies for Hugging Face iframes if needed
+if os.environ.get('SPACE_ID'):
+    app.config.update(
+        SESSION_COOKIE_SAMESITE='None',
+        SESSION_COOKIE_SECURE=True,
+    )
+
 # Dictionary to store scan statistics and processes per session
 scan_stats = {}
 active_processes = {}
@@ -83,7 +90,7 @@ def update_seeds_scanned(user_id, stdout_line):
 def scan():
     user_id = session.get('user_id')
     if not user_id:
-        return "Session expired", 401
+        return jsonify({"error": "Session expired"}), 401
 
     # Clean up any existing scan for this session
     cleanup_session(user_id)
