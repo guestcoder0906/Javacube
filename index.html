@@ -287,7 +287,23 @@
             <form id="scanForm">
                 <div class="form-group">
                     <label for="params">Parameters:</label>
-                    <textarea id="params" name="params" rows="4" placeholder="Enter your parameters here..."></textarea>
+                    <textarea id="params" name="params" rows="4" placeholder="Enter your parameters here...">===== Scanning options =====
+Starting seed: 0
+Search radius: 500
+Use spawn: true
+Custom z: 0
+Custom x: 0
+
+===== Required structures =====
+1. 5 (min amount: 1, next to biome: 2, biome proximity: 0, min size: -1, max size: -1, min height: -9999, max height: 9999)
+
+===== Structure Clusters =====
+
+===== Invalid Structure Clusters =====
+
+===== Required Biomes =====
+
+===== Clustered Biomes =====</textarea>
                 </div>
                 <div class="button-group">
                     <button type="submit" id="scanButton">Scan</button>
@@ -580,6 +596,10 @@ Min cluster size  = 2
             e.preventDefault();
             const params = document.getElementById('params').value;
             const resultsDiv = document.getElementById('results');
+            if (!params || params.trim() === '') {
+                resultsDiv.textContent = 'Error: Please enter scanning parameters.\n\n';
+                return;
+            }
 
             // Reset elapsed time display
             document.getElementById('timeElapsed').textContent = '00:00:00';
