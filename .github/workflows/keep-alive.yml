@@ -1,0 +1,26 @@
+name: Keep Alive HF Space
+on:
+  schedule:
+    - cron: '0 0 * * *' # Every day at midnight UTC
+  workflow_dispatch: # Allows manual triggering
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Reach out to Space
+        run: curl -I https://huggingface.co/spaces/SlinkyFerret/Javacube
+      - name: Trigger GitHub Update
+        run: |
+          echo "Last Keep Alive ping: $(date)" > .github/keep_alive.txt
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add .github/keep_alive.txt
+          git commit -m "Automated keep alive ping" || echo "No changes"
+          git push
+      - name: Deploy to HuggingFace
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: git push --force https://SlinkyFerret:$HF_TOKEN@huggingface.co/spaces/SlinkyFerret/Javacube main
